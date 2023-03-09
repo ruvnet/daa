@@ -1,5 +1,8 @@
-#  Decentralized Autonomous Applications (DAAs)
-Building the Future with Self-Managing Applications.
+<p align="center">
+  <img src="https://media.discordapp.net/attachments/999144553556746250/1074850822694908014/ruvnet_ai_robot_app_icon__Ai_style__minimalist_64a00f64-fa14-4b40-852a-92b91a439570.png" width="350">
+</p>
+<h1 align="center" id="cardfi">Decentralized Autonomous Applications (DAAs)</h1>
+<h3 align="center"><strong>Building the Future with Self-Managing Applications.</strong></h1>
 
 ## I. Introduction
 The advancement of technology has brought about tremendous changes in human society, with the internet and Artificial Intelligence (AI) being at the forefront of these changes. With the proliferation of internet-based applications and the increasing demand for AI-powered technologies, there is a growing need for new approaches to manage and sustain these systems. Decentralized Autonomous Applications (DAAs) may emerge as a potential solution to this challenge.
