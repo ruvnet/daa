@@ -1,3 +1,8 @@
+//  DAA - Decentralized Autonomous Application 
+//        /\__/\   - daa.rs 
+//       ( o.o  )  - v0.0.1
+//         >^<     - by @rUv
+
 // WASM container
 fn create_wasm_container() -> Result<(), Box<dyn Error>> {
     // Functionality to create a new WASM container
