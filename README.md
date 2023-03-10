@@ -4,7 +4,7 @@
 <h1 align="center" id="cardfi">Decentralized Autonomous Applications (DAAs)</h1>
 <h3 align="center"><strong>Building the Future with Self-Managing Applications.</strong></h1>
 <p align="center">
-<a href="https://github.com/myusername/myproject/blob/main/example.rs" align="center">🤖 Straw Man Code Outline</a>  
+<a href="https://github.com/ruvnet/daa/blob/main/src/main.rs" align="center">🤖 Straw Man Code Outline</a>  
 <a href="https://reddit.com/r/aipromptprogramming" align="center">🤖 Reddit Group</a>
 <a href="https://twitter.com/ruv" align="center">🤖 Twitter @rUv</a>
 </p>
