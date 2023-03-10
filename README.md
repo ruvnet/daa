@@ -7,6 +7,7 @@
 <a href="https://github.com/ruvnet/daa/blob/main/src/main.rs" align="center">🤖 Straw Man Code Outline</a>  
 <a href="https://reddit.com/r/aipromptprogramming" align="center">🤖 Reddit Group</a>
 <a href="https://twitter.com/ruv" align="center">🤖 Twitter @rUv</a>
+<a href="https://þ.xyz" align="center">🤖 þ.xyz</a> 
 </p>
 
 
