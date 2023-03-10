@@ -224,7 +224,8 @@ The technical specifications for the Decentralized Autonomous Application (DAA) 
 * Logging - implements logging.
 * Plugin Architecture - implements a plugin architecture to extend functionality.
 * Accounting / Ledger System - implements an accounting system to track revenue and transactions.
-* These functions and technologies are essential for the development and implementation of the DAA, and they work together to create a self-sustaining, autonomous application that can manage its own infrastructure, generate income, and employ people using a decentralized approach.
+
+These functions and technologies are essential for the development and implementation of the DAA, and they work together to create a self-sustaining, autonomous application that can manage its own infrastructure, generate income, and employ people using a decentralized approach.
 
 ### WASM Container
 
@@ -262,7 +263,7 @@ Description: This function employs people using a Decentralized Autonomous Organ
 Function 4: create_sub_autonomous_entities()  
 Description: This function creates sub-autonomous applications and organizations that operate within the larger DAA ecosystem and generate income. It returns an empty Result if successful or an error if it fails.
 
-Proactive Security Optimization & Auditing
+### Proactive Security Optimization & Auditing
 
 Function 1: optimize_security()  
 Description: This function proactively optimizes security to prevent any potential threats or attacks. It returns an empty Result if successful or an error if it fails.
