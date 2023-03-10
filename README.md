@@ -3,6 +3,12 @@
 </p>
 <h1 align="center" id="cardfi">Decentralized Autonomous Applications (DAAs)</h1>
 <h3 align="center"><strong>Building the Future with Self-Managing Applications.</strong></h1>
+<p align="center">
+<a href="https://github.com/myusername/myproject/blob/main/example.rs" align="center">🤖 Straw Man Code Outline</a>  
+<a href="https://reddit.com/r/aipromptprogramming" align="center">🤖 Reddit Group</a>
+<a href="https://twitter.com/ruv" align="center">🤖 Twitter @rUv</a>
+</p>
+
 
 ## I. Introduction
 The advancement of technology has brought about tremendous changes in human society, with the internet and Artificial Intelligence (AI) being at the forefront of these changes. With the proliferation of internet-based applications and the increasing demand for AI-powered technologies, there is a growing need for new approaches to manage and sustain these systems. Decentralized Autonomous Applications (DAAs) may emerge as a potential solution to this challenge.
