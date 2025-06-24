@@ -24,12 +24,13 @@ futures = "0.3"
 dashmap = "5.5"
 chrono = { version = "0.4", features = ["serde"] }
 
-# DAA SDK dependencies - using published versions from crates.io
-daa-orchestrator = "0.2.0"
-daa-rules = "0.2.0"
-daa-economy = "0.2.0"
-daa-ai = "0.2.0"
-daa-chain = "0.2.0"
+# DAA SDK dependencies - using path dependencies for development
+# Note: These will need to be updated to published versions for crates.io
+daa-orchestrator = { path = "../daa-orchestrator" }
+daa-rules = { path = "../daa-rules" }
+daa-economy = { path = "../daa-economy" }
+daa-ai = { path = "../daa-ai" }
+daa-chain = { path = "../daa-chain" }
 
 # HTTP server for MCP
 axum = "0.7"
