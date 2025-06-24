@@ -1,0 +1,18 @@
+         693 function calls (689 primitive calls) in 0.001 seconds
+
+   Ordered by: cumulative time
+   List reduced from 76 to 10 due to restriction <10>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.000    0.000 /workspaces/QuDAG/benchmarking/performance_analyzer.py:253(analyze_performance)
+      6/4    0.000    0.000    0.000    0.000 /home/codespace/.local/lib/python3.12/site-packages/psutil/_pslinux.py:1642(wrapper)
+        4    0.000    0.000    0.000    0.000 /home/codespace/.local/lib/python3.12/site-packages/psutil/_common.py:452(wrapper)
+        2    0.000    0.000    0.000    0.000 /home/codespace/.local/lib/python3.12/site-packages/psutil/__init__.py:316(__init__)
+        2    0.000    0.000    0.000    0.000 /home/codespace/.local/lib/python3.12/site-packages/psutil/__init__.py:319(_init)
+        1    0.000    0.000    0.000    0.000 /home/codespace/.python/current/lib/python3.12/statistics.py:468(mean)
+        2    0.000    0.000    0.000    0.000 /home/codespace/.local/lib/python3.12/site-packages/psutil/__init__.py:366(_get_ident)
+        2    0.000    0.000    0.000    0.000 /home/codespace/.local/lib/python3.12/site-packages/psutil/__init__.py:766(create_time)
+        2    0.000    0.000    0.000    0.000 /home/codespace/.local/lib/python3.12/site-packages/psutil/_pslinux.py:1882(create_time)
+        1    0.000    0.000    0.000    0.000 /home/codespace/.python/current/lib/python3.12/statistics.py:154(_sum)
+
+

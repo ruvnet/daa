@@ -1,0 +1,44 @@
+[package]
+name = "qudag-exchange-wasm"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+qudag-exchange-core = { path = "../core", default-features = false, features = ["wasm"] }
+
+wasm-bindgen = { workspace = true }
+wasm-bindgen-futures = { workspace = true }
+js-sys = { workspace = true }
+web-sys = { workspace = true, features = [
+    "console",
+    "Window",
+    "Document",
+    "Storage",
+] }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde-wasm-bindgen = "0.6"
+
+# For async operations in WASM
+futures = "0.3"
+
+# Panic hook for better error messages
+console_error_panic_hook = "0.1"
+
+# Logging
+tracing = { version = "0.1", default-features = false }
+tracing-wasm = "0.2"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[profile.release]
+opt-level = "z"
+lto = true
+panic = "abort"

@@ -1,0 +1,50 @@
+[package]
+name = "qudag-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+description = "Command-line interface for QuDAG - Manage nodes, peers, dark addresses, rUv token exchange, and business plan payouts"
+documentation = "https://docs.rs/qudag-cli"
+readme = "README.md"
+keywords = ["cli", "darknet", "agent-swarm", "exchange", "quantum"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+thiserror.workspace = true
+tracing.workspace = true
+serde.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+futures.workspace = true
+uuid.workspace = true
+clap = { version = "4.3", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+dirs = "5.0"
+hex = "0.4"
+rand = "0.8"
+lru = "0.12"
+rpassword = "7.3"
+libc = "0.2"
+whoami = "1.5"
+tracing-subscriber = "0.3"
+pin-project = "1.1"
+libp2p = { version = "0.53", features = ["identify", "kad", "gossipsub", "ping", "relay", "dcutr", "autonat", "request-response", "dns", "tcp", "noise", "yamux", "websocket", "quic", "tls", "metrics"] }
+qudag-crypto = { version = "0.4.0", path = "../../core/crypto" }
+qudag-dag = { version = "0.4.0", path = "../../core/dag" }
+qudag-network = { version = "0.4.0", path = "../../core/network" }
+qudag-protocol = { version = "0.4.0", path = "../../core/protocol" }
+qudag-vault-core = { version = "0.4.0", path = "../../core/vault" }
+qudag-mcp = { version = "0.4.1", path = "../../qudag-mcp" }
+qudag-exchange-core = { version = "0.3.1", path = "../../qudag-exchange/core" }
+reqwest = { version = "0.11", features = ["json"] }
+
+[[bin]]
+name = "qudag"
+path = "src/main.rs"
+
+[dev-dependencies]
+proptest.workspace = true

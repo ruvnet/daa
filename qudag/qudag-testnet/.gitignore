@@ -1,0 +1,60 @@
+# QuDAG Testnet Security Files
+# These files contain sensitive information and should never be committed
+
+# Environment configuration
+.env
+.env.local
+.env.production
+
+# Private keys and secrets
+.secrets/
+keys/
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Node data and logs
+data/
+logs/
+*.log
+node_modules/
+target/
+
+# Fly.io deployment files
+fly.toml.local
+.fly/
+
+# Backup files
+backups/
+*.backup
+*.tar.gz
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+*.tmp
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Monitoring data
+prometheus-data/
+grafana-data/
+
+# Docker volumes
+volumes/

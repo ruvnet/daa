@@ -1,0 +1,18 @@
+         9686 function calls (7786 primitive calls) in 0.003 seconds
+
+   Ordered by: cumulative time
+   List reduced from 100 to 10 due to restriction <10>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    0.003    0.003 /workspaces/QuDAG/benchmarking/performance_analyzer.py:336(generate_reports)
+        1    0.000    0.000    0.002    0.002 /home/codespace/.python/current/lib/python3.12/json/__init__.py:120(dump)
+     1323    0.000    0.000    0.002    0.000 /home/codespace/.python/current/lib/python3.12/json/encoder.py:414(_iterencode)
+3021/1323    0.001    0.000    0.001    0.000 /home/codespace/.python/current/lib/python3.12/json/encoder.py:334(_iterencode_dict)
+     1209    0.000    0.000    0.001    0.000 /home/codespace/.python/current/lib/python3.12/json/encoder.py:278(_iterencode_list)
+        8    0.000    0.000    0.000    0.000 {built-in method _io.open}
+     1324    0.000    0.000    0.000    0.000 {method 'write' of '_io.TextIOWrapper' objects}
+        1    0.000    0.000    0.000    0.000 /workspaces/QuDAG/benchmarking/performance_analyzer.py:437(_generate_html_visualization)
+       20    0.000    0.000    0.000    0.000 /home/codespace/.python/current/lib/python3.12/dataclasses.py:1299(asdict)
+        1    0.000    0.000    0.000    0.000 /workspaces/QuDAG/benchmarking/performance_analyzer.py:372(_generate_markdown_report)
+
+

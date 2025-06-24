@@ -1,0 +1,102 @@
+# Fly.io Configuration for QuDAG Bootstrap Node with Exchange Genesis
+# This is the primary bootstrap node that initializes the Exchange system
+
+app = "qudag-testnet-bootstrap"
+primary_region = "yyz"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  # Node Configuration
+  NODE_ID = "bootstrap-node"
+  NODE_TYPE = "bootstrap"
+  NETWORK_MODE = "testnet"
+  
+  # Exchange Configuration
+  QUDAG_EXCHANGE_ENABLED = "true"
+  EXCHANGE_GENESIS = "true"
+  EXCHANGE_NODE_TYPE = "genesis"
+  
+  # Fee Model Configuration
+  FEE_MODEL_ENABLED = "true"
+  FEE_F_MIN = "0.001"                    # 0.1% minimum fee
+  FEE_F_MAX = "0.010"                    # 1.0% maximum fee for unverified
+  FEE_F_MIN_VERIFIED = "0.0025"          # 0.25% minimum for verified
+  FEE_F_MAX_VERIFIED = "0.005"           # 0.50% maximum for verified
+  FEE_TIME_CONSTANT_DAYS = "90"          # 3 months phase-in
+  FEE_USAGE_THRESHOLD = "10000"          # 10,000 rUv/month threshold
+  
+  # Immutable Deployment Configuration
+  IMMUTABLE_DEPLOYMENT = "false"         # Start mutable, enable via CLI
+  IMMUTABLE_GRACE_PERIOD_HOURS = "24"
+  
+  # Genesis Configuration
+  GENESIS_ACCOUNTS = "genesis-treasury:10000000,alice:0,bob:0"
+  GENESIS_SUPPLY = "10000000"
+  
+  # API Configuration
+  ENABLE_EXCHANGE_API = "true"
+  EXCHANGE_API_PORT = "8081"
+  
+  # Logging and Monitoring
+  RUST_LOG = "info,qudag_exchange=debug,qudag_consensus=debug"
+
+# QuDAG DAG and consensus data
+[[mounts]]
+  destination = "/data"
+  source = "qudag_data"
+
+# Exchange ledger and transaction data
+[[mounts]]
+  destination = "/exchange"
+  source = "exchange_data"
+
+# Cryptographic keys (separate volume for security)
+[[mounts]]
+  destination = "/keys"
+  source = "exchange_keys"
+
+# P2P Networking (libp2p)
+[[services]]
+  internal_port = 4001
+  protocol = "tcp"
+  
+  [[services.ports]]
+    port = 4001
+
+# QuDAG Node RPC API
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+  
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+# Exchange API
+[[services]]
+  internal_port = 8081
+  protocol = "tcp"
+  
+  [[services.ports]]
+    port = 8081
+    handlers = ["http"]
+
+# Metrics and Monitoring
+[[services]]
+  internal_port = 9090
+  protocol = "tcp"
+  
+  [[services.ports]]
+    port = 9090
+
+[experimental]
+  cmd = ["./qudag", "start", "--config", "/config/bootstrap.toml", "--enable-exchange", "--genesis"]
+
+[deploy]
+  release_command = "./qudag exchange initialize-genesis"

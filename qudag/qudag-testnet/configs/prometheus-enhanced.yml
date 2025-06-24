@@ -1,0 +1,171 @@
+# Enhanced Prometheus configuration for QuDAG Testnet
+# Includes proper TLS support and comprehensive monitoring
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: 'testnet'
+    network: 'qudag'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []  # Add alertmanager targets if available
+
+# Load rules
+rule_files:
+  - "alerts.yml"
+
+# Scrape configurations
+scrape_configs:
+  # QuDAG Node 1 - Bootstrap (Toronto)
+  - job_name: 'qudag-node1'
+    scheme: https
+    tls_config:
+      ca_file: /etc/prometheus/tls/ca.pem
+      insecure_skip_verify: false
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['qudag-testnet-node1.fly.dev:443']
+        labels:
+          node_id: 'node1'
+          region: 'yyz'
+          role: 'bootstrap'
+          location: 'toronto'
+    # Local development
+    - targets: ['host.docker.internal:9090']
+      labels:
+        node_id: 'node1'
+        region: 'local'
+        role: 'bootstrap'
+        environment: 'development'
+
+  # QuDAG Node 2 - Validator (Amsterdam)
+  - job_name: 'qudag-node2'
+    scheme: https
+    tls_config:
+      ca_file: /etc/prometheus/tls/ca.pem
+      insecure_skip_verify: false
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['qudag-testnet-node2.fly.dev:443']
+        labels:
+          node_id: 'node2'
+          region: 'ams'
+          role: 'validator'
+          location: 'amsterdam'
+    # Local development
+    - targets: ['host.docker.internal:9091']
+      labels:
+        node_id: 'node2'
+        region: 'local'
+        role: 'validator'
+        environment: 'development'
+
+  # QuDAG Node 3 - Validator (Singapore)
+  - job_name: 'qudag-node3'
+    scheme: https
+    tls_config:
+      ca_file: /etc/prometheus/tls/ca.pem
+      insecure_skip_verify: false
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['qudag-testnet-node3.fly.dev:443']
+        labels:
+          node_id: 'node3'
+          region: 'sin'
+          role: 'validator'
+          location: 'singapore'
+    # Local development
+    - targets: ['host.docker.internal:9092']
+      labels:
+        node_id: 'node3'
+        region: 'local'
+        role: 'validator'
+        environment: 'development'
+
+  # QuDAG Node 4 - Validator (San Francisco)
+  - job_name: 'qudag-node4'
+    scheme: https
+    tls_config:
+      ca_file: /etc/prometheus/tls/ca.pem
+      insecure_skip_verify: false
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['qudag-testnet-node4.fly.dev:443']
+        labels:
+          node_id: 'node4'
+          region: 'sjc'
+          role: 'validator'
+          location: 'sanfrancisco'
+    # Local development
+    - targets: ['host.docker.internal:9093']
+      labels:
+        node_id: 'node4'
+        region: 'local'
+        role: 'validator'
+        environment: 'development'
+
+  # P2P Network Health Monitoring
+  - job_name: 'qudag-p2p'
+    scheme: https
+    tls_config:
+      ca_file: /etc/prometheus/tls/ca.pem
+    metrics_path: '/api/v1/p2p/metrics'
+    static_configs:
+      - targets: 
+          - 'qudag-testnet-node1.fly.dev:443'
+          - 'qudag-testnet-node2.fly.dev:443'
+          - 'qudag-testnet-node3.fly.dev:443'
+          - 'qudag-testnet-node4.fly.dev:443'
+
+  # Consensus Monitoring
+  - job_name: 'qudag-consensus'
+    scheme: https
+    tls_config:
+      ca_file: /etc/prometheus/tls/ca.pem
+    metrics_path: '/api/v1/consensus/metrics'
+    static_configs:
+      - targets:
+          - 'qudag-testnet-node1.fly.dev:443'
+          - 'qudag-testnet-node2.fly.dev:443'
+          - 'qudag-testnet-node3.fly.dev:443'
+          - 'qudag-testnet-node4.fly.dev:443'
+
+  # Dark Domain Registry Monitoring
+  - job_name: 'qudag-dark-domains'
+    scheme: https
+    tls_config:
+      ca_file: /etc/prometheus/tls/ca.pem
+    metrics_path: '/api/v1/dark/metrics'
+    static_configs:
+      - targets:
+          - 'qudag-testnet-node1.fly.dev:443'  # Bootstrap node handles registry
+
+  # Quantum Cryptography Performance
+  - job_name: 'qudag-quantum-crypto'
+    scheme: https
+    tls_config:
+      ca_file: /etc/prometheus/tls/ca.pem
+    metrics_path: '/api/v1/crypto/metrics'
+    scrape_interval: 30s  # Less frequent for crypto metrics
+    static_configs:
+      - targets:
+          - 'qudag-testnet-node1.fly.dev:443'
+          - 'qudag-testnet-node2.fly.dev:443'
+          - 'qudag-testnet-node3.fly.dev:443'
+          - 'qudag-testnet-node4.fly.dev:443'
+
+# Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+# Remote write configuration (optional)
+# remote_write:
+#   - url: "https://prometheus-remote-write-endpoint.example.com/api/v1/write"
+#     bearer_token: "your-token-here"
+#     tls_config:
+#       ca_file: /etc/prometheus/tls/ca.pem

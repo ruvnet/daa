@@ -1,0 +1,22 @@
+# Grafana Datasource Configuration for Prometheus
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    jsonData:
+      httpMethod: POST
+      manageAlerts: true
+      prometheusType: Prometheus
+      prometheusVersion: 2.48.0
+      cacheLevel: 'High'
+      disableRecordingRules: false
+      incrementalQuerying: true
+      incrementalQueryOverlapWindow: 10m
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: '-'

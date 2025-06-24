@@ -1,0 +1,86 @@
+# QuDAG Node 2 Configuration - Amsterdam (Validator)
+
+[node]
+name = "amsterdam-validator"
+role = "validator"
+is_bootstrap = false
+node_id = "node2"
+
+[network]
+network_id = "qudag-testnet"
+listen_address = "/ip4/0.0.0.0/tcp/4001"
+external_address = "/dns4/qudag-testnet-node2.fly.dev/tcp/4001"
+enable_mdns = false
+enable_relay = true
+enable_autonat = true
+enable_identify = true
+enable_ping = true
+
+[p2p]
+max_peers = 50
+min_peers = 3
+peer_grace_period = "30s"
+connection_timeout = "10s"
+dial_timeout = "5s"
+# Bootstrap to node1 (Toronto)
+bootstrap_peers = ["/dns4/qudag-testnet-node1.fly.dev/tcp/4001/p2p/PEER_ID_PLACEHOLDER"]
+
+[dark_domain]
+enabled = true
+registration_fee = 100
+min_length = 3
+max_length = 63
+namespace = "testnet"
+
+[consensus]
+type = "dag"
+block_time = "5s"
+max_block_size = 1048576
+min_validators = 3
+finality_threshold = 67  # 67% for 2f+1 consensus
+
+[storage]
+type = "rocksdb"
+path = "/data/qudag/db"
+cache_size = 1073741824  # 1GB
+compression = "snappy"
+max_open_files = 1000
+write_buffer_size = 67108864  # 64MB
+
+[rpc]
+enabled = true
+address = "0.0.0.0:8080"
+max_connections = 100
+rate_limit = 100
+cors_origins = ["*"]
+enable_websocket = true
+
+[api]
+enabled = true
+version = "v1"
+max_request_size = 1048576  # 1MB
+timeout = "30s"
+
+[metrics]
+enabled = true
+address = "0.0.0.0:9090"
+namespace = "qudag"
+path = "/metrics"
+
+[logging]
+level = "info"
+format = "json"
+output = "stdout"
+
+[security]
+enable_tls = true
+tls_cert_path = "/data/qudag/tls/cert.pem"
+tls_key_path = "/data/qudag/tls/key.pem"
+enable_auth = true
+auth_type = "token"
+api_key_header = "X-API-Key"
+
+[resource_limits]
+max_memory_mb = 1536
+max_cpu_percent = 80
+max_disk_gb = 8

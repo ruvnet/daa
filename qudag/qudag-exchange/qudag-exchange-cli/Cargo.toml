@@ -1,0 +1,55 @@
+[workspace]
+
+[package]
+name = "qudag-exchange-standalone-cli"
+version = "0.3.1"
+edition = "2021"
+authors = ["QuDAG Exchange Development Team"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ruvnet/QuDAG"
+description = "Standalone command-line interface for QuDAG Exchange with rUv tokens"
+documentation = "https://docs.rs/qudag-exchange-standalone-cli"
+readme = "README.md"
+keywords = ["qudag", "exchange", "cli", "tokens", "standalone"]
+categories = ["command-line-utilities", "cryptography"]
+
+[[bin]]
+name = "qudag-exchange-cli"
+path = "src/main.rs"
+
+[dependencies]
+# Core dependency
+qudag-exchange-core = { version = "0.3.1", path = "../core" }
+
+# CLI framework
+clap = { version = "4.5", features = ["derive", "env", "color"] }
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Terminal UI
+dialoguer = "0.11"
+indicatif = "0.17"
+console = "0.15"
+colored = "2.0"
+
+# Configuration
+toml = "0.8"
+directories = "5.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.0"
+tempfile = "3.8"

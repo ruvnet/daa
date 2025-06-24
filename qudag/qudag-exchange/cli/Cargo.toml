@@ -1,0 +1,46 @@
+[package]
+name = "qudag-exchange-cli"
+version = "0.2.0"
+authors = ["QuDAG Exchange Team"]
+edition = "2021"
+license = "MIT"
+description = "Command-line interface for QuDAG Exchange with rUv token operations"
+documentation = "https://docs.rs/qudag-exchange-cli"
+repository = "https://github.com/ruvnet/QuDAG"
+keywords = ["qudag", "exchange", "cli", "tokens", "blockchain"]
+categories = ["command-line-utilities", "cryptography"]
+
+[workspace]
+
+[[bin]]
+name = "qudag-exchange"
+path = "src/main.rs"
+
+[dependencies]
+# QuDAG dependencies
+qudag-exchange-core = { path = "../core" }
+qudag-vault-core = { path = "../../core/vault" }
+
+# CLI dependencies
+clap = { version = "4.5", features = ["derive"] }
+tokio = { version = "1.40", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Additional CLI dependencies
+colored = "2.1"
+indicatif = "0.17"
+dialoguer = "0.11"
+dirs = "5.0"
+toml = "0.8"
+rand = "0.8"
+hex = "0.4"
+chrono = "0.4"
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.0"
+tempfile = "3.8"

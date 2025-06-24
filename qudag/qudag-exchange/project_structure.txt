@@ -1,0 +1,100 @@
+.
+├── Cargo.toml
+├── README.md
+├── benches
+│   └── exchange_benchmarks.rs
+├── cli
+├── core
+│   ├── Cargo.toml
+│   └── src
+│       ├── error.rs
+│       ├── lib.rs
+│       ├── resource.rs
+│       ├── ruv.rs
+│       ├── transaction.rs
+│       └── wallet.rs
+├── crates
+│   ├── api
+│   │   └── src
+│   ├── cli
+│   │   ├── Cargo.toml
+│   │   └── src
+│   │       ├── commands
+│   │       │   ├── balance.rs
+│   │       │   ├── create_account.rs
+│   │       │   ├── mod.rs
+│   │       │   ├── resource_status.rs
+│   │       │   └── transfer.rs
+│   │       └── main.rs
+│   ├── core
+│   │   ├── Cargo.toml
+│   │   └── src
+│   │       ├── account.rs
+│   │       ├── consensus.rs
+│   │       ├── ledger.rs
+│   │       ├── lib.rs
+│   │       ├── resource.rs
+│   │       └── transaction.rs
+│   └── wasm
+│       └── src
+├── docs
+│   ├── architecture.md
+│   ├── cli-reference.md
+│   ├── getting-started.md
+│   └── security
+├── fuzz
+│   ├── Cargo.toml
+│   └── fuzz_targets
+│       ├── fuzz_ledger_consistency.rs
+│       └── fuzz_ruv_transactions.rs
+├── plans
+│   ├── executive-summary.md
+│   ├── implementation.md
+│   └── swarm-orchestration.md
+├── project_structure.txt
+├── qudag-exchange-cli
+│   ├── src
+│   └── tests
+├── qudag-exchange-core
+│   ├── Cargo.toml
+│   ├── src
+│   │   ├── account.rs
+│   │   ├── consensus.rs
+│   │   ├── crypto.rs
+│   │   ├── error.rs
+│   │   ├── identity.rs
+│   │   ├── ledger.rs
+│   │   ├── lib.rs
+│   │   ├── metering.rs
+│   │   ├── transaction.rs
+│   │   ├── types.rs
+│   │   └── utils.rs
+│   └── tests
+│       ├── integration_test.rs
+│       └── test_ledger.rs
+├── qudag-exchange-server
+│   ├── src
+│   └── tests
+├── qudag-exchange-sim
+│   ├── src
+│   └── tests
+├── qudag-exchange-wasm
+│   ├── src
+│   └── tests
+├── scripts
+│   └── run-benchmarks.sh
+├── server
+├── src
+│   ├── error.rs
+│   ├── lib.rs
+│   └── security.rs
+├── tests
+│   ├── fuzz
+│   ├── integration
+│   ├── security
+│   │   ├── attack_vector_tests.rs
+│   │   └── timing_attack_tests.rs
+│   └── unit
+└── wasm
+
+43 directories, 54 files

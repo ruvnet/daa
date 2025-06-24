@@ -1,0 +1,54 @@
+{
+  "name": "qudag-wasm",
+  "version": "0.1.0",
+  "description": "WebAssembly bindings for QuDAG - Quantum-resistant DAG protocol",
+  "main": "pkg-node/qudag_wasm.js",
+  "browser": "pkg/qudag_wasm.js",
+  "module": "pkg/qudag_wasm.js",
+  "types": "pkg/qudag_wasm.d.ts",
+  "files": [
+    "pkg/**/*",
+    "pkg-node/**/*",
+    "README.md",
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ],
+  "scripts": {
+    "build": "./build.sh",
+    "test": "wasm-pack test --node && wasm-pack test --chrome --headless",
+    "build:web": "wasm-pack build --target web --out-dir pkg",
+    "build:node": "wasm-pack build --target nodejs --out-dir pkg-node",
+    "build:bundler": "wasm-pack build --target bundler --out-dir pkg-bundler",
+    "clean": "rm -rf pkg pkg-node pkg-bundler target"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/QuDAG.git"
+  },
+  "keywords": [
+    "qudag",
+    "wasm",
+    "webassembly",
+    "quantum-resistant",
+    "cryptography",
+    "dag",
+    "blockchain",
+    "p2p"
+  ],
+  "author": "QuDAG Team",
+  "license": "MIT OR Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/ruvnet/QuDAG/issues"
+  },
+  "homepage": "https://github.com/ruvnet/QuDAG#readme",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

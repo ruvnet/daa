@@ -1,0 +1,320 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g., v1.2.3)'
+        required: true
+        type: string
+
+env:
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Create release draft
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      release_id: ${{ steps.create_release.outputs.id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            echo "No previous tag found, including all commits"
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --reverse)
+          else
+            echo "Previous tag: $PREV_TAG"
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --reverse $PREV_TAG..HEAD)
+          fi
+          
+          # Format changelog
+          cat > CHANGELOG_CURRENT.md << EOF
+          ## What's Changed
+          
+          ### Features
+          $(echo "$COMMITS" | grep -E "^- (feat|feature):" || echo "No new features")
+          
+          ### Bug Fixes
+          $(echo "$COMMITS" | grep -E "^- (fix|bugfix):" || echo "No bug fixes")
+          
+          ### Performance
+          $(echo "$COMMITS" | grep -E "^- (perf|performance):" || echo "No performance improvements")
+          
+          ### Security
+          $(echo "$COMMITS" | grep -E "^- (security|sec):" || echo "No security updates")
+          
+          ### Other Changes
+          $(echo "$COMMITS" | grep -vE "^- (feat|feature|fix|bugfix|perf|performance|security|sec):" || echo "No other changes")
+          
+          ## Binary Downloads
+          
+          Pre-built binaries are available below for:
+          - Linux (x64, ARM64)
+          - macOS (Intel, Apple Silicon)
+          - Windows (x64)
+          
+          ## WASM Package
+          
+          The WASM package is available on npm:
+          \`\`\`bash
+          npm install @qudag/wasm
+          \`\`\`
+          
+          ## Docker Image
+          
+          \`\`\`bash
+          docker pull qudag/node:${{ github.ref_name }}
+          \`\`\`
+          EOF
+          
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name || inputs.tag }}
+          release_name: QuDAG ${{ github.ref_name || inputs.tag }}
+          body_path: CHANGELOG_CURRENT.md
+          draft: true
+          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
+
+  # Build and upload release binaries
+  build-release:
+    name: Build Release Binary
+    needs: create-release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: qudag
+            asset_name: qudag-linux-amd64
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            artifact_name: qudag
+            asset_name: qudag-linux-arm64
+            use_cross: true
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact_name: qudag
+            asset_name: qudag-macos-amd64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: qudag
+            asset_name: qudag-macos-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: qudag.exe
+            asset_name: qudag-windows-amd64.exe
+            
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+          
+      - name: Install cross-compilation tool
+        if: matrix.use_cross
+        run: cargo install cross
+        
+      - name: Build release binary
+        run: |
+          ${{ matrix.use_cross && 'cross' || 'cargo' }} build --release --target ${{ matrix.target }} --features "cli full"
+          
+      - name: Create archive (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar czf ${{ matrix.asset_name }}.tar.gz ${{ matrix.artifact_name }}
+          sha256sum ${{ matrix.asset_name }}.tar.gz > ${{ matrix.asset_name }}.tar.gz.sha256
+          
+      - name: Create archive (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: |
+          cd target/${{ matrix.target }}/release
+          Compress-Archive -Path ${{ matrix.artifact_name }} -DestinationPath ${{ matrix.asset_name }}.zip
+          Get-FileHash ${{ matrix.asset_name }}.zip -Algorithm SHA256 | Select-Object -ExpandProperty Hash > ${{ matrix.asset_name }}.zip.sha256
+          
+      - name: Upload release archive
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: target/${{ matrix.target }}/release/${{ matrix.asset_name }}${{ matrix.os == 'windows-latest' && '.zip' || '.tar.gz' }}
+          asset_name: ${{ matrix.asset_name }}${{ matrix.os == 'windows-latest' && '.zip' || '.tar.gz' }}
+          asset_content_type: ${{ matrix.os == 'windows-latest' && 'application/zip' || 'application/gzip' }}
+          
+      - name: Upload checksum
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: target/${{ matrix.target }}/release/${{ matrix.asset_name }}${{ matrix.os == 'windows-latest' && '.zip.sha256' || '.tar.gz.sha256' }}
+          asset_name: ${{ matrix.asset_name }}${{ matrix.os == 'windows-latest' && '.zip.sha256' || '.tar.gz.sha256' }}
+          asset_content_type: text/plain
+
+  # Build and publish WASM
+  wasm-release:
+    name: WASM Release
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        
+      - name: Build WASM packages
+        run: |
+          cd qudag-wasm
+          wasm-pack build --target web --out-dir pkg --release
+          wasm-pack build --target nodejs --out-dir pkg-nodejs --release
+          wasm-pack build --target bundler --out-dir pkg-bundler --release
+          
+      - name: Create WASM archives
+        run: |
+          cd qudag-wasm
+          tar czf qudag-wasm-web.tar.gz pkg/
+          tar czf qudag-wasm-nodejs.tar.gz pkg-nodejs/
+          tar czf qudag-wasm-bundler.tar.gz pkg-bundler/
+          
+      - name: Upload WASM web package
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: qudag-wasm/qudag-wasm-web.tar.gz
+          asset_name: qudag-wasm-web.tar.gz
+          asset_content_type: application/gzip
+          
+      - name: Upload WASM Node.js package
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: qudag-wasm/qudag-wasm-nodejs.tar.gz
+          asset_name: qudag-wasm-nodejs.tar.gz
+          asset_content_type: application/gzip
+          
+      - name: Upload WASM bundler package
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: qudag-wasm/qudag-wasm-bundler.tar.gz
+          asset_name: qudag-wasm-bundler.tar.gz
+          asset_content_type: application/gzip
+
+  # Build and push Docker images
+  docker-release:
+    name: Docker Release
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: qudag/node
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+            
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Publish to crates.io
+  crates-release:
+    name: Publish to crates.io
+    needs: [build-release, wasm-release]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        
+      - name: Publish core crates
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+        run: |
+          # Publish in dependency order
+          cargo publish -p qudag-crypto --allow-dirty
+          cargo publish -p qudag-dag --allow-dirty
+          cargo publish -p qudag-network --allow-dirty
+          cargo publish -p qudag-protocol --allow-dirty
+          cargo publish -p qudag-vault --allow-dirty
+          cargo publish -p qudag --allow-dirty
+
+  # Finalize release
+  finalize-release:
+    name: Finalize Release
+    needs: [build-release, wasm-release, docker-release, crates-release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish release
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: ${{ needs.create-release.outputs.release_id }},
+              draft: false
+            })

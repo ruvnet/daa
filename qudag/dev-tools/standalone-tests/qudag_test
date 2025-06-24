@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+import sys
+import argparse
+
+def main():
+    parser = argparse.ArgumentParser(prog='qudag', description='QuDAG Protocol CLI')
+    subparsers = parser.add_subparsers(dest='command', help='Commands')
+    
+    # Start command
+    start_parser = subparsers.add_parser('start', help='Start a node')
+    start_parser.add_argument('-p', '--port', type=int, default=8000, help='Port to listen on')
+    start_parser.add_argument('-d', '--data-dir', help='Data directory')
+    start_parser.add_argument('-l', '--log-level', default='info', help='Log level')
+    
+    # Stop command
+    stop_parser = subparsers.add_parser('stop', help='Stop a running node')
+    
+    # Status command
+    status_parser = subparsers.add_parser('status', help='Get node status')
+    
+    # Peer commands
+    peer_parser = subparsers.add_parser('peer', help='Peer management commands')
+    peer_subparsers = peer_parser.add_subparsers(dest='peer_command')
+    
+    peer_list_parser = peer_subparsers.add_parser('list', help='List connected peers')
+    peer_add_parser = peer_subparsers.add_parser('add', help='Add a peer')
+    peer_add_parser.add_argument('address', help='Peer address')
+    peer_remove_parser = peer_subparsers.add_parser('remove', help='Remove a peer')
+    peer_remove_parser.add_argument('address', help='Peer address')
+    
+    # Network commands
+    network_parser = subparsers.add_parser('network', help='Network management commands')
+    network_subparsers = network_parser.add_subparsers(dest='network_command')
+    
+    network_stats_parser = network_subparsers.add_parser('stats', help='Get network stats')
+    network_test_parser = network_subparsers.add_parser('test', help='Run network tests')
+    
+    # Address commands
+    address_parser = subparsers.add_parser('address', help='Dark addressing commands')
+    address_subparsers = address_parser.add_subparsers(dest='address_command')
+    
+    address_register_parser = address_subparsers.add_parser('register', help='Register a dark address')
+    address_register_parser.add_argument('domain', help='Domain name')
+    
+    address_resolve_parser = address_subparsers.add_parser('resolve', help='Resolve a dark address')
+    address_resolve_parser.add_argument('domain', help='Domain name')
+    
+    address_shadow_parser = address_subparsers.add_parser('shadow', help='Generate a shadow address')
+    address_shadow_parser.add_argument('--ttl', type=int, default=3600, help='Time to live in seconds')
+    
+    address_fingerprint_parser = address_subparsers.add_parser('fingerprint', help='Create a content fingerprint')
+    address_fingerprint_parser.add_argument('--data', required=True, help='Data to fingerprint')
+    
+    try:
+        args = parser.parse_args()
+        
+        if args.command == 'start':
+            print(f"Starting QuDAG node on port {args.port} with log level {args.log_level}")
+            if args.data_dir:
+                print(f"Data directory: {args.data_dir}")
+        elif args.command == 'stop':
+            print("Stopping QuDAG node")
+        elif args.command == 'status':
+            print("Getting node status")
+        elif args.command == 'peer':
+            if not args.peer_command:
+                print("Error: Missing subcommand for 'peer'", file=sys.stderr)
+                peer_parser.print_help()
+                sys.exit(1)
+            elif args.peer_command == 'list':
+                print("Listing peers")
+            elif args.peer_command == 'add':
+                print(f"Adding peer: {args.address}")
+            elif args.peer_command == 'remove':
+                print(f"Removing peer: {args.address}")
+        elif args.command == 'network':
+            if not args.network_command:
+                print("Error: Missing subcommand for 'network'", file=sys.stderr)
+                network_parser.print_help()
+                sys.exit(1)
+            elif args.network_command == 'stats':
+                print("Getting network stats")
+            elif args.network_command == 'test':
+                print("Running network tests")
+        elif args.command == 'address':
+            if not args.address_command:
+                print("Error: Missing subcommand for 'address'", file=sys.stderr)
+                address_parser.print_help()
+                sys.exit(1)
+            elif args.address_command == 'register':
+                print(f"Registering dark address: {args.domain}")
+            elif args.address_command == 'resolve':
+                print(f"Resolving dark address: {args.domain}")
+            elif args.address_command == 'shadow':
+                print(f"Generating shadow address with TTL: {args.ttl}")
+            elif args.address_command == 'fingerprint':
+                print(f"Creating fingerprint for data: {args.data}")
+        else:
+            parser.print_help()
+            
+    except SystemExit:
+        raise
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == '__main__':
+    main()

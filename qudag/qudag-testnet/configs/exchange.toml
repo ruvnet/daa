@@ -1,0 +1,65 @@
+# QuDAG Exchange Server Configuration
+
+[server]
+# Server bind address
+bind_address = "0.0.0.0:8085"
+
+# Metrics endpoint
+metrics_address = "0.0.0.0:9095"
+
+# API configuration
+[api]
+# Enable API documentation
+enable_docs = true
+
+# Rate limiting
+rate_limit_per_minute = 100
+
+# CORS settings
+cors_origins = ["*"]
+
+# Exchange configuration
+[exchange]
+# Exchange name
+name = "QuDAG Exchange"
+
+# Fee tiers
+[exchange.fees]
+basic = 0.01      # 1% fee for basic tier
+premium = 0.005   # 0.5% fee for premium tier
+enterprise = 0.002 # 0.2% fee for enterprise tier
+
+# Minimum transaction amounts
+[exchange.minimums]
+ruv_minimum = 1.0
+trade_minimum = 10.0
+
+# Database configuration
+[database]
+url = "sqlite:///data/qudag/exchange.db"
+max_connections = 10
+
+# Security settings
+[security]
+# JWT secret (should be overridden by environment variable in production)
+jwt_secret = "change-me-in-production"
+
+# Token expiration in seconds
+token_expiration = 3600
+
+# Enable immutable deployments
+immutable_deployments = true
+
+# Quantum crypto settings
+[quantum]
+# Enable quantum-resistant signatures
+enable_quantum_signatures = true
+
+# Algorithm preferences
+signature_algorithm = "ML-DSA"
+encryption_algorithm = "ML-KEM-768"
+
+# Logging configuration
+[logging]
+level = "info"
+format = "json"

@@ -1,0 +1,43 @@
+[package]
+name = "daa-ai"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "AI integration layer for DAA system with Claude support via QuDAG MCP"
+
+[dependencies]
+# Workspace dependencies
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+uuid.workspace = true
+tracing.workspace = true
+
+# QuDAG dependencies for AI integration
+qudag-crypto.workspace = true
+qudag-mcp = { workspace = true, optional = true }
+
+# DAA internal dependencies
+daa-rules = { workspace = true, optional = true }
+
+# AI and MCP specific dependencies
+async-trait = "0.1"
+reqwest = { version = "0.11", features = ["json"] }
+
+# Optional database support
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid"], optional = true }
+
+[features]
+default = ["mcp", "claude"]
+mcp = ["qudag-mcp"]
+claude = []
+rules-integration = ["daa-rules"]
+database = ["sqlx"]
+full = ["mcp", "claude", "rules-integration", "database"]

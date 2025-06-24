@@ -1,0 +1,118 @@
+# QuDAG Node 3 - Singapore (sin) - Validator Node
+# Updated configuration with proper health checks and settings
+
+app = "qudag-testnet-node3"
+primary_region = "sin"
+kill_signal = "SIGINT"
+kill_timeout = "5s"
+
+[build]
+  dockerfile = "../Dockerfile.production"
+
+[build.args]
+  NODE_TYPE = "validator"
+  NODE_NAME = "singapore-node"
+
+[env]
+  RUST_LOG = "info,qudag=debug"
+  RUST_BACKTRACE = "1"
+  QUDAG_NODE_NAME = "singapore-node"
+  QUDAG_NETWORK_ID = "qudag-testnet"
+  QUDAG_DARK_DOMAIN_ENABLED = "true"
+  QUDAG_P2P_PORT = "4001"
+  QUDAG_RPC_PORT = "8080"
+  QUDAG_METRICS_PORT = "9090"
+  QUDAG_CONFIG_PATH = "/data/qudag/config.toml"
+  # Validator node specific
+  QUDAG_BOOTSTRAP_MODE = "false"
+  QUDAG_BOOTSTRAP_PEERS = "/dns4/qudag-testnet-node1.fly.dev/tcp/4001"
+
+[experimental]
+  auto_rollback = true
+  enable_consul = false
+
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 100
+    soft_limit = 80
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = false
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.http_checks]]
+    interval = "30s"
+    timeout = "10s"
+    grace_period = "45s"
+    method = "GET"
+    path = "/health"
+    protocol = "http"
+    restart_limit = 3
+    [services.http_checks.headers]
+      X-Node-Type = "validator"
+
+# P2P Port - TCP
+[[services]]
+  internal_port = 4001
+  protocol = "tcp"
+  processes = ["app"]
+  
+  [[services.ports]]
+    port = 4001
+
+# P2P Port - UDP (for QUIC transport)
+[[services]]
+  internal_port = 4001
+  protocol = "udp"
+  processes = ["app"]
+  
+  [[services.ports]]
+    port = 4001
+
+# Metrics endpoint
+[[services]]
+  internal_port = 9090
+  protocol = "tcp"
+  processes = ["app"]
+  
+  [[services.ports]]
+    port = 9090
+    handlers = ["http"]
+
+[metrics]
+  port = 9090
+  path = "/metrics"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 2048
+
+[mounts]
+  source = "qudag_data_node3"
+  destination = "/data/qudag"
+
+# Command arguments for the QuDAG node (handled by Dockerfile ENTRYPOINT)
+# The node will use the config file at /data/qudag/config.toml
+
+[[statics]]
+  guest_path = "/app/configs/node3.toml"
+  url_prefix = "/"
+
+[[regions]]
+  sin = 1  # Primary region (Singapore)
+  nrt = 0  # Backup region (Tokyo)

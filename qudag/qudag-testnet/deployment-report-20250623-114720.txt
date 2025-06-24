@@ -1,0 +1,52 @@
+QuDAG Testnet Deployment Verification Report
+===========================================
+
+[0;34m========== Deployment Verification Report ==========[0m
+
+Timestamp: 2025-06-23 11:47:20 UTC
+Total Tests: 25
+Passed: 16
+Failed: 9
+Success Rate: 64%
+
+Test Results:
+  ✓ node1 Health: synced=true, peers=0, height=119
+  ✓ node2 Health: synced=true, peers=4, height=5337
+  ✓ node3 Health: synced=true, peers=4, height=5333
+  ✓ node4 Health: synced=true, peers=4, height=5326
+  ✓ node1 Metrics: Found 8 QuDAG metrics
+  ✓ node2 Metrics: Found 5 QuDAG metrics
+  ✓ node3 Metrics: Found 5 QuDAG metrics
+  ✓ node4 Metrics: Found 5 QuDAG metrics
+  ✗ node1 P2P: No peers connected
+  ✓ node2 P2P: Connected to 4 peers
+  ✓ node3 P2P: Connected to 4 peers
+  ✓ node4 P2P: Connected to 4 peers
+  ✗ P2P Network: Only 3/4 nodes have peers
+  ✗ Exchange Info API: Endpoint not available
+  ✗ Exchange Orderbook API: Endpoint not available
+  ✗ Consensus Sync: Height difference: 5218 blocks
+  ✓ Sync Status: All nodes report synced state
+  ✗ node1 TLS: Using direct IP access
+  ✗ node2 TLS: Using direct IP access
+  ✗ node3 TLS: Using direct IP access
+  ✗ node4 TLS: Using direct IP access
+  ✓ node1 Response Time: 82ms
+  ✓ node2 Response Time: 166ms
+  ✓ node3 Response Time: 209ms
+  ✓ node4 Response Time: 38ms
+
+Node URLs:
+  - node1: http://109.105.222.156
+  - node2: http://149.248.199.86
+  - node3: http://149.248.218.16
+  - node4: http://137.66.62.149
+
+Recommendations:
+  ⚠ Review failed tests and take corrective action
+  - Check firewall rules for P2P ports (4001)
+  - Verify bootstrap peer addresses
+  - Check application logs with: fly logs --app qudag-testnet-nodeX
+  - Verify node configuration files
+  - Ensure metrics port (9090) is properly exposed
+  - Check Prometheus scrape configuration

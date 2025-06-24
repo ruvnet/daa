@@ -1,0 +1,37 @@
+[package]
+name = "qudag-exchange-cli"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "qudag-exchange"
+path = "src/main.rs"
+
+[dependencies]
+qudag-exchange-core = { path = "../core" }
+
+clap = { workspace = true }
+colored = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# For password input
+rpassword = "7.3"
+
+# For table output
+tabled = "0.18"
+
+# For configuration
+toml = "0.8"
+directories = "5.0"
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+predicates = { workspace = true }
+tempfile = "3.13"

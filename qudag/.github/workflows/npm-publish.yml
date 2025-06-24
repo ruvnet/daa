@@ -1,0 +1,233 @@
+name: NPM Publish
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'qudag-wasm/**'
+      - 'core/crypto/**'
+      - 'core/dag/**'
+      - 'core/network/**'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 1.2.3)'
+        required: false
+        type: string
+      prerelease:
+        description: 'Publish as prerelease'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  check-version:
+    name: Check Version
+    runs-on: ubuntu-latest
+    outputs:
+      should_publish: ${{ steps.check.outputs.should_publish }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Check if version changed
+        id: check
+        run: |
+          cd qudag-wasm
+          
+          # Get current version from package.json
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Check if this version is already published
+          NPM_VERSION=$(npm view @qudag/wasm version 2>/dev/null || echo "0.0.0")
+          echo "NPM version: $NPM_VERSION"
+          
+          if [ "${{ inputs.version }}" != "" ]; then
+            # Manual version override
+            echo "Manual version override: ${{ inputs.version }}"
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          elif [ "$CURRENT_VERSION" != "$NPM_VERSION" ]; then
+            echo "Version changed, should publish"
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "Version unchanged, skipping publish"
+            echo "should_publish=false" >> $GITHUB_OUTPUT
+          fi
+
+  test-wasm:
+    name: Test WASM Package
+    needs: check-version
+    if: needs.check-version.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          
+      - name: Run WASM tests
+        run: |
+          cd qudag-wasm
+          wasm-pack test --node
+          wasm-pack test --headless --chrome
+          
+      - name: Build all targets
+        run: |
+          cd qudag-wasm
+          wasm-pack build --target web --out-dir pkg-web --release
+          wasm-pack build --target nodejs --out-dir pkg-nodejs --release
+          wasm-pack build --target bundler --out-dir pkg-bundler --release
+          
+      - name: Test Node.js integration
+        run: |
+          cd qudag-wasm
+          npm install
+          node test-nodejs.mjs
+          node working-features-test.mjs
+
+  publish-npm:
+    name: Publish to NPM
+    needs: [check-version, test-wasm]
+    if: needs.check-version.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - { name: 'web', package: '@qudag/wasm-web' }
+          - { name: 'nodejs', package: '@qudag/wasm-node' }
+          - { name: 'bundler', package: '@qudag/wasm' }
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          
+      - name: Update version if specified
+        if: inputs.version != ''
+        run: |
+          cd qudag-wasm
+          npm version ${{ inputs.version }} --no-git-tag-version
+          
+      - name: Build WASM package
+        run: |
+          cd qudag-wasm
+          wasm-pack build --target ${{ matrix.target.name }} --out-dir pkg-${{ matrix.target.name }} --release
+          
+      - name: Prepare package.json
+        run: |
+          cd qudag-wasm/pkg-${{ matrix.target.name }}
+          
+          # Update package name
+          node -e "
+            const pkg = require('./package.json');
+            pkg.name = '${{ matrix.target.package }}';
+            pkg.repository = {
+              type: 'git',
+              url: 'https://github.com/qudag/qudag.git'
+            };
+            pkg.keywords = [
+              'qudag',
+              'quantum-resistant',
+              'dag',
+              'blockchain',
+              'wasm',
+              'cryptography',
+              'ml-dsa',
+              'ml-kem',
+              'post-quantum'
+            ];
+            pkg.license = 'MIT';
+            pkg.homepage = 'https://github.com/qudag/qudag#readme';
+            pkg.bugs = {
+              url: 'https://github.com/qudag/qudag/issues'
+            };
+            require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2));
+          "
+          
+      - name: Create .npmignore
+        run: |
+          cd qudag-wasm/pkg-${{ matrix.target.name }}
+          cat > .npmignore << EOF
+          .gitignore
+          **/*.tsbuildinfo
+          *.wasm.d.ts
+          .github/
+          tests/
+          benches/
+          examples/
+          EOF
+          
+      - name: Publish to NPM
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          cd qudag-wasm/pkg-${{ matrix.target.name }}
+          
+          if [ "${{ inputs.prerelease }}" == "true" ]; then
+            npm publish --access public --tag next
+          else
+            npm publish --access public
+          fi
+          
+      - name: Create GitHub release
+        if: matrix.target.name == 'bundler'  # Only create one release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: wasm-v${{ needs.check-version.outputs.version }}
+          release_name: WASM Package v${{ needs.check-version.outputs.version }}
+          body: |
+            ## WASM Package Release
+            
+            Published to npm:
+            - `@qudag/wasm` - For bundlers (webpack, rollup, etc.)
+            - `@qudag/wasm-web` - For web browsers
+            - `@qudag/wasm-node` - For Node.js
+            
+            ### Installation
+            
+            ```bash
+            # For bundlers
+            npm install @qudag/wasm
+            
+            # For web browsers
+            npm install @qudag/wasm-web
+            
+            # For Node.js
+            npm install @qudag/wasm-node
+            ```
+            
+            ### Features
+            - Quantum-resistant cryptography (ML-DSA, ML-KEM)
+            - Dark addressing with .dark domains
+            - Vault operations
+            - Network utilities
+          draft: false
+          prerelease: ${{ inputs.prerelease }}

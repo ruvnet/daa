@@ -1,0 +1,187 @@
+# QuDAG Node Configuration Template with Security Enhancements
+# This template provides secure defaults for production deployment
+
+[node]
+name = "${NODE_NAME}"
+role = "${NODE_ROLE}"  # validator, bootstrap, or observer
+is_bootstrap = ${IS_BOOTSTRAP}
+node_id = "${NODE_ID}"
+
+[network]
+network_id = "qudag-testnet"
+listen_address = "/ip4/0.0.0.0/tcp/4001"
+external_address = "${EXTERNAL_ADDRESS}"  # e.g., /dns4/qudag-testnet-node1.fly.dev/tcp/4001
+enable_mdns = false  # Disable for production
+enable_relay = true
+enable_autonat = true
+enable_identify = true
+enable_ping = true
+enable_dht = true
+dht_mode = "server"  # server, client, or auto
+
+[p2p]
+max_peers = 50
+min_peers = 3
+peer_grace_period = "30s"
+connection_timeout = "10s"
+dial_timeout = "5s"
+# Bootstrap peers - will be populated by deployment script
+bootstrap_peers = ${BOOTSTRAP_PEERS}
+# Peer discovery
+enable_peer_exchange = true
+discovery_interval = "30s"
+
+[dark_domain]
+enabled = true
+registration_fee = 100
+min_length = 3
+max_length = 63
+namespace = "testnet"
+# Quantum fingerprint parameters
+fingerprint_algorithm = "blake3"
+fingerprint_rounds = 3
+
+[consensus]
+type = "dag"
+algorithm = "qr-avalanche"  # Quantum-resistant Avalanche
+block_time = "5s"
+max_block_size = 1048576  # 1MB
+min_validators = 3
+finality_threshold = 0.67  # 67% for 2f+1 consensus
+# Quantum resistance
+quantum_signatures = true
+signature_algorithm = "ml-dsa-65"  # NIST ML-DSA
+
+[storage]
+type = "rocksdb"
+path = "/data/qudag/db"
+cache_size = 1073741824  # 1GB
+compression = "zstd"  # Better compression than snappy
+max_open_files = 1000
+write_buffer_size = 67108864  # 64MB
+# Backup configuration
+enable_backups = true
+backup_interval = "6h"
+backup_retention = "7d"
+
+[rpc]
+enabled = true
+# HTTP endpoint
+http_address = "0.0.0.0:8080"
+# HTTPS endpoint
+https_address = "0.0.0.0:8443"
+https_enabled = true
+max_connections = 100
+rate_limit = 100  # requests per second
+rate_limit_burst = 200
+# CORS configuration - specific origins only
+cors_enabled = true
+cors_origins = [
+    "https://qudag-testnet-node1.fly.dev",
+    "https://qudag-testnet-node2.fly.dev", 
+    "https://qudag-testnet-node3.fly.dev",
+    "https://qudag-testnet-node4.fly.dev",
+    "https://localhost:3000"  # Grafana
+]
+cors_methods = ["GET", "POST", "OPTIONS"]
+cors_headers = ["Content-Type", "Authorization", "X-API-Key"]
+cors_credentials = true
+# WebSocket configuration
+enable_websocket = true
+websocket_compression = true
+websocket_max_frame_size = 1048576  # 1MB
+
+[api]
+enabled = true
+version = "v1"
+max_request_size = 1048576  # 1MB
+timeout = "30s"
+# API versioning
+supported_versions = ["v1"]
+deprecation_headers = true
+
+[metrics]
+enabled = true
+address = "0.0.0.0:9090"
+namespace = "qudag"
+path = "/metrics"
+# Additional metrics
+enable_go_metrics = false
+enable_process_metrics = true
+# Metric labels
+labels = {
+    node_id = "${NODE_ID}",
+    region = "${NODE_REGION}",
+    role = "${NODE_ROLE}"
+}
+
+[logging]
+level = "info"
+format = "json"
+output = "stdout"
+# Log rotation (when output is file)
+max_size = "100MB"
+max_age = "7d"
+max_backups = 3
+compress = true
+# Structured logging fields
+fields = {
+    node_id = "${NODE_ID}",
+    network_id = "qudag-testnet"
+}
+
+[security]
+# TLS configuration
+enable_tls = true
+tls_cert_path = "/data/qudag/tls/cert.pem"
+tls_key_path = "/data/qudag/tls/key.pem"
+tls_ca_path = "/data/qudag/tls/ca.pem"
+tls_verify_peer = true
+tls_min_version = "1.3"  # TLS 1.3 only
+# API authentication
+enable_auth = true
+auth_type = "bearer"  # bearer or api-key
+api_key_header = "X-API-Key"
+# JWT configuration (if using bearer tokens)
+jwt_secret_path = "/data/qudag/secrets/jwt_secret"
+jwt_expiry = "24h"
+jwt_refresh_enabled = true
+# IP filtering
+enable_ip_whitelist = false
+ip_whitelist = []
+enable_ip_blacklist = true
+ip_blacklist = []
+# Rate limiting per IP
+ip_rate_limit = 1000  # requests per hour
+# Security headers
+enable_security_headers = true
+
+[resource_limits]
+max_memory_mb = 2048  # 2GB
+max_cpu_percent = 80
+max_disk_gb = 10
+max_connections = 1000
+max_goroutines = 10000
+# Connection limits
+max_inbound_connections = 200
+max_outbound_connections = 50
+
+[monitoring]
+# Health check configuration
+health_check_interval = "10s"
+health_check_timeout = "5s"
+# Alerting webhooks
+alert_webhook_url = "${ALERT_WEBHOOK_URL}"
+alert_threshold_peer_count = 2
+alert_threshold_memory_percent = 90
+alert_threshold_disk_percent = 85
+
+[features]
+# Feature flags
+enable_quantum_crypto = true
+enable_dark_addressing = true
+enable_onion_routing = true
+enable_vault_integration = true
+# Experimental features
+enable_wasm_contracts = false
+enable_cross_chain_bridge = false

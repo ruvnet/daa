@@ -1,0 +1,18 @@
+         1801 function calls (1713 primitive calls) in 0.002 seconds
+
+   Ordered by: cumulative time
+   List reduced from 119 to 10 due to restriction <10>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+       91    0.000    0.000    0.001    0.000 /home/codespace/.python/current/lib/python3.12/re/__init__.py:174(search)
+       91    0.000    0.000    0.001    0.000 /home/codespace/.python/current/lib/python3.12/re/__init__.py:280(_compile)
+        1    0.000    0.000    0.001    0.001 /home/codespace/.python/current/lib/python3.12/re/_compiler.py:740(compile)
+      5/4    0.000    0.000    0.000    0.000 /home/codespace/.local/lib/python3.12/site-packages/psutil/_common.py:452(wrapper)
+       91    0.000    0.000    0.000    0.000 {method 'search' of 're.Pattern' objects}
+        1    0.000    0.000    0.000    0.000 /home/codespace/.python/current/lib/python3.12/re/_parser.py:969(parse)
+      6/1    0.000    0.000    0.000    0.000 /home/codespace/.python/current/lib/python3.12/re/_parser.py:452(_parse_sub)
+      6/1    0.000    0.000    0.000    0.000 /home/codespace/.python/current/lib/python3.12/re/_parser.py:512(_parse)
+      3/1    0.000    0.000    0.000    0.000 /home/codespace/.local/lib/python3.12/site-packages/psutil/_pslinux.py:1882(create_time)
+        1    0.000    0.000    0.000    0.000 /home/codespace/.python/current/lib/python3.12/re/_compiler.py:573(_code)
+
+

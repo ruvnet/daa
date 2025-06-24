@@ -1,0 +1,108 @@
+[package]
+name = "qudag-wasm"
+version = "0.1.0"
+edition = "2021"
+authors = ["QuDAG WASM Developer"]
+repository = "https://github.com/ruvnet/QuDAG"
+license = "MIT OR Apache-2.0"
+description = "WASM bindings for QuDAG - Quantum Ultra-Fast Distributed Acyclic Graph"
+documentation = "https://docs.rs/qudag-wasm"
+readme = "README.md"
+keywords = ["wasm", "quantum-resistant", "dag", "cryptography", "webassembly"]
+categories = ["wasm", "cryptography", "network-programming"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+console_error_panic_hook = { version = "0.1", optional = true }
+wee_alloc = { version = "0.4", optional = true }
+
+# QuDAG dependencies with conditional compilation
+# Note: qudag-crypto has C dependencies that don't work with WASM
+# Using it only for non-WASM targets
+qudag-dag = { version = "0.4.0", path = "../core/dag", optional = true }
+
+# Async and serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde-wasm-bindgen = "0.6"
+futures = "0.3"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Utilities
+hex = "0.4"
+getrandom = { version = "0.2", features = ["js"] }
+blake3 = "1.5"
+base64 = "0.21"
+uuid = { version = "1.6", features = ["v4", "js"] }
+
+# WASM-compatible crypto libraries (pure Rust, no C dependencies)
+aes-gcm = { version = "0.10" }
+argon2 = { version = "0.5" }
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+x25519-dalek = { version = "2.0", features = ["static_secrets"] }
+sha2 = { version = "0.10" }
+sha3 = { version = "0.10" }
+chacha20poly1305 = { version = "0.10" }
+zeroize = { version = "1.7", features = ["derive"] }
+subtle = { version = "2.5" }
+rand = { version = "0.8", features = ["getrandom"] }
+rand_core = { version = "0.6", features = ["getrandom"] }
+
+# Web APIs
+web-sys = { version = "0.3", features = [
+    "console",
+    "Window",
+    "Document",
+    "Element",
+    "HtmlElement",
+    "Performance",
+    "BinaryType",
+    "Blob",
+    "ErrorEvent",
+    "FileReader",
+    "MessageEvent",
+    "ProgressEvent",
+    "WebSocket",
+    "Crypto",
+    "SubtleCrypto",
+    "CryptoKey"
+] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+qudag = { version = "1.2.1", path = "../qudag", optional = true }
+qudag-crypto = { version = "0.4.0", path = "../core/crypto" }
+qudag-network = { version = "0.4.0", path = "../core/network", optional = true }
+qudag-protocol = { version = "0.4.0", path = "../core/protocol", optional = true }
+tokio = { version = "1.0", features = ["sync", "macros", "rt-multi-thread"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+tokio = { version = "1.0", default-features = false, features = ["sync", "macros"] }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[features]
+default = ["console_error_panic_hook", "crypto-only"]
+wee_alloc = ["dep:wee_alloc"]
+full = ["qudag", "qudag-network", "qudag-protocol", "qudag-dag"]
+crypto-only = []
+dag = ["qudag-dag"]
+vault = []
+
+[profile.release]
+opt-level = "z"     # Optimize for size
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[package.metadata.wasm-pack]
+"wasm-opt" = ["-Os"]  # Additional size optimizations

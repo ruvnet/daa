@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>QuDAG Performance Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1400px; margin: 0 auto; background: white; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .metric-card { display: inline-block; background: #007acc; color: white; padding: 20px; margin: 10px; border-radius: 8px; }
+        .metric-value { font-size: 2em; font-weight: bold; }
+        .chart-container { width: 100%; height: 400px; margin: 20px 0; }
+        .optimization { background: #fffbf0; border-left: 4px solid #ff9800; padding: 15px; margin: 10px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f0f0f0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>QuDAG Performance Analysis Dashboard</h1>
+        
+        <div class="metrics">
+            <div class="metric-card">
+                <div class="metric-label">Total Benchmarks</div>
+                <div class="metric-value">20</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Bottlenecks Found</div>
+                <div class="metric-value">4</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Optimizations</div>
+                <div class="metric-value">12</div>
+            </div>
+        </div>
+        
+        <h2>Performance by Category</h2>
+        <canvas id="categoryChart"></canvas>
+        
+        <h2>Top Performance Bottlenecks</h2>
+        <canvas id="bottleneckChart"></canvas>
+        
+        <h2>Optimization Opportunities</h2>
+
+        <div class="optimization">
+            <h3>High Variance</h3>
+            <p><strong>Target:</strong> concurrent_generation_10</p>
+            <p><strong>Recommendation:</strong> Investigate source of variance - possible caching or GC issues</p>
+            <p><strong>Potential Improvement:</strong> 95000.0μs</p>
+        </div>
+
+        <div class="optimization">
+            <h3>Batching Opportunity</h3>
+            <p><strong>Target:</strong> lookup_existing_domain</p>
+            <p><strong>Recommendation:</strong> Implement batch version of lookup_existing_domain</p>
+            <p><strong>Potential Improvement:</strong> 50-80% for multiple operations</p>
+        </div>
+
+        <div class="optimization">
+            <h3>Batching Opportunity</h3>
+            <p><strong>Target:</strong> resolve_with_decryption</p>
+            <p><strong>Recommendation:</strong> Implement batch version of resolve_with_decryption</p>
+            <p><strong>Potential Improvement:</strong> 50-80% for multiple operations</p>
+        </div>
+
+        <div class="optimization">
+            <h3>Batching Opportunity</h3>
+            <p><strong>Target:</strong> lookup_with_1000_domains</p>
+            <p><strong>Recommendation:</strong> Implement batch version of lookup_with_1000_domains</p>
+            <p><strong>Potential Improvement:</strong> 50-80% for multiple operations</p>
+        </div>
+
+        <div class="optimization">
+            <h3>Batching Opportunity</h3>
+            <p><strong>Target:</strong> verify_fingerprint</p>
+            <p><strong>Recommendation:</strong> Implement batch version of verify_fingerprint</p>
+            <p><strong>Potential Improvement:</strong> 50-80% for multiple operations</p>
+        </div>
+
+        <div class="optimization">
+            <h3>Batching Opportunity</h3>
+            <p><strong>Target:</strong> concurrent_generation_10</p>
+            <p><strong>Recommendation:</strong> Implement batch version of concurrent_generation_10</p>
+            <p><strong>Potential Improvement:</strong> 50-80% for multiple operations</p>
+        </div>
+
+        <div class="optimization">
+            <h3>Batching Opportunity</h3>
+            <p><strong>Target:</strong> resolve_single_domain</p>
+            <p><strong>Recommendation:</strong> Implement batch version of resolve_single_domain</p>
+            <p><strong>Potential Improvement:</strong> 50-80% for multiple operations</p>
+        </div>
+
+        <div class="optimization">
+            <h3>Batching Opportunity</h3>
+            <p><strong>Target:</strong> resolve_cache_hit</p>
+            <p><strong>Recommendation:</strong> Implement batch version of resolve_cache_hit</p>
+            <p><strong>Potential Improvement:</strong> 50-80% for multiple operations</p>
+        </div>
+
+        <div class="optimization">
+            <h3>Batching Opportunity</h3>
+            <p><strong>Target:</strong> resolve_cache_miss</p>
+            <p><strong>Recommendation:</strong> Implement batch version of resolve_cache_miss</p>
+            <p><strong>Potential Improvement:</strong> 50-80% for multiple operations</p>
+        </div>
+
+        <div class="optimization">
+            <h3>Caching Opportunity</h3>
+            <p><strong>Target:</strong> resolve_single_domain</p>
+            <p><strong>Recommendation:</strong> Implement or improve caching layer</p>
+            <p><strong>Potential Improvement:</strong> 90-95% cache hit rate</p>
+        </div>
+
+        <div class="optimization">
+            <h3>Caching Opportunity</h3>
+            <p><strong>Target:</strong> resolve_cache_miss</p>
+            <p><strong>Recommendation:</strong> Implement or improve caching layer</p>
+            <p><strong>Potential Improvement:</strong> 90-95% cache hit rate</p>
+        </div>
+
+        <div class="optimization">
+            <h3>Caching Opportunity</h3>
+            <p><strong>Target:</strong> batch_resolve_10</p>
+            <p><strong>Recommendation:</strong> Implement or improve caching layer</p>
+            <p><strong>Potential Improvement:</strong> 90-95% cache hit rate</p>
+        </div>
+
+        <h2>Detailed Results</h2>
+        <table>
+            <tr>
+                <th>Benchmark</th>
+                <th>Category</th>
+                <th>Mean Time (μs)</th>
+                <th>Std Dev (μs)</th>
+                <th>Samples</th>
+            </tr>
+
+            <tr>
+                <td>batch_resolve_10</td>
+                <td>QuDAG Dark Addressing</td>
+                <td>89300.0</td>
+                <td>15200.0</td>
+                <td>100</td>
+            </tr>
+
+            <tr>
+                <td>concurrent_resolution_4</td>
+                <td>QuDAG Dark Addressing</td>
+                <td>67200.0</td>
+                <td>9800.0</td>
+                <td>100</td>
+            </tr>
+
+            <tr>
+                <td>resolve_single_domain</td>
+                <td>QuDAG Dark Addressing</td>
+                <td>52100.0</td>
+                <td>8300.0</td>
+                <td>100</td>
+            </tr>
+
+            <tr>
+                <td>resolve_cache_miss</td>
+                <td>QuDAG Dark Addressing</td>
+                <td>48700.0</td>
+                <td>12100.0</td>
+                <td>100</td>
+            </tr>
+
+            <tr>
+                <td>batch_verify_100</td>
+                <td>QuDAG Dark Addressing</td>
+                <td>15800.0</td>
+                <td>1200.0</td>
+                <td>100</td>
+            </tr>
+
+            <tr>
+                <td>concurrent_generation_10</td>
+                <td>QuDAG Dark Addressing</td>
+                <td>1200.0</td>
+                <td>95000.0</td>
+                <td>100</td>
+            </tr>
+
+            <tr>
+                <td>concurrent_routing_10</td>
+                <td>QuDAG Dark Addressing</td>
+                <td>445.8</td>
+                <td>35.2</td>
+                <td>100</td>
+            </tr>
+
+            <tr>
+                <td>onion_routing_3_layers</td>
+                <td>QuDAG Dark Addressing</td>
+                <td>387.2</td>
+                <td>28.5</td>
+                <td>100</td>
+            </tr>
+
+            <tr>
+                <td>generate_fingerprint_1KB</td>
+                <td>QuDAG Dark Addressing</td>
+                <td>234.7</td>
+                <td>18.3</td>
+                <td>100</td>
+            </tr>
+
+            <tr>
+                <td>verify_fingerprint</td>
+                <td>QuDAG Dark Addressing</td>
+                <td>187.2</td>
+                <td>12.4</td>
+                <td>100</td>
+            </tr>
+
+            <tr>
+                <td>route_message_1KB</td>
+                <td>QuDAG Dark Addressing</td>
+                <td>156.3</td>
+                <td>14.7</td>
+                <td>100</td>
+            </tr>
+
+            <tr>
+                <td>resolve_with_decryption</td>
+                <td>QuDAG Dark Addressing</td>
+                <td>127.5</td>
+                <td>8.3</td>
+                <td>100</td>
+            </tr>
+
+            <tr>
+                <td>concurrent_10_readers</td>
+                <td>QuDAG Dark Addressing</td>
+                <td>98.4</td>
+                <td>12.1</td>
+                <td>100</td>
+            </tr>
+
+            <tr>
+                <td>generate_compact_4KB</td>
+                <td>QuDAG Dark Addressing</td>
+                <td>89.3</td>
+                <td>6.7</td>
+                <td>100</td>
+            </tr>
+
+            <tr>
+                <td>generate_shadow_address</td>
+                <td>QuDAG Dark Addressing</td>
+                <td>78.6</td>
+                <td>4.2</td>
+                <td>100</td>
+            </tr>
+
+            <tr>
+                <td>register_single_domain</td>
+                <td>QuDAG Dark Addressing</td>
+                <td>45.2</td>
+                <td>2.1</td>
+                <td>100</td>
+            </tr>
+
+            <tr>
+                <td>derive_shadow_address</td>
+                <td>QuDAG Dark Addressing</td>
+                <td>23.1</td>
+                <td>1.8</td>
+                <td>100</td>
+            </tr>
+
+            <tr>
+                <td>lookup_with_1000_domains</td>
+                <td>QuDAG Dark Addressing</td>
+                <td>15.7</td>
+                <td>1.2</td>
+                <td>100</td>
+            </tr>
+
+            <tr>
+                <td>lookup_existing_domain</td>
+                <td>QuDAG Dark Addressing</td>
+                <td>12.3</td>
+                <td>0.8</td>
+                <td>100</td>
+            </tr>
+
+            <tr>
+                <td>resolve_cache_hit</td>
+                <td>QuDAG Dark Addressing</td>
+                <td>8.4</td>
+                <td>0.6</td>
+                <td>100</td>
+            </tr>
+
+        </table>
+    </div>
+    
+    <script>
+        // Category chart
+        const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+        new Chart(categoryCtx, {
+            type: 'bar',
+            data: {
+                labels: ["QuDAG Dark Addressing"],
+                datasets: [{
+                    label: 'Average Time (μs)',
+                    data: [13810.485],
+                    backgroundColor: 'rgba(0, 122, 204, 0.6)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+        
+        // Bottleneck chart
+        const bottleneckCtx = document.getElementById('bottleneckChart').getContext('2d');
+        new Chart(bottleneckCtx, {
+            type: 'horizontalBar',
+            data: {
+                labels: ["batch_resolve_10", "concurrent_resolution_4", "resolve_single_domain", "resolve_cache_miss"],
+                datasets: [{
+                    label: 'Time (μs)',
+                    data: [89300.0, 67200.0, 52100.0, 48700.0],
+                    backgroundColor: 'rgba(255, 152, 0, 0.6)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+    </script>
+</body>
+</html>

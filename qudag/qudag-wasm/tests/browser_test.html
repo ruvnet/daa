@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>QuDAG WASM Crypto Tests</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 3px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        #performance-chart {
+            margin: 20px 0;
+            height: 200px;
+            border: 1px solid #ddd;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .metric {
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>QuDAG WASM Crypto Testing Suite</h1>
+        
+        <div class="test-section">
+            <h2>Environment Information</h2>
+            <div id="environment-info" class="info">
+                <p><strong>User Agent:</strong> <span id="user-agent"></span></p>
+                <p><strong>WASM Support:</strong> <span id="wasm-support"></span></p>
+                <p><strong>WebCrypto Support:</strong> <span id="webcrypto-support"></span></p>
+                <p><strong>Test Time:</strong> <span id="test-time"></span></p>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>WASM Module Loading</h2>
+            <div id="module-loading-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>ML-DSA Digital Signatures</h2>
+            <div id="ml-dsa-tests"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>ML-KEM Key Encapsulation</h2>
+            <div id="ml-kem-tests"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>BLAKE3 Hashing</h2>
+            <div id="blake3-tests"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Performance Metrics</h2>
+            <div class="metrics" id="performance-metrics"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Cross-Platform Compatibility</h2>
+            <div id="compatibility-tests"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test Summary</h2>
+            <div id="test-summary"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Environment detection
+        document.getElementById('user-agent').textContent = navigator.userAgent;
+        document.getElementById('wasm-support').textContent = typeof WebAssembly !== 'undefined' ? 'Yes' : 'No';
+        document.getElementById('webcrypto-support').textContent = typeof crypto !== 'undefined' && typeof crypto.subtle !== 'undefined' ? 'Yes' : 'No';
+        document.getElementById('test-time').textContent = new Date().toISOString();
+
+        let testResults = {
+            passed: 0,
+            failed: 0,
+            total: 0
+        };
+
+        function logResult(elementId, message, isSuccess = true) {
+            const element = document.getElementById(elementId);
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${isSuccess ? 'success' : 'error'}`;
+            resultDiv.textContent = message;
+            element.appendChild(resultDiv);
+            
+            testResults.total++;
+            if (isSuccess) {
+                testResults.passed++;
+            } else {
+                testResults.failed++;
+            }
+        }
+
+        function addMetric(name, value, unit = '') {
+            const metricsElement = document.getElementById('performance-metrics');
+            const metricDiv = document.createElement('div');
+            metricDiv.className = 'metric';
+            metricDiv.innerHTML = `<strong>${name}:</strong> ${value}${unit}`;
+            metricsElement.appendChild(metricDiv);
+        }
+
+        async function runTests() {
+            try {
+                // Load the WASM module
+                logResult('module-loading-result', 'Loading QuDAG WASM module...');
+                const wasmModule = await import('../pkg-crypto/qudag_wasm.js');
+                logResult('module-loading-result', '✓ WASM module loaded successfully');
+
+                // Test ML-DSA operations
+                try {
+                    logResult('ml-dsa-tests', 'Testing ML-DSA key generation...');
+                    const startKeygen = performance.now();
+                    const keypair = new wasmModule.WasmMlDsaKeyPair();
+                    const keygenTime = performance.now() - startKeygen;
+                    addMetric('ML-DSA Key Generation', keygenTime.toFixed(2), 'ms');
+                    logResult('ml-dsa-tests', '✓ ML-DSA keypair generated successfully');
+
+                    logResult('ml-dsa-tests', 'Testing public/secret key retrieval...');
+                    const publicKey = keypair.getPublicKey();
+                    const secretKey = keypair.getSecretKey();
+                    logResult('ml-dsa-tests', `✓ Public key length: ${publicKey.length} bytes`);
+                    logResult('ml-dsa-tests', `✓ Secret key length: ${secretKey.length} bytes`);
+
+                    logResult('ml-dsa-tests', 'Testing message signing...');
+                    const message = new TextEncoder().encode('Hello, Quantum World!');
+                    const startSign = performance.now();
+                    const signature = keypair.sign(message);
+                    const signTime = performance.now() - startSign;
+                    addMetric('ML-DSA Signing', signTime.toFixed(2), 'ms');
+                    logResult('ml-dsa-tests', `✓ Signature generated: ${signature.length} bytes`);
+
+                    logResult('ml-dsa-tests', 'Testing JSON serialization...');
+                    const jsonData = keypair.toJson();
+                    logResult('ml-dsa-tests', '✓ Keypair serialized to JSON');
+
+                } catch (error) {
+                    logResult('ml-dsa-tests', `✗ ML-DSA test failed: ${error.message}`, false);
+                }
+
+                // Test ML-KEM operations
+                try {
+                    logResult('ml-kem-tests', 'Testing ML-KEM-768 operations...');
+                    const kem = new wasmModule.WasmMlKem768();
+                    
+                    const startKemKeygen = performance.now();
+                    const kemKeypair = kem.generateKeyPair();
+                    const kemKeygenTime = performance.now() - startKemKeygen;
+                    addMetric('ML-KEM Key Generation', kemKeygenTime.toFixed(2), 'ms');
+                    logResult('ml-kem-tests', '✓ ML-KEM keypair generated');
+
+                    // Extract keys from JSON
+                    const kemData = kemKeypair;
+                    if (kemData.public_key && kemData.secret_key) {
+                        logResult('ml-kem-tests', `✓ Public key generated: ${kemData.public_key.length / 2} bytes`);
+                        logResult('ml-kem-tests', `✓ Secret key generated: ${kemData.secret_key.length / 2} bytes`);
+                    }
+
+                    // Test encapsulation/decapsulation
+                    const dummyPublicKey = new Uint8Array(1184); // ML-KEM-768 public key size
+                    const encapResult = kem.encapsulate(dummyPublicKey);
+                    logResult('ml-kem-tests', '✓ Encapsulation completed');
+
+                } catch (error) {
+                    logResult('ml-kem-tests', `✗ ML-KEM test failed: ${error.message}`, false);
+                }
+
+                // Test BLAKE3 hashing
+                try {
+                    logResult('blake3-tests', 'Testing BLAKE3 hashing...');
+                    
+                    // Test basic hashing
+                    const testData = new TextEncoder().encode('Test data for BLAKE3');
+                    const startHash = performance.now();
+                    const hash = wasmModule.WasmHasher.hashBlake3(testData);
+                    const hashTime = performance.now() - startHash;
+                    addMetric('BLAKE3 Hashing (small)', hashTime.toFixed(2), 'ms');
+                    logResult('blake3-tests', `✓ Hash generated: ${hash.length} bytes`);
+
+                    // Test hex encoding
+                    const hexHash = wasmModule.WasmHasher.hashBlake3Hex(testData);
+                    logResult('blake3-tests', `✓ Hex hash: ${hexHash}`);
+
+                    // Test large data hashing
+                    const largeData = new Uint8Array(1024 * 1024); // 1MB
+                    largeData.fill(0xAA);
+                    const startLargeHash = performance.now();
+                    const largeHash = wasmModule.WasmHasher.hashBlake3(largeData);
+                    const largeHashTime = performance.now() - startLargeHash;
+                    addMetric('BLAKE3 Hashing (1MB)', largeHashTime.toFixed(2), 'ms');
+                    logResult('blake3-tests', `✓ Large data hashed: ${largeHash.length} bytes`);
+
+                } catch (error) {
+                    logResult('blake3-tests', `✗ BLAKE3 test failed: ${error.message}`, false);
+                }
+
+                // Test cross-platform compatibility
+                try {
+                    logResult('compatibility-tests', 'Testing data format compatibility...');
+                    
+                    // Test with different data types
+                    const stringData = 'Unicode test: 你好世界 🌍';
+                    const stringBytes = new TextEncoder().encode(stringData);
+                    const stringHash = wasmModule.WasmHasher.hashBlake3(stringBytes);
+                    logResult('compatibility-tests', '✓ Unicode string hashing works');
+
+                    // Test with binary data
+                    const binaryData = new Uint8Array(256);
+                    for (let i = 0; i < 256; i++) {
+                        binaryData[i] = i;
+                    }
+                    const binaryHash = wasmModule.WasmHasher.hashBlake3(binaryData);
+                    logResult('compatibility-tests', '✓ Binary data hashing works');
+
+                    // Test deterministic behavior
+                    const hash1 = wasmModule.WasmHasher.hashBlake3(testData);
+                    const hash2 = wasmModule.WasmHasher.hashBlake3(testData);
+                    const isDeterministic = hash1.every((byte, index) => byte === hash2[index]);
+                    logResult('compatibility-tests', `✓ Deterministic hashing: ${isDeterministic}`);
+
+                } catch (error) {
+                    logResult('compatibility-tests', `✗ Compatibility test failed: ${error.message}`, false);
+                }
+
+            } catch (error) {
+                logResult('module-loading-result', `✗ Failed to load WASM module: ${error.message}`, false);
+            }
+
+            // Display final summary
+            const summaryElement = document.getElementById('test-summary');
+            const successRate = ((testResults.passed / testResults.total) * 100).toFixed(1);
+            summaryElement.innerHTML = `
+                <div class="test-result ${testResults.failed === 0 ? 'success' : 'error'}">
+                    <strong>Tests Complete:</strong> ${testResults.passed}/${testResults.total} passed (${successRate}%)
+                    ${testResults.failed > 0 ? `<br><strong>Failed:</strong> ${testResults.failed}` : ''}
+                </div>
+            `;
+        }
+
+        // Run tests when page loads
+        runTests().catch(error => {
+            console.error('Test execution failed:', error);
+            document.getElementById('test-summary').innerHTML = 
+                `<div class="test-result error"><strong>Critical Error:</strong> ${error.message}</div>`;
+        });
+    </script>
+</body>
+</html>

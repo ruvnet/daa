@@ -1,0 +1,393 @@
+{
+  "timestamp": "2025-06-19T13:30:50.638893",
+  "benchmarks": {
+    "connection_establishment": {
+      "single_connection": {
+        "iterations": 50,
+        "successful": 50,
+        "errors": 0,
+        "avg_time": 0.03802875347959343,
+        "min_time": 0.020331289000750985,
+        "max_time": 0.05236944100033725,
+        "p95_time": 0.050869946547754806,
+        "p99_time": 0,
+        "std_dev": 0.007779924747093354
+      },
+      "parallel_10_connections": {
+        "iterations": 10,
+        "successful": 10,
+        "errors": 0,
+        "avg_time": 0.05007105809854693,
+        "min_time": 0.04687671799911186,
+        "max_time": 0.052140037005301565,
+        "p95_time": 0,
+        "p99_time": 0,
+        "std_dev": 0.001992643162418685
+      },
+      "parallel_50_connections": {
+        "iterations": 10,
+        "successful": 10,
+        "errors": 0,
+        "avg_time": 0.05279719750105869,
+        "min_time": 0.04999327500263462,
+        "max_time": 0.05521702599799028,
+        "p95_time": 0,
+        "p99_time": 0,
+        "std_dev": 0.001776108158515273
+      },
+      "parallel_100_connections": {
+        "iterations": 10,
+        "successful": 10,
+        "errors": 0,
+        "avg_time": 0.05347215960064204,
+        "min_time": 0.05154439000034472,
+        "max_time": 0.05474525700265076,
+        "p95_time": 0,
+        "p99_time": 0,
+        "std_dev": 0.0011355039951998918
+      }
+    },
+    "message_routing": {
+      "route_small_message": {
+        "iterations": 100,
+        "successful": 100,
+        "errors": 0,
+        "avg_time": 0.0032569675099512097,
+        "min_time": 0.003220211001462303,
+        "max_time": 0.0033779149962356314,
+        "p95_time": 0.00337377599789761,
+        "p99_time": 0,
+        "std_dev": 4.362999481921508e-05
+      },
+      "route_medium_message": {
+        "iterations": 100,
+        "successful": 100,
+        "errors": 0,
+        "avg_time": 0.007259410090264282,
+        "min_time": 0.007228743001178373,
+        "max_time": 0.007372141000814736,
+        "p95_time": 0.007323660005567945,
+        "p99_time": 0,
+        "std_dev": 2.782904449429164e-05
+      },
+      "route_large_message": {
+        "iterations": 100,
+        "successful": 100,
+        "errors": 0,
+        "avg_time": 0.07440599369023403,
+        "min_time": 0.0743191299989121,
+        "max_time": 0.07452126999851316,
+        "p95_time": 0.0744860908969713,
+        "p99_time": 0,
+        "std_dev": 4.3680574531298325e-05
+      },
+      "route_huge_message": {
+        "iterations": 20,
+        "successful": 20,
+        "errors": 0,
+        "avg_time": 1.1565250756510068,
+        "min_time": 1.156107401002373,
+        "max_time": 1.1566161800001282,
+        "p95_time": 0,
+        "p99_time": 0,
+        "std_dev": 0.00010724031477181675
+      }
+    },
+    "onion_routing": {
+      "create_3_hop_packet": {
+        "iterations": 50,
+        "successful": 50,
+        "errors": 0,
+        "avg_time": 0.006263796740095131,
+        "min_time": 0.0062225849978858605,
+        "max_time": 0.00634204299421981,
+        "p95_time": 0.006332063300578739,
+        "p99_time": 0,
+        "std_dev": 2.856025540560358e-05
+      },
+      "process_3_hop_packet": {
+        "iterations": 100,
+        "successful": 100,
+        "errors": 0,
+        "avg_time": 0.0010761036401527235,
+        "min_time": 0.001072941995516885,
+        "max_time": 0.001099401997635141,
+        "p95_time": 0.0010832850017322925,
+        "p99_time": 0,
+        "std_dev": 3.900962957644537e-06
+      },
+      "create_5_hop_packet": {
+        "iterations": 50,
+        "successful": 50,
+        "errors": 0,
+        "avg_time": 0.010467146680166479,
+        "min_time": 0.010376076999818906,
+        "max_time": 0.010696015000576153,
+        "p95_time": 0.010673714399308665,
+        "p99_time": 0,
+        "std_dev": 9.897912959453075e-05
+      },
+      "process_5_hop_packet": {
+        "iterations": 100,
+        "successful": 100,
+        "errors": 0,
+        "avg_time": 0.0010774156505067368,
+        "min_time": 0.0010731330039561726,
+        "max_time": 0.0011278090023552068,
+        "p95_time": 0.001092566649094806,
+        "p99_time": 0,
+        "std_dev": 7.812807975441502e-06
+      },
+      "create_7_hop_packet": {
+        "iterations": 50,
+        "successful": 50,
+        "errors": 0,
+        "avg_time": 0.014589564200141467,
+        "min_time": 0.014537916002154816,
+        "max_time": 0.014795429997320753,
+        "p95_time": 0.014751482797510106,
+        "p99_time": 0,
+        "std_dev": 5.452142515488061e-05
+      },
+      "process_7_hop_packet": {
+        "iterations": 100,
+        "successful": 100,
+        "errors": 0,
+        "avg_time": 0.0010769379902194488,
+        "min_time": 0.00107389399636304,
+        "max_time": 0.0010990509981638752,
+        "p95_time": 0.0010898739001277136,
+        "p99_time": 0,
+        "std_dev": 4.32726875268521e-06
+      }
+    },
+    "dark_addressing": {
+      "resolve_dark_address": {
+        "iterations": 100,
+        "successful": 100,
+        "errors": 0,
+        "avg_time": 0.015221453369886149,
+        "min_time": 0.011259405997407157,
+        "max_time": 0.018423057001200505,
+        "p95_time": 0.018379434454618603,
+        "p99_time": 0,
+        "std_dev": 0.0020108557260081787
+      },
+      "create_dark_domain": {
+        "iterations": 20,
+        "successful": 20,
+        "errors": 0,
+        "avg_time": 0.023713038449932354,
+        "min_time": 0.018281372998899315,
+        "max_time": 0.029342529000132345,
+        "p95_time": 0,
+        "p99_time": 0,
+        "std_dev": 0.0032307661796985446
+      },
+      "parallel_resolve_10": {
+        "iterations": 10,
+        "successful": 10,
+        "errors": 0,
+        "avg_time": 0.01758287880002172,
+        "min_time": 0.016009914004825987,
+        "max_time": 0.01912301799893612,
+        "p95_time": 0,
+        "p99_time": 0,
+        "std_dev": 0.0008691673227029721
+      },
+      "parallel_resolve_50": {
+        "iterations": 10,
+        "successful": 10,
+        "errors": 0,
+        "avg_time": 0.018579070701525778,
+        "min_time": 0.018004707002546638,
+        "max_time": 0.01907881200168049,
+        "p95_time": 0,
+        "p99_time": 0,
+        "std_dev": 0.0005099213580266055
+      },
+      "parallel_resolve_100": {
+        "iterations": 10,
+        "successful": 10,
+        "errors": 0,
+        "avg_time": 0.01892475629938417,
+        "min_time": 0.017987374994845595,
+        "max_time": 0.019527080999978352,
+        "p95_time": 0,
+        "p99_time": 0,
+        "std_dev": 0.0005045357575507337
+      }
+    },
+    "nat_traversal": {
+      "stun_discovery": {
+        "iterations": 20,
+        "successful": 20,
+        "errors": 0,
+        "avg_time": 0.07880356359928556,
+        "min_time": 0.05315956399863353,
+        "max_time": 0.10026426600234117,
+        "p95_time": 0,
+        "p99_time": 0,
+        "std_dev": 0.015277381185319731
+      },
+      "turn_relay_setup": {
+        "iterations": 10,
+        "successful": 10,
+        "errors": 0,
+        "avg_time": 0.1488909223000519,
+        "min_time": 0.10521864100155653,
+        "max_time": 0.19332230899453862,
+        "p95_time": 0,
+        "p99_time": 0,
+        "std_dev": 0.03685487152967148
+      },
+      "hole_punching": {
+        "iterations": 30,
+        "successful": 30,
+        "errors": 0,
+        "avg_time": 0.03494377006548651,
+        "min_time": 0.021116304000315722,
+        "max_time": 0.0481269909942057,
+        "p95_time": 0.04704526144560077,
+        "p99_time": 0,
+        "std_dev": 0.007803851669721548
+      }
+    },
+    "traffic_obfuscation": {
+      "obfuscate_256b": {
+        "iterations": 100,
+        "successful": 100,
+        "errors": 0,
+        "avg_time": 0.0021828928803734014,
+        "min_time": 0.002148319996194914,
+        "max_time": 0.0032327779990737326,
+        "p95_time": 0.002248552798118908,
+        "p99_time": 0,
+        "std_dev": 0.00010913816519018234
+      },
+      "deobfuscate_256b": {
+        "iterations": 100,
+        "successful": 100,
+        "errors": 0,
+        "avg_time": 0.0010787237800832371,
+        "min_time": 0.0010732139999163337,
+        "max_time": 0.0011459590023150668,
+        "p95_time": 0.0011020716490747872,
+        "p99_time": 0,
+        "std_dev": 1.1902573162696003e-05
+      },
+      "obfuscate_1024b": {
+        "iterations": 100,
+        "successful": 100,
+        "errors": 0,
+        "avg_time": 0.0021549176603002707,
+        "min_time": 0.0021459049967234023,
+        "max_time": 0.0022338889975799248,
+        "p95_time": 0.002186570602134452,
+        "p99_time": 0,
+        "std_dev": 1.3333350109902974e-05
+      },
+      "deobfuscate_1024b": {
+        "iterations": 100,
+        "successful": 100,
+        "errors": 0,
+        "avg_time": 0.0010789917103102198,
+        "min_time": 0.0010729630012065172,
+        "max_time": 0.0011087599996244535,
+        "p95_time": 0.0010955149049550529,
+        "p99_time": 0,
+        "std_dev": 7.74168843413388e-06
+      },
+      "obfuscate_4096b": {
+        "iterations": 100,
+        "successful": 100,
+        "errors": 0,
+        "avg_time": 0.002155850270355586,
+        "min_time": 0.0021462260046973825,
+        "max_time": 0.002214733998698648,
+        "p95_time": 0.0021977456508466275,
+        "p99_time": 0,
+        "std_dev": 1.4094272522846245e-05
+      },
+      "deobfuscate_4096b": {
+        "iterations": 100,
+        "successful": 100,
+        "errors": 0,
+        "avg_time": 0.0010763079698517686,
+        "min_time": 0.001073233004717622,
+        "max_time": 0.0010976720004691742,
+        "p95_time": 0.0010886293988733088,
+        "p99_time": 0,
+        "std_dev": 4.2516545895415215e-06
+      },
+      "obfuscate_16384b": {
+        "iterations": 100,
+        "successful": 100,
+        "errors": 0,
+        "avg_time": 0.005185344609853928,
+        "min_time": 0.0051528080002753995,
+        "max_time": 0.005286558000079822,
+        "p95_time": 0.005266140754974913,
+        "p99_time": 0,
+        "std_dev": 3.230317300612221e-05
+      },
+      "deobfuscate_16384b": {
+        "iterations": 100,
+        "successful": 100,
+        "errors": 0,
+        "avg_time": 0.0041059680801845385,
+        "min_time": 0.00408033600251656,
+        "max_time": 0.004159754003921989,
+        "p95_time": 0.00414092550308851,
+        "p99_time": 0,
+        "std_dev": 2.0201285578724624e-05
+      }
+    },
+    "connection_pool": {
+      "pool_size_10": {
+        "iterations": 100,
+        "successful": 100,
+        "errors": 0,
+        "avg_time": 0.018357882879499812,
+        "min_time": 0.01435510499868542,
+        "max_time": 0.022562423997442238,
+        "p95_time": 0.022531483449347432,
+        "p99_time": 0,
+        "std_dev": 0.0025716732081412716
+      },
+      "pool_size_50": {
+        "iterations": 100,
+        "successful": 100,
+        "errors": 0,
+        "avg_time": 0.018888973590001114,
+        "min_time": 0.014363310001499485,
+        "max_time": 0.022593330999370664,
+        "p95_time": 0.022539483399668825,
+        "p99_time": 0,
+        "std_dev": 0.002528628598056069
+      },
+      "pool_size_100": {
+        "iterations": 100,
+        "successful": 100,
+        "errors": 0,
+        "avg_time": 0.0189083866992587,
+        "min_time": 0.014358701999299228,
+        "max_time": 0.022566330997506157,
+        "p95_time": 0.022541834098956316,
+        "p99_time": 0,
+        "std_dev": 0.002583140453866182
+      },
+      "pool_size_500": {
+        "iterations": 100,
+        "successful": 100,
+        "errors": 0,
+        "avg_time": 0.01841139954973187,
+        "min_time": 0.013507141993613914,
+        "max_time": 0.02255271600006381,
+        "p95_time": 0.022531831452579355,
+        "p99_time": 0,
+        "std_dev": 0.002671846125147036
+      }
+    }
+  }
+}

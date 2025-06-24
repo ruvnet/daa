@@ -1,0 +1,91 @@
+# QuDAG Node 1 - Toronto (yyz) - Bootstrap Node
+# Optimized configuration for MCP HTTPS support
+
+app = "qudag-testnet-node1"
+primary_region = "yyz"
+kill_signal = "SIGINT"
+kill_timeout = "5s"
+
+[build]
+  dockerfile = "../Dockerfile.mcp-v3"
+
+[env]
+  QUDAG_NODE_NAME = "toronto-node"
+  QUDAG_NETWORK_ID = "qudag-testnet"
+  QUDAG_P2P_PORT = "4001"
+  QUDAG_RPC_PORT = "8080"
+  QUDAG_METRICS_PORT = "9090"
+  QUDAG_IS_BOOTSTRAP = "true"
+  QUDAG_BOOTSTRAP_PEERS = "/dns4/qudag-testnet-node2.fly.dev/tcp/4001,/dns4/qudag-testnet-node3.fly.dev/tcp/4001,/dns4/qudag-testnet-node4.fly.dev/tcp/4001"
+
+[experimental]
+  auto_rollback = true
+
+# Main HTTP service with integrated MCP support
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+  processes = ["app"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 1000
+    soft_limit = 900
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+    [services.ports.tls_options]
+      alpn = ["h2", "http/1.1"]
+      versions = ["TLSv1.2", "TLSv1.3"]
+
+  [[services.http_checks]]
+    interval = "30s"
+    timeout = "30s"
+    grace_period = "60s"
+    method = "GET"
+    path = "/health"
+    protocol = "http"
+    tls_skip_verify = false
+
+# P2P service
+[[services]]
+  internal_port = 4001
+  protocol = "tcp"
+  processes = ["app"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 100
+    soft_limit = 80
+
+  [[services.ports]]
+    port = 4001
+
+# Metrics service
+[[services]]
+  internal_port = 9090
+  protocol = "tcp"
+  processes = ["app"]
+
+  [[services.ports]]
+    port = 9090
+
+# Note: MCP service removed - now integrated into main HTTP port 8080
+# This avoids the proxy issues with custom TCP handlers
+
+# Machine configuration for better performance
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 2
+  memory_mb = 512
+
+# Persistent storage for node data
+[mounts]
+  source = "qudag_data_node1"
+  destination = "/data/qudag"

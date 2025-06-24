@@ -1,0 +1,65 @@
+{
+  "timestamp": "2025-06-19T13:40:38.631531",
+  "network_optimizations": {
+    "large_message_routing": {
+      "before": 1156.53,
+      "after": 50.2,
+      "improvement": "23.0x"
+    },
+    "connection_establishment": {
+      "before": 38.03,
+      "after": 5.01,
+      "improvement": "7.6x"
+    },
+    "nat_traversal": {
+      "before": 78.8,
+      "after": 8.12,
+      "improvement": "9.7x"
+    }
+  },
+  "dag_optimizations": {
+    "vertex_validation": {
+      "before": 0.194,
+      "after": 0.02,
+      "improvement": "9.7x"
+    },
+    "descendant_traversal": {
+      "before": 0.228,
+      "after": 0.014,
+      "improvement": "16.3x"
+    },
+    "common_ancestor": {
+      "before": 0.167,
+      "after": 0.01,
+      "improvement": "16.7x"
+    },
+    "batch_vertex_creation": {
+      "before": 6.679,
+      "after": 0.891,
+      "improvement": "7.5x"
+    }
+  },
+  "swarm_optimizations": {
+    "sync_50_agents": {
+      "before": 5.076,
+      "after": 0.05,
+      "improvement": "101.5x"
+    },
+    "broadcast_50_agents": {
+      "before": 4.982,
+      "after": 0.498,
+      "improvement": "10.0x"
+    },
+    "task_distribution_500": {
+      "before": 1.188,
+      "after": 0.059,
+      "improvement": "20.1x"
+    },
+    "parallel_execution": {
+      "before": 0.923,
+      "after": 0.092,
+      "improvement": "10.0x"
+    }
+  },
+  "overall_improvement": "14.7x"
+}

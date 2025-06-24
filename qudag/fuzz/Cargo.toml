@@ -1,0 +1,85 @@
+[package]
+name = "qudag-fuzz"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+zeroize = { version = "1.7", features = ["zeroize_derive"] }
+tracing = "0.1"
+anyhow = "1.0"
+rayon = "1.7"
+subtle = "2.5"
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+bincode = "1.3"
+rand = "0.8"
+blake3 = "1.5"
+
+# Project dependencies - enabled for comprehensive fuzzing
+qudag-crypto = { path = "../core/crypto" }
+qudag-network = { path = "../core/network" }
+qudag-protocol = { path = "../core/protocol" }
+qudag-dag = { path = "../core/dag" }
+
+[[bin]]
+name = "crypto_fuzz"
+path = "fuzz_targets/crypto_fuzz.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "network_fuzz"
+path = "fuzz_targets/network_fuzz.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "protocol_fuzz"
+path = "fuzz_targets/protocol_fuzz.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "cli_fuzz"
+path = "fuzz_targets/cli_fuzz.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "input_validation_fuzz"
+path = "fuzz_targets/input_validation_fuzz.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "serialization_fuzz"
+path = "fuzz_targets/serialization_fuzz.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "dag_consensus_fuzz"
+path = "fuzz_targets/dag_consensus_fuzz.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "protocol_state_fuzz"
+path = "fuzz_targets/protocol_state_fuzz.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "validator_fuzz"
+path = "fuzz_targets/validator_fuzz.rs"
+test = false
+doc = false

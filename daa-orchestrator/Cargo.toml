@@ -1,0 +1,48 @@
+[package]
+name = "daa-orchestrator"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Orchestration layer for DAA system using QuDAG protocol Node"
+
+[dependencies]
+# Workspace dependencies
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+uuid.workspace = true
+tracing.workspace = true
+
+# QuDAG dependencies for orchestration
+qudag-crypto.workspace = true
+qudag-protocol = { workspace = true, optional = true }
+qudag-network = { workspace = true, optional = true }
+
+# DAA internal dependencies
+daa-chain = { workspace = true, optional = true }
+daa-economy = { workspace = true, optional = true }
+daa-rules = { workspace = true, optional = true }
+daa-ai = { workspace = true, optional = true }
+
+# Orchestration-specific dependencies
+async-trait = "0.1"
+futures = "0.3"
+hex.workspace = true
+
+[features]
+default = ["protocol", "network", "coordination"]
+protocol = ["qudag-protocol"]
+network = ["qudag-network"]
+coordination = []
+chain-integration = ["daa-chain"]
+economy-integration = ["daa-economy"]
+rules-integration = ["daa-rules"]
+ai-integration = ["daa-ai"]
+full = ["protocol", "coordination", "chain-integration", "economy-integration", "rules-integration", "ai-integration"]

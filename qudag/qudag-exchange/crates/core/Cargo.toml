@@ -1,0 +1,42 @@
+[package]
+name = "qudag-exchange-core"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "qudag_exchange_core"
+path = "src/lib.rs"
+
+[dependencies]
+qudag-crypto = { workspace = true }
+qudag-vault-core = { workspace = true }
+qudag-dag = { workspace = true }
+qudag-network = { workspace = true, optional = true }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }
+
+# For resource metering
+dashmap = "6.1"
+parking_lot = "0.12"
+
+[features]
+default = ["network"]
+network = ["dep:qudag-network"]
+wasm = []
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util", "macros", "rt-multi-thread"] }
+mockall = { workspace = true }
+proptest = { workspace = true }
+tempfile = "3.0"
+assert_cmd = { workspace = true }
+criterion = { workspace = true }
+bincode = { workspace = true }
+blake3 = { workspace = true }
+rand = "0.8"

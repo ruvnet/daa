@@ -1,0 +1,227 @@
+version: '3.8'
+
+services:
+  # QuDAG Node 1 - Bootstrap node
+  qudag-node-1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qudag-node-1
+    hostname: qudag-node-1
+    restart: unless-stopped
+    environment:
+      - NODE_ID=node-1
+      - QUDAG_P2P_PORT=4001
+      - QUDAG_RPC_PORT=8080
+      - QUDAG_METRICS_PORT=9090
+      - RUST_LOG=info,qudag=debug
+      - BOOTSTRAP_MODE=true
+    ports:
+      - "4001:4001"     # P2P
+      - "8080:8080"     # RPC
+      - "9090:9090"     # Metrics
+    volumes:
+      - node1-data:/data
+      - node1-config:/config
+      - node1-keys:/keys
+      - ./configs/node1.toml:/config/node.toml:ro
+    networks:
+      qudag-network:
+        ipv4_address: 172.20.0.10
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # QuDAG Node 2
+  qudag-node-2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qudag-node-2
+    hostname: qudag-node-2
+    restart: unless-stopped
+    depends_on:
+      - qudag-node-1
+    environment:
+      - NODE_ID=node-2
+      - QUDAG_P2P_PORT=4001
+      - QUDAG_RPC_PORT=8080
+      - QUDAG_METRICS_PORT=9090
+      - RUST_LOG=info
+      - BOOTSTRAP_PEERS=/dns4/qudag-node-1/tcp/4001
+    ports:
+      - "4002:4001"     # P2P
+      - "8081:8080"     # RPC
+      - "9091:9090"     # Metrics
+    volumes:
+      - node2-data:/data
+      - node2-config:/config
+      - node2-keys:/keys
+      - ./configs/node2.toml:/config/node.toml:ro
+    networks:
+      qudag-network:
+        ipv4_address: 172.20.0.11
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # QuDAG Node 3
+  qudag-node-3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qudag-node-3
+    hostname: qudag-node-3
+    restart: unless-stopped
+    depends_on:
+      - qudag-node-1
+    environment:
+      - NODE_ID=node-3
+      - QUDAG_P2P_PORT=4001
+      - QUDAG_RPC_PORT=8080
+      - QUDAG_METRICS_PORT=9090
+      - RUST_LOG=info
+      - BOOTSTRAP_PEERS=/dns4/qudag-node-1/tcp/4001
+    ports:
+      - "4003:4001"     # P2P
+      - "8082:8080"     # RPC
+      - "9092:9090"     # Metrics
+    volumes:
+      - node3-data:/data
+      - node3-config:/config
+      - node3-keys:/keys
+      - ./configs/node3.toml:/config/node.toml:ro
+    networks:
+      qudag-network:
+        ipv4_address: 172.20.0.12
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: qudag-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9093:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - qudag-network
+    depends_on:
+      - qudag-node-1
+      - qudag-node-2
+      - qudag-node-3
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: qudag-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    networks:
+      - qudag-network
+    depends_on:
+      - prometheus
+
+  # Redis for caching and pub/sub
+  redis:
+    image: redis:7-alpine
+    container_name: qudag-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass qudag_redis_password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - qudag-network
+
+  # PostgreSQL for persistent storage
+  postgres:
+    image: postgres:16-alpine
+    container_name: qudag-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=qudag
+      - POSTGRES_USER=qudag
+      - POSTGRES_PASSWORD=qudag_secure_password
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - qudag-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qudag"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # NGINX reverse proxy and load balancer
+  nginx:
+    image: nginx:alpine
+    container_name: qudag-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    networks:
+      - qudag-network
+    depends_on:
+      - qudag-node-1
+      - qudag-node-2
+      - qudag-node-3
+
+networks:
+  qudag-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  # Node data volumes
+  node1-data:
+  node1-config:
+  node1-keys:
+  node2-data:
+  node2-config:
+  node2-keys:
+  node3-data:
+  node3-config:
+  node3-keys:
+  
+  # Service volumes
+  prometheus-data:
+  grafana-data:
+  redis-data:
+  postgres-data:

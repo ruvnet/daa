@@ -1,0 +1,232 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "qudag-performance",
+    "title": "QuDAG Performance Monitoring",
+    "tags": ["qudag", "performance", "monitoring"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "5s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "type": "graph",
+        "title": "Message Throughput",
+        "targets": [
+          {
+            "expr": "rate(qudag_message_throughput_total[5m])",
+            "legendFormat": "{{node_id}} - {{message_type}} - {{direction}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "ops", "label": "Messages/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 2,
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "type": "graph",
+        "title": "Chunk Processing Performance",
+        "targets": [
+          {
+            "expr": "rate(qudag_chunks_processed_total[5m])",
+            "legendFormat": "{{node_id}} - {{message_type}}",
+            "refId": "A"
+          },
+          {
+            "expr": "avg(qudag_compression_ratio) by (node_id)",
+            "legendFormat": "Compression Ratio - {{node_id}}",
+            "refId": "B",
+            "yaxis": 2
+          }
+        ],
+        "yaxes": [
+          { "format": "ops", "label": "Chunks/sec" },
+          { "format": "percentunit", "label": "Compression Ratio" }
+        ]
+      },
+      {
+        "id": 3,
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "type": "graph",
+        "title": "Connection Pool Efficiency",
+        "targets": [
+          {
+            "expr": "rate(qudag_connection_pool_hits_total[5m]) / (rate(qudag_connection_pool_hits_total[5m]) + rate(qudag_connection_pool_misses_total[5m]))",
+            "legendFormat": "Hit Rate - {{node_id}} - {{pool_type}}",
+            "refId": "A"
+          },
+          {
+            "expr": "qudag_active_connections",
+            "legendFormat": "{{state}} connections - {{node_id}}",
+            "refId": "B",
+            "yaxis": 2
+          }
+        ],
+        "yaxes": [
+          { "format": "percentunit", "label": "Hit Rate", "min": 0, "max": 1 },
+          { "format": "short", "label": "Connection Count" }
+        ]
+      },
+      {
+        "id": 4,
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "type": "graph",
+        "title": "Validation Cache Performance",
+        "targets": [
+          {
+            "expr": "rate(qudag_validation_cache_hits_total[5m]) / (rate(qudag_validation_cache_hits_total[5m]) + rate(qudag_validation_cache_misses_total[5m]))",
+            "legendFormat": "Hit Rate - {{node_id}} - {{validation_type}}",
+            "refId": "A"
+          },
+          {
+            "expr": "qudag_cache_memory_bytes / 1024 / 1024",
+            "legendFormat": "Memory MB - {{node_id}} - {{cache_type}}",
+            "refId": "B",
+            "yaxis": 2
+          }
+        ],
+        "yaxes": [
+          { "format": "percentunit", "label": "Hit Rate", "min": 0, "max": 1 },
+          { "format": "decmbytes", "label": "Memory Usage" }
+        ]
+      },
+      {
+        "id": 5,
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+        "type": "graph",
+        "title": "Swarm Coordination Metrics",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(qudag_swarm_task_latency_seconds_bucket[5m]))",
+            "legendFormat": "P95 Latency - {{swarm_id}} - {{task_type}}",
+            "refId": "A"
+          },
+          {
+            "expr": "avg(qudag_agent_utilization_ratio) by (swarm_id, agent_type)",
+            "legendFormat": "Agent Utilization - {{swarm_id}} - {{agent_type}}",
+            "refId": "B",
+            "yaxis": 2
+          }
+        ],
+        "yaxes": [
+          { "format": "s", "label": "Task Latency" },
+          { "format": "percentunit", "label": "Utilization", "min": 0, "max": 1 }
+        ]
+      },
+      {
+        "id": 6,
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+        "type": "stat",
+        "title": "System Health",
+        "targets": [
+          {
+            "expr": "rate(qudag_errors_total[5m])",
+            "legendFormat": "Error Rate",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "background",
+          "orientation": "auto",
+          "reduceOptions": {
+            "calcs": ["lastNotNull"],
+            "fields": "",
+            "values": false
+          },
+          "textMode": "auto"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 0.01 },
+                { "color": "red", "value": 0.05 }
+              ]
+            },
+            "unit": "errors/sec"
+          }
+        }
+      },
+      {
+        "id": 7,
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+        "type": "gauge",
+        "title": "Resource Usage",
+        "targets": [
+          {
+            "expr": "avg(qudag_cpu_usage_percent)",
+            "legendFormat": "CPU Usage",
+            "refId": "A"
+          },
+          {
+            "expr": "(sum(qudag_system_memory_bytes{memory_type=\"used\"}) / sum(qudag_system_memory_bytes{memory_type=\"total\"})) * 100",
+            "legendFormat": "Memory Usage",
+            "refId": "B"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 100,
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 70 },
+                { "color": "red", "value": 90 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 8,
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 32 },
+        "type": "table",
+        "title": "Performance Baselines",
+        "targets": [
+          {
+            "expr": "avg_over_time(rate(qudag_message_throughput_total[5m])[1h:])",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showHeader": true,
+          "sortBy": [
+            {
+              "desc": true,
+              "displayName": "Value"
+            }
+          ]
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "displayMode": "auto"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

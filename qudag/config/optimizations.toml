@@ -1,0 +1,79 @@
+# QuDAG Optimization Configuration
+
+[global]
+# Enable all optimizations by default
+enable_optimizations = true
+
+[network.message_chunking]
+# Enable message chunking for large payloads
+enabled = true
+# Maximum chunk size in bytes (64KB)
+max_chunk_size = 65536
+# Maximum number of chunks per message
+max_chunks = 10000
+# Chunk timeout in seconds
+chunk_timeout = 30
+# Enable compression for chunks
+enable_compression = true
+# Minimum size for compression (bytes)
+compression_threshold = 1024
+# Compression level (1-22, higher = better compression but slower)
+compression_level = 3
+# LRU cache size for chunk reassembly
+cache_size = 1000
+
+[network.adaptive_batching]
+# Enable adaptive message batching
+enabled = true
+# Maximum batch size
+max_batch_size = 100
+# Batch timeout in milliseconds
+batch_timeout = 50
+# Adaptive algorithm
+algorithm = "exponential_backoff"
+
+[dag.validation_cache]
+# Enable validation caching
+enabled = true
+# Maximum cache entries
+max_entries = 100000
+# Cache entry TTL in seconds
+ttl = 3600
+# Enable batch validation
+enable_batch_validation = true
+# Batch size for validation
+batch_size = 100
+# Cache parent validation results
+cache_parent_validation = true
+
+[dag.traversal_index]
+# Enable traversal indexing
+enabled = true
+# Common ancestor cache size
+common_ancestor_cache_size = 10000
+# Path cache size
+path_cache_size = 1000
+# Enable graph algorithms
+enable_graph_algorithms = true
+
+[swarm.async_coordination]
+# Enable async swarm coordination
+enabled = true
+# Maximum agents per coordinator
+max_agents_per_coordinator = 10
+# Hierarchy depth
+max_hierarchy_depth = 3
+# Communication timeout in seconds
+communication_timeout = 5
+# Task distribution strategy
+distribution_strategy = "load_balanced"
+# Enable work stealing
+enable_work_stealing = true
+# Heartbeat interval in seconds
+heartbeat_interval = 10
+
+# Environment variable overrides
+# All settings can be overridden with environment variables:
+# QUDAG_NETWORK_MESSAGE_CHUNKING_ENABLED=true
+# QUDAG_DAG_VALIDATION_CACHE_MAX_ENTRIES=200000
+# QUDAG_SWARM_ASYNC_COORDINATION_MAX_AGENTS=20

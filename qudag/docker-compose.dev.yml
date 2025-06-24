@@ -1,0 +1,188 @@
+version: '3.8'
+
+services:
+  # Development container with hot reloading
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: qudag-dev
+    hostname: qudag-dev
+    stdin_open: true
+    tty: true
+    environment:
+      - RUST_LOG=debug,qudag=trace
+      - RUST_BACKTRACE=full
+      - CARGO_TERM_COLOR=always
+      - CARGO_TARGET_DIR=/tmp/target
+    volumes:
+      - .:/workspace:cached
+      - cargo-cache:/home/developer/.cargo
+      - target-cache:/tmp/target
+    ports:
+      - "4001:4001"     # P2P
+      - "8080:8080"     # RPC
+      - "9090:9090"     # Metrics
+      - "3000:3000"     # Debug server
+    networks:
+      - qudag-dev
+    command: |
+      bash -c "
+        cd /workspace
+        cargo watch -x 'run -- start --dev'
+      "
+
+  # Test node for integration testing
+  test-node:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qudag-test-node
+    hostname: qudag-test-node
+    environment:
+      - NODE_ID=test-node
+      - RUST_LOG=debug
+      - TEST_MODE=true
+    ports:
+      - "4002:4001"
+      - "8081:8080"
+      - "9091:9090"
+    volumes:
+      - test-data:/data
+      - test-config:/config
+      - test-keys:/keys
+    networks:
+      - qudag-dev
+
+  # Jaeger for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: qudag-jaeger
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+    ports:
+      - "5775:5775/udp"
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      - "5778:5778"
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"
+      - "14250:14250"
+      - "9411:9411"
+    networks:
+      - qudag-dev
+
+  # Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: qudag-prometheus-dev
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+      - '--log.level=debug'
+    ports:
+      - "9093:9090"
+    volumes:
+      - ./monitoring/prometheus-dev.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-dev-data:/prometheus
+    networks:
+      - qudag-dev
+
+  # Grafana with pre-configured dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: qudag-grafana-dev
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_LOG_LEVEL=debug
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource,grafana-piechart-panel
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./monitoring/grafana-dev:/etc/grafana/provisioning:ro
+      - grafana-dev-data:/var/lib/grafana
+    networks:
+      - qudag-dev
+
+  # Redis for development
+  redis:
+    image: redis:7-alpine
+    container_name: qudag-redis-dev
+    command: redis-server --loglevel debug
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-dev-data:/data
+    networks:
+      - qudag-dev
+
+  # PostgreSQL for development
+  postgres:
+    image: postgres:16-alpine
+    container_name: qudag-postgres-dev
+    environment:
+      - POSTGRES_DB=qudag_dev
+      - POSTGRES_USER=developer
+      - POSTGRES_PASSWORD=dev_password
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+      - ./init-dev.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - qudag-dev
+
+  # Adminer for database management
+  adminer:
+    image: adminer:latest
+    container_name: qudag-adminer
+    ports:
+      - "8082:8080"
+    networks:
+      - qudag-dev
+    depends_on:
+      - postgres
+
+  # MailHog for email testing
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: qudag-mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - qudag-dev
+
+  # Documentation server
+  docs:
+    image: nginx:alpine
+    container_name: qudag-docs
+    ports:
+      - "8083:80"
+    volumes:
+      - ./docs:/usr/share/nginx/html:ro
+    networks:
+      - qudag-dev
+
+networks:
+  qudag-dev:
+    driver: bridge
+
+volumes:
+  # Development volumes
+  cargo-cache:
+  target-cache:
+  
+  # Test volumes
+  test-data:
+  test-config:
+  test-keys:
+  
+  # Service volumes
+  prometheus-dev-data:
+  grafana-dev-data:
+  redis-dev-data:
+  postgres-dev-data:

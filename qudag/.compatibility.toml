@@ -1,0 +1,130 @@
+# QuDAG Protocol Compatibility Testing Configuration
+
+[rust_versions]
+# Minimum Supported Rust Version (MSRV)
+msrv = "1.70.0"
+
+# Supported versions for testing
+supported = [
+    "1.70.0",
+    "1.75.0", 
+    "1.80.0",
+    "stable",
+    "beta"
+]
+
+# Optional versions (may not always be available)
+optional = [
+    "nightly"
+]
+
+[target_platforms]
+# Tier 1 platforms (must work)
+tier1 = [
+    "x86_64-unknown-linux-gnu",
+    "x86_64-pc-windows-msvc",
+    "x86_64-apple-darwin"
+]
+
+# Tier 2 platforms (should work)
+tier2 = [
+    "x86_64-unknown-linux-musl",
+    "aarch64-unknown-linux-gnu",
+    "aarch64-apple-darwin"
+]
+
+# Experimental platforms (nice to have)
+experimental = [
+    "wasm32-unknown-unknown",
+    "riscv64gc-unknown-linux-gnu",
+    "armv7-unknown-linux-gnueabihf"
+]
+
+[features]
+# Feature combinations to test
+combinations = [
+    { name = "default", flags = [] },
+    { name = "minimal", flags = ["--no-default-features"] },
+    { name = "full", flags = ["--all-features"] }
+]
+
+# Per-crate feature testing
+[features.crypto]
+# Crypto-specific feature combinations
+combinations = [
+    { name = "default", flags = [] },
+    { name = "no-std", flags = ["--no-default-features", "--features=no-std"] },
+    { name = "full", flags = ["--all-features"] }
+]
+
+[features.network]
+# Network-specific feature combinations  
+combinations = [
+    { name = "default", flags = [] },
+    { name = "minimal", flags = ["--no-default-features"] },
+    { name = "full", flags = ["--all-features"] }
+]
+
+[workspace]
+# Workspace members to test
+members = [
+    "core/crypto",
+    "core/dag", 
+    "core/network",
+    "core/protocol",
+    "tools/cli",
+    "tools/simulator",
+    "benchmarks"
+]
+
+# Dependencies that should be tested with minimal versions
+[dependencies.minimal_versions]
+enable = true
+toolchain = "nightly"
+
+[compiler_flags]
+# Security-hardened compiler flags to test
+security = [
+    "-C overflow-checks=on",
+    "-C debug-assertions=on",
+    "-F warnings",
+    "-D unsafe_code"  # Deny unsafe code where applicable
+]
+
+# Different optimization levels to test
+optimization = ["0", "1", "2", "3", "s", "z"]
+
+[no_std]
+# Crates that should support no_std
+compatible_crates = [
+    "core/crypto"
+]
+
+# Test configurations for no_std
+test_targets = [
+    "thumbv7em-none-eabihf",  # ARM Cortex-M4
+    "riscv32i-unknown-none-elf" # RISC-V embedded
+]
+
+[documentation]
+# Documentation generation settings
+generate_docs = true
+check_links = true
+all_features = true
+
+[benchmarks]
+# Benchmark compilation testing
+compile_only = true
+exclude_slow = true
+
+[matrix_testing]
+# Enable comprehensive matrix testing
+enable = true
+max_combinations = 100  # Limit to prevent excessive testing
+
+# Critical combinations that must always work
+critical_combinations = [
+    { rust = "stable", target = "x86_64-unknown-linux-gnu", features = "default" },
+    { rust = "stable", target = "x86_64-pc-windows-msvc", features = "default" },
+    { rust = "stable", target = "x86_64-apple-darwin", features = "default" }
+]

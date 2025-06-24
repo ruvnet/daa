@@ -1,0 +1,105 @@
+# Fly.io Configuration for QuDAG Full Exchange Node
+# This is a complete Exchange node supporting all rUv token operations
+
+app = "qudag-testnet-exchange-full"
+primary_region = "yul"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  # Node Configuration
+  NODE_ID = "exchange-full-node"
+  NODE_TYPE = "full"
+  NETWORK_MODE = "testnet"
+  
+  # Bootstrap Configuration
+  BOOTSTRAP_PEERS = "bootstrap-node.internal:4001"
+  
+  # Exchange Configuration
+  QUDAG_EXCHANGE_ENABLED = "true"
+  EXCHANGE_GENESIS = "false"
+  EXCHANGE_NODE_TYPE = "full"
+  
+  # Fee Model Configuration (inherited from bootstrap)
+  FEE_MODEL_ENABLED = "true"
+  FEE_SYNC_WITH_NETWORK = "true"
+  
+  # Immutable Deployment Configuration
+  IMMUTABLE_DEPLOYMENT = "false"
+  IMMUTABLE_FOLLOW_NETWORK = "true"
+  
+  # Exchange Features
+  ENABLE_EXCHANGE_VALIDATION = "true"
+  ENABLE_AGENT_VERIFICATION = "true"
+  ENABLE_FEE_CALCULATION = "true"
+  
+  # API Configuration
+  ENABLE_EXCHANGE_API = "true"
+  EXCHANGE_API_PORT = "8081"
+  
+  # Performance Tuning
+  EXCHANGE_CACHE_SIZE = "512MB"
+  MAX_TRANSACTION_BATCH_SIZE = "1000"
+  
+  # Logging and Monitoring
+  RUST_LOG = "info,qudag_exchange=debug"
+
+# QuDAG DAG and consensus data
+[[mounts]]
+  destination = "/data"
+  source = "qudag_data"
+
+# Exchange ledger and transaction data
+[[mounts]]
+  destination = "/exchange"
+  source = "exchange_data"
+
+# Cryptographic keys (separate volume for security)
+[[mounts]]
+  destination = "/keys"
+  source = "exchange_keys"
+
+# P2P Networking (libp2p)
+[[services]]
+  internal_port = 4001
+  protocol = "tcp"
+  
+  [[services.ports]]
+    port = 4001
+
+# QuDAG Node RPC API
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+  
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+# Exchange API
+[[services]]
+  internal_port = 8081
+  protocol = "tcp"
+  
+  [[services.ports]]
+    port = 8081
+    handlers = ["http"]
+
+# Metrics and Monitoring
+[[services]]
+  internal_port = 9090
+  protocol = "tcp"
+  
+  [[services.ports]]
+    port = 9090
+
+[experimental]
+  cmd = ["./qudag", "start", "--config", "/config/full-node.toml", "--enable-exchange"]
+
+[deploy]
+  release_command = "./qudag exchange sync-with-network"

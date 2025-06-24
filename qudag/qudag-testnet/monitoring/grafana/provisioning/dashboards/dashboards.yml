@@ -1,0 +1,15 @@
+# Grafana Dashboard Provisioning Configuration
+
+apiVersion: 1
+
+providers:
+  - name: 'QuDAG Dashboards'
+    orgId: 1
+    folder: 'QuDAG Testnet'
+    folderUid: 'qudag-testnet'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards

@@ -1,0 +1,47 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+  external_labels:
+    monitor: 'qudag-monitor'
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+rule_files:
+  - "alerts.yml"
+
+scrape_configs:
+  # QuDAG application metrics
+  - job_name: 'qudag'
+    static_configs:
+      - targets: ['host.docker.internal:9090']
+        labels:
+          group: 'production'
+    scrape_interval: 5s
+    scrape_timeout: 5s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node exporter for system metrics
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          group: 'production'
+
+  # Additional QuDAG nodes (scale as needed)
+  - job_name: 'qudag-cluster'
+    static_configs:
+      - targets: 
+          - 'qudag-node1:9090'
+          - 'qudag-node2:9090'
+          - 'qudag-node3:9090'
+        labels:
+          cluster: 'main'
+    scrape_interval: 5s

@@ -1,0 +1,76 @@
+# Ultra-minimal Alpine-based QuDAG node
+# Stage 1: Build in Alpine
+FROM rust:1.75-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache \
+    musl-dev \
+    openssl-dev \
+    pkgconfig \
+    cmake \
+    make \
+    g++ \
+    git
+
+# Set up static linking
+ENV RUSTFLAGS="-C target-feature=-crt-static"
+ENV OPENSSL_STATIC=1
+ENV OPENSSL_LIB_DIR=/usr/lib
+ENV OPENSSL_INCLUDE_DIR=/usr/include
+
+WORKDIR /qudag
+
+# Copy workspace files
+COPY Cargo.toml Cargo.lock ./
+COPY core/ ./core/
+COPY cli-standalone/ ./cli-standalone/
+COPY qudag/ ./qudag/
+COPY benchmarks/ ./benchmarks/
+COPY tools/ ./tools/
+
+# Build statically linked binary
+RUN cargo build --release --target x86_64-unknown-linux-musl --bin qudag --features "cli full"
+
+# Stage 2: Minimal runtime
+FROM alpine:3.19
+
+# Install only essential runtime dependencies
+RUN apk add --no-cache \
+    ca-certificates \
+    libgcc \
+    libstdc++ \
+    tini
+
+# Create non-root user
+RUN adduser -D -u 1000 -g 1000 -s /bin/sh qudag
+
+# Copy binary from builder
+COPY --from=builder /qudag/target/x86_64-unknown-linux-musl/release/qudag /usr/local/bin/qudag
+
+# Create data directories
+RUN mkdir -p /data /config /keys && \
+    chown -R qudag:qudag /data /config /keys
+
+# Switch to non-root user
+USER qudag
+
+# Environment
+ENV QUDAG_DATA_DIR=/data
+ENV QUDAG_CONFIG_DIR=/config
+ENV RUST_LOG=info
+
+# Expose ports
+EXPOSE 4001 8080 9090
+
+# Use tini for proper signal handling
+ENTRYPOINT ["/sbin/tini", "--"]
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD qudag status || exit 1
+
+# Volumes
+VOLUME ["/data", "/config", "/keys"]
+
+# Default command
+CMD ["qudag", "start", "--config", "/config/node.toml"]

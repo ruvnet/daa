@@ -1,0 +1,1 @@
+//! Zero-knowledge proof stub - to be implemented by Core Implementation Agent

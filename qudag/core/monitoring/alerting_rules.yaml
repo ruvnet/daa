@@ -1,0 +1,175 @@
+groups:
+  - name: qudag_performance
+    interval: 30s
+    rules:
+      # Message throughput alerts
+      - alert: LowMessageThroughput
+        expr: rate(qudag_message_throughput_total[5m]) < 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low message throughput on node {{ $labels.node_id }}"
+          description: "Message throughput is {{ $value }} messages/sec, below threshold of 10/sec"
+      
+      - alert: MessageProcessingStalled
+        expr: rate(qudag_message_throughput_total[5m]) == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Message processing stalled on node {{ $labels.node_id }}"
+          description: "No messages processed in the last 2 minutes"
+      
+      # Chunking performance alerts
+      - alert: HighChunkingLatency
+        expr: histogram_quantile(0.95, rate(qudag_chunking_duration_seconds_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High chunking latency on node {{ $labels.node_id }}"
+          description: "95th percentile chunking latency is {{ $value }}s, above threshold of 0.5s"
+      
+      - alert: LowCompressionRatio
+        expr: avg(qudag_compression_ratio) < 0.5
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Low compression ratio on node {{ $labels.node_id }}"
+          description: "Average compression ratio is {{ $value }}, may need optimization"
+      
+      # Connection pool alerts
+      - alert: LowConnectionPoolHitRate
+        expr: |
+          rate(qudag_connection_pool_hits_total[5m]) / 
+          (rate(qudag_connection_pool_hits_total[5m]) + rate(qudag_connection_pool_misses_total[5m])) < 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low connection pool hit rate on {{ $labels.node_id }}"
+          description: "Connection pool hit rate is {{ $value }}, below threshold of 80%"
+      
+      - alert: ConnectionPoolExhausted
+        expr: qudag_active_connections{state="idle"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Connection pool exhausted on {{ $labels.node_id }}"
+          description: "No idle connections available in pool {{ $labels.pool_type }}"
+      
+      # Cache performance alerts
+      - alert: LowCacheHitRate
+        expr: |
+          rate(qudag_validation_cache_hits_total[5m]) / 
+          (rate(qudag_validation_cache_hits_total[5m]) + rate(qudag_validation_cache_misses_total[5m])) < 0.7
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low cache hit rate for {{ $labels.validation_type }} on {{ $labels.node_id }}"
+          description: "Cache hit rate is {{ $value }}, below threshold of 70%"
+      
+      - alert: HighCacheMemoryUsage
+        expr: qudag_cache_memory_bytes > 1073741824  # 1GB
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High cache memory usage on {{ $labels.node_id }}"
+          description: "Cache {{ $labels.cache_type }} using {{ humanize $value }} of memory"
+      
+      - alert: FrequentCacheEvictions
+        expr: rate(qudag_cache_evictions_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "Frequent cache evictions on {{ $labels.node_id }}"
+          description: "Cache {{ $labels.cache_type }} evicting {{ $value }} entries/sec"
+      
+      # Swarm coordination alerts
+      - alert: HighSwarmTaskLatency
+        expr: histogram_quantile(0.95, rate(qudag_swarm_task_latency_seconds_bucket[5m])) > 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High task latency in swarm {{ $labels.swarm_id }}"
+          description: "95th percentile task latency is {{ $value }}s, above threshold of 30s"
+      
+      - alert: LowAgentUtilization
+        expr: avg(qudag_agent_utilization_ratio) by (swarm_id) < 0.3
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Low agent utilization in swarm {{ $labels.swarm_id }}"
+          description: "Average agent utilization is {{ $value }}, agents may be underutilized"
+      
+      - alert: HighSwarmQueueDepth
+        expr: sum(qudag_swarm_queue_depth) by (swarm_id) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High queue depth in swarm {{ $labels.swarm_id }}"
+          description: "Queue depth is {{ $value }}, may need more agents"
+      
+      # System health alerts
+      - alert: HighErrorRate
+        expr: rate(qudag_errors_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate on {{ $labels.node_id }}"
+          description: "Error rate is {{ $value }} errors/sec in component {{ $labels.component }}"
+      
+      - alert: HighCPUUsage
+        expr: avg(qudag_cpu_usage_percent) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.node_id }}"
+          description: "CPU usage is {{ $value }}%, above threshold of 80%"
+      
+      - alert: HighMemoryUsage
+        expr: |
+          (sum(qudag_system_memory_bytes{memory_type="used"}) by (node_id) / 
+           sum(qudag_system_memory_bytes{memory_type="total"}) by (node_id)) > 0.9
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High memory usage on {{ $labels.node_id }}"
+          description: "Memory usage is {{ $value | humanizePercentage }}, above threshold of 90%"
+      
+      # Performance regression alerts
+      - alert: MessageThroughputRegression
+        expr: |
+          (avg_over_time(rate(qudag_message_throughput_total[5m])[1h:]) - 
+           avg_over_time(rate(qudag_message_throughput_total[5m])[1h:] offset 1d)) / 
+           avg_over_time(rate(qudag_message_throughput_total[5m])[1h:] offset 1d) < -0.2
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Message throughput regression detected on {{ $labels.node_id }}"
+          description: "Throughput decreased by {{ $value | humanizePercentage }} compared to yesterday"
+      
+      - alert: LatencyRegression
+        expr: |
+          (histogram_quantile(0.95, rate(qudag_swarm_task_latency_seconds_bucket[5m])) - 
+           histogram_quantile(0.95, rate(qudag_swarm_task_latency_seconds_bucket[5m]) offset 1d)) / 
+           histogram_quantile(0.95, rate(qudag_swarm_task_latency_seconds_bucket[5m]) offset 1d) > 0.3
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Task latency regression in swarm {{ $labels.swarm_id }}"
+          description: "Latency increased by {{ $value | humanizePercentage }} compared to yesterday"

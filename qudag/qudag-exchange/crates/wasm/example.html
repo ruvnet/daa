@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>QuDAG Exchange WASM Example</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        input {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .output {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .ruv {
+            color: #28a745;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>QuDAG Exchange WASM Demo</h1>
+        <p>Quantum-secure resource exchange with <span class="ruv">rUv</span> (Resource Utilization Vouchers)</p>
+        
+        <div class="section">
+            <h2>Create Account</h2>
+            <input type="text" id="accountName" placeholder="Account name">
+            <button onclick="createAccount()">Create Account</button>
+            <div id="accountOutput" class="output"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Check Balance</h2>
+            <input type="text" id="balanceAccount" placeholder="Account ID">
+            <button onclick="checkBalance()">Check Balance</button>
+            <div id="balanceOutput" class="output"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Transfer rUv</h2>
+            <input type="text" id="fromAccount" placeholder="From account">
+            <input type="text" id="toAccount" placeholder="To account">
+            <input type="number" id="amount" placeholder="Amount">
+            <button onclick="transfer()">Transfer</button>
+            <div id="transferOutput" class="output"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Resource Costs</h2>
+            <button onclick="showCosts()">Show Costs</button>
+            <div id="costsOutput" class="output"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import init, { QuDAGExchange, version, log } from './pkg-web/qudag_exchange_wasm.js';
+        
+        let exchange;
+        
+        async function run() {
+            await init();
+            
+            exchange = new QuDAGExchange();
+            window.exchange = exchange; // Make available globally
+            
+            log("QuDAG Exchange WASM initialized");
+            console.log("Version:", version());
+        }
+        
+        window.createAccount = async function() {
+            const name = document.getElementById('accountName').value;
+            if (!name) {
+                alert('Please enter an account name');
+                return;
+            }
+            
+            try {
+                const account = await exchange.create_account(name);
+                document.getElementById('accountOutput').textContent = 
+                    `Account created!\nID: ${account.id}\nPublic Key: ${account.public_key}\nInitial Balance: ${account.balance} rUv`;
+            } catch (e) {
+                document.getElementById('accountOutput').textContent = `Error: ${e}`;
+            }
+        };
+        
+        window.checkBalance = async function() {
+            const accountId = document.getElementById('balanceAccount').value;
+            if (!accountId) {
+                alert('Please enter an account ID');
+                return;
+            }
+            
+            try {
+                const balance = await exchange.get_balance(accountId);
+                document.getElementById('balanceOutput').textContent = 
+                    `Balance: ${balance} rUv`;
+            } catch (e) {
+                document.getElementById('balanceOutput').textContent = `Error: ${e}`;
+            }
+        };
+        
+        window.transfer = async function() {
+            const from = document.getElementById('fromAccount').value;
+            const to = document.getElementById('toAccount').value;
+            const amount = parseInt(document.getElementById('amount').value);
+            
+            if (!from || !to || !amount) {
+                alert('Please fill all fields');
+                return;
+            }
+            
+            try {
+                const tx = await exchange.transfer(from, to, amount);
+                document.getElementById('transferOutput').textContent = 
+                    `Transfer submitted!\nTransaction ID: ${tx.id}\nFrom: ${tx.from}\nTo: ${tx.to}\nAmount: ${tx.amount} rUv\nStatus: ${tx.status}`;
+            } catch (e) {
+                document.getElementById('transferOutput').textContent = `Error: ${e}`;
+            }
+        };
+        
+        window.showCosts = function() {
+            try {
+                const costs = exchange.get_resource_costs();
+                document.getElementById('costsOutput').textContent = 
+                    JSON.stringify(costs, null, 2);
+            } catch (e) {
+                document.getElementById('costsOutput').textContent = `Error: ${e}`;
+            }
+        };
+        
+        run();
+    </script>
+</body>
+</html>

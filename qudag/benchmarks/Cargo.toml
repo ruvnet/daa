@@ -1,0 +1,37 @@
+[package]
+name = "qudag-benchmarks"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+rand.workspace = true
+metrics.workspace = true
+bincode.workspace = true
+qudag-protocol = { path = "../core/protocol" }
+qudag-simulator = { path = "../tools/simulator" }
+criterion.workspace = true
+
+[dev-dependencies]
+
+[[bench]]
+name = "system_benchmarks"
+harness = false
+
+[[bench]]
+name = "dark_addressing_benchmarks"
+harness = false
+
+[[bench]]
+name = "memory_benchmarks"
+harness = false

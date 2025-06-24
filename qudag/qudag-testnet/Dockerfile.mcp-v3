@@ -1,0 +1,68 @@
+# QuDAG MCP Node v3 with Enhanced HTTP/2 Support
+FROM rust:1.75-slim
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    openssl \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+WORKDIR /app
+
+# Copy the enhanced MCP node v3 configuration
+COPY configs/qudag-mcp-node-v3.rs src/main.rs
+
+# Create a basic Cargo.toml for compilation
+RUN echo '[package]' > Cargo.toml && \
+    echo 'name = "qudag-mcp-node-v3"' >> Cargo.toml && \
+    echo 'version = "1.0.0"' >> Cargo.toml && \
+    echo 'edition = "2021"' >> Cargo.toml && \
+    echo '' >> Cargo.toml && \
+    echo '[dependencies]' >> Cargo.toml && \
+    echo 'serde = { version = "1.0", features = ["derive"] }' >> Cargo.toml && \
+    echo 'serde_json = "1.0"' >> Cargo.toml && \
+    echo 'fastrand = "2.0"' >> Cargo.toml
+
+# Build the enhanced MCP node v3
+RUN cargo build --release
+
+# Runtime stage
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create runtime directory
+RUN mkdir -p /data/qudag
+
+# Copy binary from build stage
+COPY --from=0 /app/target/release/qudag-mcp-node-v3 /usr/local/bin/qudag-mcp-node
+
+# Create a basic config file
+RUN echo 'node_name = "qudag-mcp-node"' > /data/qudag/config.toml
+
+# Expose ports
+# P2P port
+EXPOSE 4001
+# HTTP/API port (with integrated MCP and HTTP/2 support)
+EXPOSE 8080
+# Metrics port
+EXPOSE 9090
+
+# Set environment variables
+ENV QUDAG_NODE_NAME=mcp-node-v3
+ENV QUDAG_NETWORK_ID=qudag-testnet
+ENV QUDAG_P2P_PORT=4001
+ENV QUDAG_RPC_PORT=8080
+ENV QUDAG_METRICS_PORT=9090
+ENV QUDAG_IS_BOOTSTRAP=true
+ENV QUDAG_BOOTSTRAP_PEERS=/dns4/qudag-testnet-node1.fly.dev/tcp/4001,/dns4/qudag-testnet-node2.fly.dev/tcp/4001,/dns4/qudag-testnet-node3.fly.dev/tcp/4001,/dns4/qudag-testnet-node4.fly.dev/tcp/4001
+
+# Run the MCP node v3
+CMD ["/usr/local/bin/qudag-mcp-node", "--config", "/data/qudag/config.toml"]

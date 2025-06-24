@@ -1,0 +1,66 @@
+# QuDAG Node 1 Configuration - Toronto (Bootstrap Node)
+
+[node]
+name = "toronto-node"
+role = "validator"
+is_bootstrap = true
+
+[network]
+network_id = "qudag-testnet"
+listen_address = "/ip4/0.0.0.0/tcp/4001"
+external_address = "/dns4/qudag-testnet-node1.fly.dev/tcp/4001"
+enable_mdns = false
+enable_relay = true
+enable_autonat = true
+enable_identify = true
+enable_ping = true
+
+[p2p]
+max_peers = 50
+min_peers = 3
+peer_grace_period = "30s"
+connection_timeout = "10s"
+dial_timeout = "5s"
+
+[dark_domain]
+enabled = true
+registration_fee = 100
+min_length = 3
+max_length = 63
+namespace = "testnet"
+
+[consensus]
+type = "dag"
+block_time = "5s"
+max_block_size = 1048576
+min_validators = 3
+
+[storage]
+type = "rocksdb"
+path = "/data/qudag/db"
+cache_size = 1073741824
+compression = "snappy"
+
+[rpc]
+enabled = true
+address = "0.0.0.0:8080"
+max_connections = 100
+rate_limit = 100
+cors_origins = ["*"]
+
+[metrics]
+enabled = true
+address = "0.0.0.0:9090"
+namespace = "qudag"
+
+[logging]
+level = "info"
+format = "json"
+output = "stdout"
+
+[security]
+enable_tls = true
+tls_cert_path = "/data/qudag/tls/cert.pem"
+tls_key_path = "/data/qudag/tls/key.pem"
+enable_auth = true
+auth_type = "token"

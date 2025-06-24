@@ -1,0 +1,51 @@
+[package]
+name = "qudag-protocol"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+description = "Protocol implementation for QuDAG - Orchestrates crypto, DAG, and network components"
+documentation = "https://docs.rs/qudag-protocol"
+readme = "README.md"
+keywords = ["protocol", "distributed-systems", "coordination", "state-machine"]
+categories = ["network-programming"]
+
+[dependencies]
+thiserror.workspace = true
+tracing.workspace = true
+serde.workspace = true
+tokio.workspace = true
+futures.workspace = true
+serde_json.workspace = true
+parking_lot.workspace = true
+blake3.workspace = true
+uuid.workspace = true
+bincode.workspace = true
+rand.workspace = true
+metrics.workspace = true
+anyhow.workspace = true
+
+# Additional dependencies
+async-trait = "0.1"
+toml = "0.8"
+hex = "0.4"
+dashmap = "6.1"
+libp2p = "0.53"
+
+# Database dependencies
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite"] }
+rocksdb = { version = "0.22", optional = true }
+
+# Inter-crate dependencies
+qudag-crypto = { path = "../crypto" }
+qudag-dag = { path = "../dag" }
+qudag-network = { path = "../network" }
+
+[features]
+default = []
+rocksdb = ["dep:rocksdb"]
+
+[dev-dependencies]
+proptest.workspace = true
+tempfile = "3.0"

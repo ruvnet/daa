@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuDAG WASM Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .demo-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .output {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            margin-top: 10px;
+            min-height: 50px;
+        }
+        input {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 200px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <h1>QuDAG WASM Demo</h1>
+    <div id="status" class="status">Initializing WASM module...</div>
+
+    <div class="demo-section">
+        <h2>Cryptography</h2>
+        <button onclick="generateKeys()">Generate ML-DSA Keys</button>
+        <button onclick="signMessage()">Sign Message</button>
+        <button onclick="hashData()">Hash with BLAKE3</button>
+        <div id="crypto-output" class="output"></div>
+    </div>
+
+    <div class="demo-section">
+        <h2>Dark Addressing</h2>
+        <input type="text" id="domain-input" placeholder="mydomain.dark">
+        <button onclick="registerDomain()">Register Domain</button>
+        <button onclick="resolveDomain()">Resolve Domain</button>
+        <button onclick="generateShadow()">Generate Shadow Address</button>
+        <div id="address-output" class="output"></div>
+    </div>
+
+    <div class="demo-section">
+        <h2>DAG Operations</h2>
+        <button onclick="getDagStats()">Get DAG Stats</button>
+        <button onclick="addVertex()">Add Vertex</button>
+        <button onclick="getConsensusMetrics()">Get Consensus Metrics</button>
+        <div id="dag-output" class="output"></div>
+    </div>
+
+    <div class="demo-section">
+        <h2>Network</h2>
+        <input type="text" id="peer-input" placeholder="/ip4/127.0.0.1/tcp/8000">
+        <button onclick="addPeer()">Add Peer</button>
+        <button onclick="listPeers()">List Peers</button>
+        <button onclick="getNetworkStats()">Network Stats</button>
+        <div id="network-output" class="output"></div>
+    </div>
+
+    <div class="demo-section">
+        <h2>Password Vault</h2>
+        <button onclick="initVault()">Initialize Vault</button>
+        <button onclick="generatePassword()">Generate Password</button>
+        <button onclick="addVaultEntry()">Add Entry</button>
+        <button onclick="listVaultEntries()">List Entries</button>
+        <div id="vault-output" class="output"></div>
+    </div>
+
+    <script type="module">
+        import init, {
+            QuDAGClient,
+            WasmMlDsaKeyPair,
+            WasmMlKem768,
+            WasmHasher,
+            WasmDarkResolver,
+            WasmDag,
+            WasmConsensus,
+            WasmNetworkManager,
+            WasmVault,
+            log,
+            Performance,
+            Encoding,
+            Validation
+        } from '../pkg/qudag_wasm.js';
+
+        let client, resolver, dag, consensus, network, vault;
+        let currentKeypair;
+
+        async function initialize() {
+            try {
+                await init();
+                
+                // Initialize components
+                client = new QuDAGClient();
+                resolver = new WasmDarkResolver();
+                dag = new WasmDag();
+                consensus = new WasmConsensus();
+                network = new WasmNetworkManager();
+                vault = new WasmVault();
+                
+                const version = QuDAGClient.getVersion();
+                const hasVault = QuDAGClient.hasFeature('vault');
+                
+                updateStatus(`QuDAG WASM v${version} initialized successfully! Vault support: ${hasVault}`, 'success');
+                
+                // Make functions available globally
+                window.generateKeys = generateKeys;
+                window.signMessage = signMessage;
+                window.hashData = hashData;
+                window.registerDomain = registerDomain;
+                window.resolveDomain = resolveDomain;
+                window.generateShadow = generateShadow;
+                window.getDagStats = getDagStats;
+                window.addVertex = addVertex;
+                window.getConsensusMetrics = getConsensusMetrics;
+                window.addPeer = addPeer;
+                window.listPeers = listPeers;
+                window.getNetworkStats = getNetworkStats;
+                window.initVault = initVault;
+                window.generatePassword = generatePassword;
+                window.addVaultEntry = addVaultEntry;
+                window.listVaultEntries = listVaultEntries;
+                
+            } catch (error) {
+                updateStatus(`Failed to initialize: ${error.message}`, 'error');
+            }
+        }
+
+        function updateStatus(message, type = 'success') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+
+        function updateOutput(elementId, content) {
+            document.getElementById(elementId).textContent = 
+                typeof content === 'object' ? JSON.stringify(content, null, 2) : content;
+        }
+
+        // Cryptography functions
+        async function generateKeys() {
+            try {
+                const start = Performance.now();
+                currentKeypair = new WasmMlDsaKeyPair();
+                const publicKey = currentKeypair.getPublicKey();
+                const duration = Performance.measure('Key generation', start);
+                
+                updateOutput('crypto-output', {
+                    publicKey: Encoding.bytesToHex(publicKey).substring(0, 64) + '...',
+                    publicKeySize: publicKey.length,
+                    duration: `${duration}ms`
+                });
+            } catch (error) {
+                updateOutput('crypto-output', `Error: ${error.message}`);
+            }
+        }
+
+        async function signMessage() {
+            try {
+                if (!currentKeypair) {
+                    await generateKeys();
+                }
+                
+                const message = Encoding.stringToBytes("Hello, QuDAG!");
+                const signature = currentKeypair.sign(message);
+                
+                updateOutput('crypto-output', {
+                    message: "Hello, QuDAG!",
+                    signature: Encoding.bytesToHex(signature).substring(0, 64) + '...',
+                    signatureSize: signature.length
+                });
+            } catch (error) {
+                updateOutput('crypto-output', `Error: ${error.message}`);
+            }
+        }
+
+        async function hashData() {
+            try {
+                const data = Encoding.stringToBytes("QuDAG WASM Demo");
+                const hash = WasmHasher.hashBlake3(data);
+                const hashHex = WasmHasher.hashBlake3Hex(data);
+                
+                updateOutput('crypto-output', {
+                    data: "QuDAG WASM Demo",
+                    hash: hashHex,
+                    hashSize: hash.length
+                });
+            } catch (error) {
+                updateOutput('crypto-output', `Error: ${error.message}`);
+            }
+        }
+
+        // Dark addressing functions
+        async function registerDomain() {
+            try {
+                const domain = document.getElementById('domain-input').value || 'example.dark';
+                if (!Validation.isDarkDomain(domain)) {
+                    throw new Error('Invalid dark domain format');
+                }
+                
+                const result = await resolver.registerDomain(domain);
+                updateOutput('address-output', result);
+            } catch (error) {
+                updateOutput('address-output', `Error: ${error.message}`);
+            }
+        }
+
+        async function resolveDomain() {
+            try {
+                const domain = document.getElementById('domain-input').value || 'example.dark';
+                const result = await resolver.resolveDomain(domain);
+                updateOutput('address-output', result);
+            } catch (error) {
+                updateOutput('address-output', `Error: ${error.message}`);
+            }
+        }
+
+        async function generateShadow() {
+            try {
+                const shadow = resolver.generateShadowAddress(3600);
+                updateOutput('address-output', shadow);
+            } catch (error) {
+                updateOutput('address-output', `Error: ${error.message}`);
+            }
+        }
+
+        // DAG functions
+        async function getDagStats() {
+            try {
+                const stats = dag.getStats();
+                updateOutput('dag-output', stats);
+            } catch (error) {
+                updateOutput('dag-output', `Error: ${error.message}`);
+            }
+        }
+
+        async function addVertex() {
+            try {
+                const vertexData = {
+                    parents: [],
+                    data: "Test vertex from WASM demo",
+                    timestamp: Date.now()
+                };
+                const vertexId = dag.addVertex(vertexData);
+                updateOutput('dag-output', { vertexId, status: 'Added successfully' });
+            } catch (error) {
+                updateOutput('dag-output', `Error: ${error.message}`);
+            }
+        }
+
+        async function getConsensusMetrics() {
+            try {
+                const metrics = consensus.getMetrics();
+                updateOutput('dag-output', metrics);
+            } catch (error) {
+                updateOutput('dag-output', `Error: ${error.message}`);
+            }
+        }
+
+        // Network functions
+        async function addPeer() {
+            try {
+                const address = document.getElementById('peer-input').value || '/ip4/127.0.0.1/tcp/8000';
+                if (!Validation.isPeerAddress(address)) {
+                    throw new Error('Invalid peer address format');
+                }
+                
+                const peerId = await network.addPeer(address);
+                updateOutput('network-output', { peerId, status: 'Connected' });
+            } catch (error) {
+                updateOutput('network-output', `Error: ${error.message}`);
+            }
+        }
+
+        async function listPeers() {
+            try {
+                const peers = network.listPeers();
+                updateOutput('network-output', peers);
+            } catch (error) {
+                updateOutput('network-output', `Error: ${error.message}`);
+            }
+        }
+
+        async function getNetworkStats() {
+            try {
+                const stats = network.getNetworkStats();
+                updateOutput('network-output', stats);
+            } catch (error) {
+                updateOutput('network-output', `Error: ${error.message}`);
+            }
+        }
+
+        // Vault functions
+        async function initVault() {
+            try {
+                await vault.init('demo_password_123');
+                updateOutput('vault-output', { status: 'Vault initialized successfully' });
+            } catch (error) {
+                updateOutput('vault-output', `Error: ${error.message}`);
+            }
+        }
+
+        async function generatePassword() {
+            try {
+                const password = WasmVault.generatePassword(16, true, true);
+                updateOutput('vault-output', { 
+                    generatedPassword: password,
+                    length: password.length,
+                    strength: 'Strong'
+                });
+            } catch (error) {
+                updateOutput('vault-output', `Error: ${error.message}`);
+            }
+        }
+
+        async function addVaultEntry() {
+            try {
+                const password = WasmVault.generatePassword(16, true, true);
+                const entryId = vault.addEntry('demo-site', 'user@example.com', password, 'demo');
+                updateOutput('vault-output', { 
+                    entryId,
+                    label: 'demo-site',
+                    status: 'Added successfully'
+                });
+            } catch (error) {
+                updateOutput('vault-output', `Error: ${error.message}`);
+            }
+        }
+
+        async function listVaultEntries() {
+            try {
+                const entries = vault.listEntries();
+                const stats = vault.getStats();
+                updateOutput('vault-output', { entries, stats });
+            } catch (error) {
+                updateOutput('vault-output', `Error: ${error.message}`);
+            }
+        }
+
+        // Initialize on load
+        initialize();
+    </script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+# QuDAG Testnet Node 4 Configuration - Validator Node
+
+[node]
+name = "testnet-validator-4"
+role = "validator"
+data_dir = "/data/qudag"
+
+[network]
+network_id = "qudag-testnet-local"
+listen_address = "/ip4/0.0.0.0/tcp/4001"
+external_address = "/dns4/node4.qudag.local/tcp/4001"
+announce_addresses = [
+    "/dns4/node4.qudag.local/tcp/4001",
+    "/ip4/172.28.0.13/tcp/4001"
+]
+max_peers = 50
+min_peers = 3
+connection_timeout = "30s"
+ping_interval = "15s"
+
+[p2p]
+port = 4001
+enable_nat = true
+enable_relay = true
+enable_autonat = true
+enable_dcutr = true
+bootstrap_peers = [
+    "/ip4/172.28.0.10/tcp/4001/p2p/NODE1_PEER_ID"
+]
+
+[dark_domain]
+enabled = true
+namespace = "testnet"
+registration_fee = 100
+max_domains_per_address = 10
+
+[dag]
+max_parents = 8
+min_weight_magnitude = 14
+finality_threshold = 0.66
+
+[consensus]
+type = "qr-avalanche"
+block_time = "5s"
+epoch_length = 100
+validator_set_size = 4
+
+[storage]
+db_path = "/data/qudag/db"
+cache_size = 1073741824  # 1GB
+compaction_interval = "1h"
+
+[rpc]
+enabled = true
+host = "0.0.0.0"
+port = 8080
+max_connections = 100
+cors_allowed_origins = ["*"]
+
+[metrics]
+enabled = true
+host = "0.0.0.0"
+port = 9090
+namespace = "qudag"
+
+[logging]
+level = "info"
+format = "json"
+directory = "/data/qudag/logs"
+max_size = "100MB"
+max_age = "7d"
+max_backups = 3
+
+[security]
+enable_tls = false
+auth_enabled = false
+api_key = ""
+
+[performance]
+worker_threads = 4
+max_batch_size = 1000
+batch_timeout = "100ms"
+
+[features]
+dark_addressing = true
+onion_routing = true
+traffic_obfuscation = true
+quantum_resistant = true

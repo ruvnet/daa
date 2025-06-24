@@ -1,0 +1,53 @@
+[package]
+name = "daa-chain"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+
+[dependencies]
+# Async runtime
+tokio.workspace = true
+async-trait.workspace = true
+
+# Error handling
+anyhow.workspace = true
+thiserror.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# Logging
+tracing.workspace = true
+
+# Blockchain specific
+ethers = { version = "2.0", features = ["legacy", "rustls", "ws"] }
+subxt = { version = "0.37", features = ["substrate-compat"] }
+
+# HTTP/WebSocket
+reqwest.workspace = true
+
+# Crypto
+sha2.workspace = true
+hex.workspace = true
+
+# Optional QuDAG integration
+qudag-crypto = { workspace = true, optional = true }
+
+[dev-dependencies]
+mockall.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
+
+[features]
+default = ["ethereum", "substrate"]
+ethereum = []
+substrate = []
+qudag = ["qudag-crypto"]
+
+[lib]
+name = "daa_chain"
+path = "src/lib.rs"

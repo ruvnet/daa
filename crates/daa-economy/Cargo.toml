@@ -1,0 +1,31 @@
+[package]
+name = "daa-economy"
+version = "0.1.0"
+edition = "2021"
+authors = ["DAA Team"]
+description = "Economic layer and token management for Decentralized Autonomous Applications"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+# Core dependencies
+async-trait = "0.1"
+thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.35", features = ["full"] }
+log = "0.4"
+
+# QuDAG integration
+qudag_exchange = { version = "0.1", path = "../../qudag/crates/qudag_exchange" }
+qudag_core = { version = "0.1", path = "../../qudag/crates/qudag_core" }
+qudag_crypto = { version = "0.1", path = "../../qudag/crates/qudag_crypto" }
+
+# DAA dependencies
+daa-chain = { version = "0.1.0", path = "../daa-chain" }
+
+# Math and calculations
+rust_decimal = { version = "1.33", features = ["serde-with-str"] }
+
+[dev-dependencies]
+tokio-test = "0.4"
+env_logger = "0.10"

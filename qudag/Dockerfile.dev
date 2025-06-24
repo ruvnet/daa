@@ -1,0 +1,47 @@
+# Development Dockerfile with hot reloading and debugging
+FROM rust:1.75
+
+# Install development tools
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    cmake \
+    g++ \
+    git \
+    gdb \
+    valgrind \
+    perf-tools-unstable \
+    heaptrack \
+    htop \
+    vim \
+    tmux \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust development tools
+RUN rustup component add rustfmt clippy rust-analyzer rust-src
+RUN cargo install cargo-watch cargo-edit cargo-audit cargo-expand
+
+# Install debugging tools
+RUN cargo install cargo-flamegraph
+
+# Set up working directory
+WORKDIR /workspace
+
+# Create non-root user with sudo
+RUN useradd -m -s /bin/bash -G sudo developer && \
+    echo "developer ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Switch to developer user
+USER developer
+
+# Set environment variables
+ENV RUST_LOG=debug
+ENV RUST_BACKTRACE=full
+ENV CARGO_HOME=/home/developer/.cargo
+ENV PATH=$CARGO_HOME/bin:$PATH
+
+# Expose all relevant ports
+EXPOSE 4001 8080 9090 3000
+
+# Keep container running
+CMD ["tail", "-f", "/dev/null"]

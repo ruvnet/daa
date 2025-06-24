@@ -1,0 +1,44 @@
+# Source files (TypeScript)
+src/
+*.ts
+!*.d.ts
+
+# Configuration files
+tsconfig.json
+.gitignore
+.npmignore
+
+# Development files
+*.map
+*.tsbuildinfo
+
+# Test files
+test/
+*.test.js
+*.spec.js
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation source
+docs/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.log
+
+# Keep only compiled JavaScript and type definitions
+!dist/**/*.js
+!dist/**/*.d.ts

@@ -1,0 +1,423 @@
+name: Performance Testing and Regression Detection
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      benchmark_suite:
+        description: 'Benchmark suite to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - cli
+        - network
+        - dag
+        - swarm
+      feature_flags:
+        description: 'Feature flags to enable'
+        required: false
+        default: 'default'
+        type: choice
+        options:
+        - default
+        - optimizations_enabled
+        - optimizations_disabled
+        - canary_10
+        - canary_50
+        - production
+
+env:
+  RUST_BACKTRACE: 1
+  BENCHMARK_BASELINE_PATH: benchmarking/reports/baseline.json
+  BENCHMARK_THRESHOLD: 10  # 10% regression threshold
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # Performance baseline establishment
+  establish-baseline:
+    name: Establish Performance Baseline
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install Python dependencies
+      run: |
+        pip install -r benchmarking/requirements.txt
+        pip install psutil memory-profiler py-spy
+    
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+    
+    - name: Cache cargo registry
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Build QuDAG
+      run: cargo build --release --workspace
+    
+    - name: Run baseline benchmarks
+      run: |
+        cd benchmarking
+        python qudag_benchmark.py --output ../benchmark_baseline --verbose
+        cp ../benchmark_baseline.json reports/baseline.json
+    
+    - name: Upload baseline artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-baseline
+        path: |
+          benchmark_baseline.json
+          benchmarking/reports/baseline.json
+
+  # Performance regression testing
+  regression-test:
+    name: Performance Regression Test
+    runs-on: ubuntu-latest
+    needs: [establish-baseline]
+    if: always()
+    
+    strategy:
+      matrix:
+        feature_flag: [default, optimizations_enabled]
+        benchmark_suite: [cli, network, dag, swarm]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install Python dependencies
+      run: |
+        pip install -r benchmarking/requirements.txt
+        pip install psutil memory-profiler py-spy
+    
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+    
+    - name: Cache cargo registry
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Download baseline
+      uses: actions/download-artifact@v3
+      with:
+        name: performance-baseline
+        path: .
+    
+    - name: Set feature flags
+      run: |
+        echo "QUDAG_FEATURE_FLAGS=${{ matrix.feature_flag }}" >> $GITHUB_ENV
+        if [[ "${{ matrix.feature_flag }}" == "optimizations_enabled" ]]; then
+          echo "QUDAG_ENABLE_DNS_CACHE=true" >> $GITHUB_ENV
+          echo "QUDAG_ENABLE_BATCH_OPS=true" >> $GITHUB_ENV
+          echo "QUDAG_ENABLE_CONNECTION_POOL=true" >> $GITHUB_ENV
+          echo "QUDAG_ENABLE_MEMORY_POOL=true" >> $GITHUB_ENV
+        fi
+    
+    - name: Build with feature flags
+      run: |
+        if [[ "${{ matrix.feature_flag }}" == "optimizations_enabled" ]]; then
+          cargo build --release --workspace --features "performance_optimizations"
+        else
+          cargo build --release --workspace
+        fi
+    
+    - name: Run benchmark suite
+      run: |
+        cd benchmarking
+        python qudag_benchmark.py --suite ${{ matrix.benchmark_suite }} --output ../benchmark_${{ matrix.benchmark_suite }}_${{ matrix.feature_flag }}
+    
+    - name: Compare with baseline
+      id: compare
+      run: |
+        cd benchmarking
+        python compare_benchmarks.py ../benchmark_baseline.json ../benchmark_${{ matrix.benchmark_suite }}_${{ matrix.feature_flag }}.json --threshold ${{ env.BENCHMARK_THRESHOLD }} > comparison_report.txt
+        
+        # Extract performance metrics
+        if [[ "${{ matrix.feature_flag }}" == "optimizations_enabled" ]]; then
+          IMPROVEMENT=$(grep "Performance improvement:" comparison_report.txt | awk '{print $3}')
+          echo "performance_improvement=$IMPROVEMENT" >> $GITHUB_OUTPUT
+        fi
+        
+        # Check for regressions
+        if grep -q "REGRESSION DETECTED" comparison_report.txt; then
+          echo "regression_detected=true" >> $GITHUB_OUTPUT
+          exit 1
+        else
+          echo "regression_detected=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Upload comparison report
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: comparison-report-${{ matrix.benchmark_suite }}-${{ matrix.feature_flag }}
+        path: |
+          benchmarking/comparison_report.txt
+          benchmark_${{ matrix.benchmark_suite }}_${{ matrix.feature_flag }}.json
+
+  # Memory profiling
+  memory-profiling:
+    name: Memory Usage Profiling
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        pip install -r benchmarking/requirements.txt
+        pip install memory-profiler matplotlib
+    
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+    
+    - name: Build QuDAG
+      run: cargo build --release --workspace
+    
+    - name: Run memory profiling
+      run: |
+        cd benchmarking
+        mprof run python qudag_benchmark.py --suite dag
+        mprof plot -o memory_profile.png
+        
+        # Extract peak memory usage
+        PEAK_MEMORY=$(mprof peak | awk '{print $2}')
+        echo "Peak memory usage: ${PEAK_MEMORY} MB"
+        echo "peak_memory=$PEAK_MEMORY" >> $GITHUB_ENV
+    
+    - name: Check memory threshold
+      run: |
+        # Fail if memory usage exceeds 500MB
+        if (( $(echo "${{ env.peak_memory }} > 500" | bc -l) )); then
+          echo "Memory usage exceeds threshold!"
+          exit 1
+        fi
+    
+    - name: Upload memory profile
+      uses: actions/upload-artifact@v3
+      with:
+        name: memory-profile
+        path: benchmarking/memory_profile.png
+
+  # Performance optimization validation
+  optimization-validation:
+    name: Validate Optimizations
+    runs-on: ubuntu-latest
+    needs: [regression-test]
+    if: always()
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        pip install -r benchmarking/requirements.txt
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: artifacts
+    
+    - name: Validate optimization targets
+      run: |
+        cd benchmarking
+        python verify_optimizations.py ../artifacts/
+        
+        # Check if we achieved 3.2x performance improvement
+        IMPROVEMENT=$(cat optimization_verification.json | jq -r '.overall_improvement')
+        if (( $(echo "$IMPROVEMENT < 3.0" | bc -l) )); then
+          echo "Performance improvement target not met: $IMPROVEMENT < 3.0x"
+          exit 1
+        fi
+        
+        # Check if we achieved 65% memory reduction
+        MEMORY_REDUCTION=$(cat optimization_verification.json | jq -r '.memory_reduction')
+        if (( $(echo "$MEMORY_REDUCTION < 60" | bc -l) )); then
+          echo "Memory reduction target not met: $MEMORY_REDUCTION < 60%"
+          exit 1
+        fi
+    
+    - name: Generate optimization report
+      run: |
+        cd benchmarking
+        python performance_analyzer.py --analyze ../artifacts/ --output optimization_report
+    
+    - name: Upload optimization report
+      uses: actions/upload-artifact@v3
+      with:
+        name: optimization-report
+        path: |
+          benchmarking/optimization_report/
+          benchmarking/optimization_verification.json
+
+  # Canary deployment simulation
+  canary-deployment-test:
+    name: Canary Deployment Test
+    runs-on: ubuntu-latest
+    needs: [optimization-validation]
+    if: github.event.inputs.feature_flags == 'canary_10' || github.event.inputs.feature_flags == 'canary_50'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup deployment environment
+      run: |
+        CANARY_PERCENTAGE="${{ github.event.inputs.feature_flags }}"
+        CANARY_PERCENTAGE="${CANARY_PERCENTAGE#canary_}"
+        echo "CANARY_PERCENTAGE=$CANARY_PERCENTAGE" >> $GITHUB_ENV
+    
+    - name: Simulate canary deployment
+      run: |
+        echo "Simulating ${{ env.CANARY_PERCENTAGE }}% canary deployment"
+        # Add actual deployment simulation logic here
+    
+    - name: Monitor canary metrics
+      run: |
+        echo "Monitoring canary deployment metrics..."
+        # Add monitoring logic here
+
+  # Generate comprehensive report
+  performance-report:
+    name: Generate Performance Report
+    runs-on: ubuntu-latest
+    needs: [regression-test, memory-profiling, optimization-validation]
+    if: always()
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        pip install -r benchmarking/requirements.txt
+        pip install matplotlib pandas seaborn
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: artifacts
+    
+    - name: Generate comprehensive report
+      run: |
+        cd benchmarking
+        python generate_performance_report.py ../artifacts/ --output performance_report
+        
+        # Create summary for PR comment
+        echo "## Performance Test Results" > ../performance_summary.md
+        echo "" >> ../performance_summary.md
+        cat performance_report/summary.md >> ../performance_summary.md
+    
+    - name: Upload performance report
+      uses: actions/upload-artifact@v3
+      with:
+        name: comprehensive-performance-report
+        path: |
+          benchmarking/performance_report/
+          performance_summary.md
+    
+    - name: Comment on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const summary = fs.readFileSync('performance_summary.md', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: summary
+          })
+
+  # Feature flag configuration update
+  update-feature-flags:
+    name: Update Feature Flag Configuration
+    runs-on: ubuntu-latest
+    needs: [optimization-validation]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Update feature flag configuration
+      run: |
+        cat > feature_flags.json << EOF
+        {
+          "optimizations": {
+            "dns_cache": {
+              "enabled": true,
+              "rollout_percentage": 100,
+              "description": "DNS resolution caching"
+            },
+            "batch_operations": {
+              "enabled": true,
+              "rollout_percentage": 100,
+              "description": "Batch operation support"
+            },
+            "connection_pooling": {
+              "enabled": true,
+              "rollout_percentage": 100,
+              "description": "Connection pool management"
+            },
+            "memory_pooling": {
+              "enabled": true,
+              "rollout_percentage": 50,
+              "description": "Memory pool allocation"
+            },
+            "simd_crypto": {
+              "enabled": false,
+              "rollout_percentage": 0,
+              "description": "SIMD crypto optimizations (experimental)"
+            }
+          },
+          "deployment": {
+            "canary_enabled": true,
+            "canary_percentage": 10,
+            "rollback_threshold": 15,
+            "monitoring_interval": 300
+          }
+        }
+        EOF
+    
+    - name: Commit feature flag updates
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add feature_flags.json
+        git diff --quiet && git diff --staged --quiet || git commit -m "Update feature flags based on performance tests"
+        git push

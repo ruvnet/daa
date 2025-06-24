@@ -1,0 +1,204 @@
+version: '3.8'
+
+services:
+  # QuDAG Node 1 - Bootstrap node
+  node1:
+    build:
+      context: ..
+      dockerfile: qudag-testnet/Dockerfile
+    container_name: qudag-node1
+    hostname: qudag-node1
+    environment:
+      - RUST_LOG=info,qudag=debug
+      - QUDAG_NODE_NAME=local-node1
+      - QUDAG_NETWORK_ID=qudag-testnet-local
+      - QUDAG_DARK_DOMAIN_ENABLED=true
+      - QUDAG_P2P_PORT=4001
+      - QUDAG_RPC_PORT=8080
+      - QUDAG_METRICS_PORT=9090
+      - QUDAG_IS_BOOTSTRAP=true
+    ports:
+      - "4001:4001"      # P2P
+      - "4001:4001/udp"  # P2P UDP
+      - "8080:8080"      # RPC
+      - "9090:9090"      # Metrics
+    volumes:
+      - node1_data:/data/qudag
+      - ./configs/node1.toml:/data/qudag/config.toml:ro
+    networks:
+      qudag_net:
+        ipv4_address: 172.20.0.10
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # QuDAG Node 2
+  node2:
+    build:
+      context: ..
+      dockerfile: qudag-testnet/Dockerfile
+    container_name: qudag-node2
+    hostname: qudag-node2
+    environment:
+      - RUST_LOG=info,qudag=debug
+      - QUDAG_NODE_NAME=local-node2
+      - QUDAG_NETWORK_ID=qudag-testnet-local
+      - QUDAG_DARK_DOMAIN_ENABLED=true
+      - QUDAG_P2P_PORT=4001
+      - QUDAG_RPC_PORT=8080
+      - QUDAG_METRICS_PORT=9090
+      - QUDAG_BOOTSTRAP_PEERS=/ip4/172.20.0.10/tcp/4001/p2p/QmNode1PeerID
+    ports:
+      - "4002:4001"      # P2P
+      - "4002:4001/udp"  # P2P UDP
+      - "8081:8080"      # RPC
+      - "9091:9090"      # Metrics
+    volumes:
+      - node2_data:/data/qudag
+      - ./configs/node2.toml:/data/qudag/config.toml:ro
+    networks:
+      qudag_net:
+        ipv4_address: 172.20.0.11
+    depends_on:
+      node1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # QuDAG Node 3
+  node3:
+    build:
+      context: ..
+      dockerfile: qudag-testnet/Dockerfile
+    container_name: qudag-node3
+    hostname: qudag-node3
+    environment:
+      - RUST_LOG=info,qudag=debug
+      - QUDAG_NODE_NAME=local-node3
+      - QUDAG_NETWORK_ID=qudag-testnet-local
+      - QUDAG_DARK_DOMAIN_ENABLED=true
+      - QUDAG_P2P_PORT=4001
+      - QUDAG_RPC_PORT=8080
+      - QUDAG_METRICS_PORT=9090
+      - QUDAG_BOOTSTRAP_PEERS=/ip4/172.20.0.10/tcp/4001/p2p/QmNode1PeerID
+    ports:
+      - "4003:4001"      # P2P
+      - "4003:4001/udp"  # P2P UDP
+      - "8082:8080"      # RPC
+      - "9092:9090"      # Metrics
+    volumes:
+      - node3_data:/data/qudag
+      - ./configs/node3.toml:/data/qudag/config.toml:ro
+    networks:
+      qudag_net:
+        ipv4_address: 172.20.0.12
+    depends_on:
+      node1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # QuDAG Node 4
+  node4:
+    build:
+      context: ..
+      dockerfile: qudag-testnet/Dockerfile
+    container_name: qudag-node4
+    hostname: qudag-node4
+    environment:
+      - RUST_LOG=info,qudag=debug
+      - QUDAG_NODE_NAME=local-node4
+      - QUDAG_NETWORK_ID=qudag-testnet-local
+      - QUDAG_DARK_DOMAIN_ENABLED=true
+      - QUDAG_P2P_PORT=4001
+      - QUDAG_RPC_PORT=8080
+      - QUDAG_METRICS_PORT=9090
+      - QUDAG_BOOTSTRAP_PEERS=/ip4/172.20.0.10/tcp/4001/p2p/QmNode1PeerID
+    ports:
+      - "4004:4001"      # P2P
+      - "4004:4001/udp"  # P2P UDP
+      - "8083:8080"      # RPC
+      - "9093:9090"      # Metrics
+    volumes:
+      - node4_data:/data/qudag
+      - ./configs/node4.toml:/data/qudag/config.toml:ro
+    networks:
+      qudag_net:
+        ipv4_address: 172.20.0.13
+    depends_on:
+      node1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: qudag-prometheus
+    ports:
+      - "9094:9090"
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./configs/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - qudag_net
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    depends_on:
+      - node1
+      - node2
+      - node3
+      - node4
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: qudag-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./configs/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./configs/grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./configs/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - qudag_net
+    depends_on:
+      - prometheus
+
+volumes:
+  node1_data:
+  node2_data:
+  node3_data:
+  node4_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  qudag_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24

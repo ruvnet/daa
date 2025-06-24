@@ -1,0 +1,67 @@
+[package]
+name = "qudag-exchange-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+qudag-exchange-core = { path = "../core" }
+qudag-crypto = { path = "../../core/crypto" }
+qudag-dag = { path = "../../core/dag" }
+qudag-vault = { path = "../../core/vault" }
+
+# Add serialization for fuzzing structured data
+serde = { version = "1.0", features = ["derive"] }
+bincode = "1.3"
+
+[profile.release]
+opt-level = 3
+debug = true
+
+# Fuzzing targets for exchange components
+[[bin]]
+name = "fuzz_ruv_transactions"
+path = "fuzz_targets/fuzz_ruv_transactions.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_ledger_consistency"
+path = "fuzz_targets/fuzz_ledger_consistency.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_resource_metering"
+path = "fuzz_targets/fuzz_resource_metering.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_wallet_operations"
+path = "fuzz_targets/fuzz_wallet_operations.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_consensus_transitions"
+path = "fuzz_targets/fuzz_consensus_transitions.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_zk_proofs"
+path = "fuzz_targets/fuzz_zk_proofs.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_serialization"
+path = "fuzz_targets/fuzz_serialization.rs"
+test = false
+doc = false

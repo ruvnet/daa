@@ -1,0 +1,166 @@
+version: '3.8'
+
+services:
+  # QuDAG Node 1 - Bootstrap node
+  node1:
+    build:
+      context: ..
+      dockerfile: qudag-testnet/Dockerfile
+    container_name: qudag-node1
+    hostname: qudag-node1
+    environment:
+      - NODE_TYPE=bootstrap
+      - RUST_LOG=info,qudag=debug
+      - QUDAG_NODE_NAME=local-node1
+      - QUDAG_NETWORK_ID=qudag-testnet-local
+      - QUDAG_DARK_DOMAIN_ENABLED=true
+      - QUDAG_P2P_PORT=4001
+      - QUDAG_RPC_PORT=8080
+      - QUDAG_METRICS_PORT=9090
+      - QUDAG_IS_BOOTSTRAP=true
+    ports:
+      - "4001:4001"      # P2P
+      - "4001:4001/udp"  # P2P UDP
+      - "8080:8080"      # RPC
+      - "9090:9090"      # Metrics
+    volumes:
+      - node1_data:/data/qudag
+      - ./configs/node1.toml:/data/qudag/config.toml:ro
+    networks:
+      qudag_net:
+        ipv4_address: 172.20.0.10
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # QuDAG Node 2
+  node2:
+    build:
+      context: ..
+      dockerfile: qudag-testnet/Dockerfile
+    container_name: qudag-node2
+    hostname: qudag-node2
+    environment:
+      - NODE_TYPE=node
+      - RUST_LOG=info,qudag=debug
+      - QUDAG_NODE_NAME=local-node2
+      - QUDAG_NETWORK_ID=qudag-testnet-local
+      - QUDAG_DARK_DOMAIN_ENABLED=true
+      - QUDAG_P2P_PORT=4001
+      - QUDAG_RPC_PORT=8080
+      - QUDAG_METRICS_PORT=9090
+      - QUDAG_BOOTSTRAP_PEERS=/ip4/172.20.0.10/tcp/4001/p2p/QmNode1PeerID
+    ports:
+      - "4002:4001"      # P2P
+      - "4002:4001/udp"  # P2P UDP
+      - "8081:8080"      # RPC
+      - "9091:9090"      # Metrics
+    volumes:
+      - node2_data:/data/qudag
+      - ./configs/node2.toml:/data/qudag/config.toml:ro
+    networks:
+      qudag_net:
+        ipv4_address: 172.20.0.11
+    depends_on:
+      node1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # QuDAG Exchange Server
+  exchange:
+    build:
+      context: ..
+      dockerfile: qudag-testnet/Dockerfile
+    container_name: qudag-exchange
+    hostname: qudag-exchange
+    environment:
+      - NODE_TYPE=exchange
+      - RUST_LOG=info,qudag_exchange=debug
+      - QUDAG_EXCHANGE_NAME=local-exchange
+      - QUDAG_EXCHANGE_PORT=8085
+      - QUDAG_EXCHANGE_METRICS_PORT=9095
+      # Exchange-specific configuration
+      - EXCHANGE_FEE_BASIC=0.01
+      - EXCHANGE_FEE_PREMIUM=0.005
+      - EXCHANGE_FEE_ENTERPRISE=0.002
+    ports:
+      - "8085:8085"      # Exchange API
+      - "9095:9095"      # Metrics
+    volumes:
+      - exchange_data:/data/qudag
+      - ./configs/exchange.toml:/data/qudag/config.toml:ro
+    networks:
+      qudag_net:
+        ipv4_address: 172.20.0.20
+    depends_on:
+      node1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: qudag-prometheus
+    ports:
+      - "9094:9090"
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./configs/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - qudag_net
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    depends_on:
+      - node1
+      - node2
+      - exchange
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: qudag-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./configs/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./configs/grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./configs/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - qudag_net
+    depends_on:
+      - prometheus
+
+volumes:
+  node1_data:
+  node2_data:
+  exchange_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  qudag_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24

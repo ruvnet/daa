@@ -1,0 +1,13 @@
+{
+  "objective": "research news",
+  "strategy": "auto",
+  "mode": "centralized",
+  "maxAgents": 5,
+  "timeout": 60,
+  "parallel": false,
+  "monitor": false,
+  "output": "json",
+  "outputDir": "./reports",
+  "timestamp": "2025-06-19T04:44:52.354Z",
+  "id": "swarm-auto-centralized-1750308292355"
+}

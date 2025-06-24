@@ -1,0 +1,1 @@
+//! Agent coordination stub - to be implemented by Integration Agent

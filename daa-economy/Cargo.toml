@@ -1,0 +1,44 @@
+[package]
+name = "daa-economy"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Economic layer for DAA system with rUv token management and QuDAG exchange integration"
+
+[dependencies]
+# Workspace dependencies
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+uuid.workspace = true
+tracing.workspace = true
+
+# QuDAG dependencies for economic operations
+qudag-crypto.workspace = true
+qudag-exchange = { workspace = true, optional = true }
+
+# DAA internal dependencies
+daa-chain = { workspace = true, optional = true }
+
+# Economic-specific dependencies
+rust_decimal = { version = "1.0", features = ["serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+bigdecimal = "0.4"
+
+# Optional database support
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid"], optional = true }
+
+[features]
+default = ["exchange", "tokens"]
+exchange = ["qudag-exchange"]
+tokens = []
+chain-integration = ["daa-chain"]
+database = ["sqlx"]
+full = ["exchange", "tokens", "chain-integration", "database"]

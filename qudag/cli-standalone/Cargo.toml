@@ -1,0 +1,53 @@
+[workspace]
+# Empty workspace table to make this package standalone
+
+[package]
+name = "qudag-cli"
+version = "0.2.0"
+edition = "2021"
+authors = ["rUv <https://github.com/ruvnet>"]
+repository = "https://github.com/ruvnet/QuDAG"
+license = "MIT OR Apache-2.0"
+description = "Command-line interface for QuDAG - Manage nodes, peers, and dark addresses"
+documentation = "https://docs.rs/qudag-cli"
+readme = "README.md"
+keywords = ["cli", "quantum", "dag", "p2p", "darknet"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+thiserror = "1.0"
+tracing = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.0", features = ["full"] }
+anyhow = "1.0"
+async-trait = "0.1"
+futures = "0.3"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+clap = { version = "4.3", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+dirs = "5.0"
+hex = "0.4"
+rand = "0.8"
+lru = "0.12"
+rpassword = "7.3"
+libc = "0.2"
+whoami = "1.5"
+tracing-subscriber = "0.3"
+pin-project = "1.1"
+libp2p = { version = "0.53", features = ["identify", "kad", "gossipsub", "ping", "relay", "dcutr", "autonat", "request-response", "dns", "tcp", "noise", "yamux", "websocket", "quic", "tls", "metrics"] }
+# Use published versions from crates.io
+qudag-crypto = "0.1.1"
+qudag-dag = "0.1.1" 
+qudag-network = "0.1.1"
+qudag-protocol = "0.1.1"
+qudag-vault-core = "0.2.0"
+axum = "0.7"
+tower-http = { version = "0.5", features = ["cors"] }
+
+[[bin]]
+name = "qudag"
+path = "src/main.rs"
+
+[dev-dependencies]
+proptest = "1.0"

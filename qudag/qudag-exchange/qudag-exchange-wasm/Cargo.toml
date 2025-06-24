@@ -1,0 +1,46 @@
+[workspace]
+
+[package]
+name = "qudag-exchange-wasm"
+version = "0.3.0"
+edition = "2021"
+authors = ["QuDAG Exchange Development Team"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ruvnet/QuDAG"
+description = "WASM bindings for QuDAG Exchange with rUv token operations"
+documentation = "https://docs.rs/qudag-exchange-wasm"
+keywords = ["qudag", "exchange", "wasm", "tokens", "blockchain"]
+categories = ["wasm", "cryptography", "web-programming"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+qudag-exchange-core = { version = "0.3.0", path = "../core", default-features = false }
+
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = [
+    "console",
+    "Storage",
+    "Window",
+    "Document",
+] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+
+# Error handling
+thiserror = "1.0"
+
+# Utils
+getrandom = { version = "0.2", features = ["js"] }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[profile.release]
+opt-level = "z"
+lto = true

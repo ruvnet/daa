@@ -1,0 +1,40 @@
+[package]
+name = "qudag-exchange-sim"
+version = "0.1.0"
+edition = "2021"
+authors = ["QuDAG Exchange Development Team"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ruvnet/QuDAG"
+description = "Simulation and testing tools for QuDAG Exchange"
+
+[[bin]]
+name = "qudag-exchange-sim"
+path = "src/main.rs"
+
+[dependencies]
+qudag-exchange-core = { path = "../qudag-exchange-core" }
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+
+# Simulation
+rand = "0.8"
+rand_distr = "0.4"
+
+# Metrics
+metrics = "0.21"
+metrics-exporter-prometheus = "0.13"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+anyhow = "1.0"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }

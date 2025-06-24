@@ -1,0 +1,89 @@
+# Build Stage: Compile actual QuDAG binary with full functionality
+# NOTE: This Dockerfile should be built from the workspace root:
+#   docker build -f qudag-testnet/Dockerfile.production .
+FROM rust:1.83 AS builder
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    protobuf-compiler \
+    cmake \
+    clang \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the enhanced node source
+COPY qudag-testnet/configs/qudag-enhanced-node.rs ./src/main.rs
+
+# Create a Cargo.toml for enhanced node with real networking
+RUN echo '[package]' > Cargo.toml && \
+    echo 'name = "qudag-enhanced-node"' >> Cargo.toml && \
+    echo 'version = "1.0.0"' >> Cargo.toml && \
+    echo 'edition = "2021"' >> Cargo.toml && \
+    echo '' >> Cargo.toml && \
+    echo '[dependencies]' >> Cargo.toml && \
+    echo 'serde_json = "1.0"' >> Cargo.toml && \
+    echo 'fastrand = "2.0"' >> Cargo.toml && \
+    echo '' >> Cargo.toml && \
+    echo '[[bin]]' >> Cargo.toml && \
+    echo 'name = "qudag-enhanced-node"' >> Cargo.toml && \
+    echo 'path = "src/main.rs"' >> Cargo.toml
+
+# Build the enhanced node
+RUN cargo build --release
+
+# Runtime Stage
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd -m -u 1001 -s /bin/bash qudag
+
+# Copy enhanced binary from builder
+COPY --from=builder /app/target/release/qudag-enhanced-node /usr/local/bin/qudag-node
+
+# Copy configuration files
+COPY qudag-testnet/configs/*.toml /app/configs/
+
+# Note: No startup script needed - using QuDAG binary directly
+
+# Create data directories
+RUN mkdir -p /data/qudag && chown -R qudag:qudag /data
+
+# Switch to non-root user
+USER qudag
+
+# Set working directory
+WORKDIR /data/qudag
+
+# Environment variables for QuDAG configuration
+ENV RUST_LOG=info
+ENV QUDAG_DATA_DIR=/data/qudag
+ENV QUDAG_P2P_PORT=4001
+ENV QUDAG_RPC_PORT=8080
+ENV QUDAG_METRICS_PORT=9090
+
+# Expose ports
+# P2P networking
+EXPOSE 4001/tcp
+EXPOSE 4001/udp
+# RPC API
+EXPOSE 8080/tcp
+# Metrics
+EXPOSE 9090/tcp
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Entry point - run enhanced node directly
+ENTRYPOINT ["/usr/local/bin/qudag-node"]
+# Default command arguments (can be overridden by fly.toml)
+CMD ["run-node", "--port", "4001", "--data-dir", "/data/qudag"]

@@ -1,0 +1,213 @@
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspaces/QuDAG/qudag-wasm/Cargo.toml
+workspace: /workspaces/QuDAG/Cargo.toml
+warning: unused imports: `Object` and `Uint8Array`
+ --> qudag-wasm/src/wasm_crypto/mod.rs:7:14
+  |
+7 | use js_sys::{Object, Uint8Array};
+  |              ^^^^^^  ^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unexpected `cfg` condition value: `pqcrypto-kyber`
+   --> qudag-wasm/src/wasm_crypto/ml_kem.rs:161:7
+    |
+161 | #[cfg(feature = "pqcrypto-kyber")]
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: expected values for `feature` are: `console_error_panic_hook`, `crypto-only`, `dag`, `default`, `full`, `qudag`, `qudag-dag`, `qudag-network`, `qudag-protocol`, `vault`, and `wee_alloc`
+    = help: consider adding `pqcrypto-kyber` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: `#[warn(unexpected_cfgs)]` on by default
+
+warning: unexpected `cfg` condition value: `pqcrypto-dilithium`
+   --> qudag-wasm/src/wasm_crypto/ml_dsa.rs:179:7
+    |
+179 | #[cfg(feature = "pqcrypto-dilithium")]
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: expected values for `feature` are: `console_error_panic_hook`, `crypto-only`, `dag`, `default`, `full`, `qudag`, `qudag-dag`, `qudag-network`, `qudag-protocol`, `vault`, and `wee_alloc`
+    = help: consider adding `pqcrypto-dilithium` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+
+warning: unused import: `super::*`
+   --> qudag-wasm/src/wasm_crypto/ml_dsa.rs:114:9
+    |
+114 |     use super::*;
+    |         ^^^^^^^^
+
+warning: unused import: `anyhow`
+ --> qudag-wasm/src/wasm_crypto/utils.rs:6:22
+  |
+6 | use anyhow::{Result, anyhow};
+  |                      ^^^^^^
+
+warning: unused imports: `Deserialize` and `Serialize`
+ --> qudag-wasm/src/crypto_abstraction.rs:8:13
+  |
+8 | use serde::{Deserialize, Serialize};
+  |             ^^^^^^^^^^^  ^^^^^^^^^
+
+warning: unused imports: `PasswordHash`, `PasswordHasher`, `PasswordVerifier`, `Payload`, `SaltString`, `rand::Rng`, `rand_core::OsRng`, and `sha3::Sha3_256`
+  --> qudag-wasm/src/crypto_abstraction.rs:13:27
+   |
+13 |     aes_gcm::aead::{Aead, Payload},
+   |                           ^^^^^^^
+14 |     argon2::{Argon2, PasswordHasher, PasswordHash, PasswordVerifier},
+   |                      ^^^^^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+15 |     argon2::password_hash::{SaltString, rand_core::OsRng},
+   |                             ^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+...
+19 |     sha3::Sha3_256,
+   |     ^^^^^^^^^^^^^^
+20 |     rand::Rng,
+   |     ^^^^^^^^^
+
+warning: unused import: `wasm_bindgen::prelude::*`
+ --> qudag-wasm/src/crypto_unified.rs:9:5
+  |
+9 | use wasm_bindgen::prelude::*;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `wasm_impl::*`
+   --> qudag-wasm/src/crypto_unified.rs:289:5
+    |
+289 | use wasm_impl::*;
+    |     ^^^^^^^^^^^^
+
+warning: unused variable: `secret_key`
+  --> qudag-wasm/src/crypto.rs:99:31
+   |
+99 |     pub fn decapsulate(&self, secret_key: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>, JsError> {
+   |                               ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_secret_key`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `rng`
+  --> qudag-wasm/src/wasm_crypto/ml_dsa.rs:48:13
+   |
+48 |     let mut rng = rand::thread_rng();
+   |             ^^^ help: if this is intentional, prefix it with an underscore: `_rng`
+
+warning: variable does not need to be mutable
+  --> qudag-wasm/src/wasm_crypto/ml_dsa.rs:48:9
+   |
+48 |     let mut rng = rand::thread_rng();
+   |         ----^^^
+   |         |
+   |         help: remove this `mut`
+   |
+   = note: `#[warn(unused_mut)]` on by default
+
+warning: unused variable: `operation_name`
+   --> qudag-wasm/src/wasm_crypto/utils.rs:185:27
+    |
+185 |     pub fn measure_timing(operation_name: &str) -> f64 {
+    |                           ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_operation_name`
+
+warning: unused variable: `public_key`
+   --> qudag-wasm/src/crypto_abstraction.rs:205:31
+    |
+205 |     pub fn encapsulate(&self, public_key: &[u8]) -> Result<(Vec<u8>, Vec<u8>), WasmError> {
+    |                               ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_public_key`
+
+warning: unused variable: `secret_key`
+   --> qudag-wasm/src/crypto_abstraction.rs:220:31
+    |
+220 |     pub fn decapsulate(&self, secret_key: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>, WasmError> {
+    |                               ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_secret_key`
+
+warning: unused variable: `ciphertext`
+   --> qudag-wasm/src/crypto_abstraction.rs:220:50
+    |
+220 |     pub fn decapsulate(&self, secret_key: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>, WasmError> {
+    |                                                  ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_ciphertext`
+
+warning: unused variable: `message`
+   --> qudag-wasm/src/crypto_unified.rs:254:17
+    |
+254 |         fn sign(message: &[u8], private_key: &Self::PrivateKey) -> Result<Self::Signature> {
+    |                 ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_message`
+
+warning: unused variable: `private_key`
+   --> qudag-wasm/src/crypto_unified.rs:254:33
+    |
+254 |         fn sign(message: &[u8], private_key: &Self::PrivateKey) -> Result<Self::Signature> {
+    |                                 ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_private_key`
+
+warning: field `vec` is never read
+   --> qudag-wasm/src/wasm_crypto/ml_kem.rs:148:9
+    |
+147 |     pub struct PolyVec {
+    |                ------- field in this struct
+148 |         vec: Vec<Poly>,
+    |         ^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: constant `DILITHIUM_K` is never used
+  --> qudag-wasm/src/wasm_crypto/ml_dsa.rs:10:7
+   |
+10 | const DILITHIUM_K: usize = 6;
+   |       ^^^^^^^^^^^
+
+warning: constant `DILITHIUM_L` is never used
+  --> qudag-wasm/src/wasm_crypto/ml_dsa.rs:11:7
+   |
+11 | const DILITHIUM_L: usize = 5;
+   |       ^^^^^^^^^^^
+
+warning: constant `DILITHIUM_ETA` is never used
+  --> qudag-wasm/src/wasm_crypto/ml_dsa.rs:12:7
+   |
+12 | const DILITHIUM_ETA: u32 = 4;
+   |       ^^^^^^^^^^^^^
+
+warning: constant `DILITHIUM_TAU` is never used
+  --> qudag-wasm/src/wasm_crypto/ml_dsa.rs:13:7
+   |
+13 | const DILITHIUM_TAU: usize = 49;
+   |       ^^^^^^^^^^^^^
+
+warning: constant `DILITHIUM_BETA` is never used
+  --> qudag-wasm/src/wasm_crypto/ml_dsa.rs:14:7
+   |
+14 | const DILITHIUM_BETA: u32 = 196;
+   |       ^^^^^^^^^^^^^^
+
+warning: constant `DILITHIUM_GAMMA1` is never used
+  --> qudag-wasm/src/wasm_crypto/ml_dsa.rs:15:7
+   |
+15 | const DILITHIUM_GAMMA1: u32 = 524288;
+   |       ^^^^^^^^^^^^^^^^
+
+warning: constant `DILITHIUM_GAMMA2` is never used
+  --> qudag-wasm/src/wasm_crypto/ml_dsa.rs:16:7
+   |
+16 | const DILITHIUM_GAMMA2: u32 = 261888;
+   |       ^^^^^^^^^^^^^^^^
+
+warning: constant `DILITHIUM_OMEGA` is never used
+  --> qudag-wasm/src/wasm_crypto/ml_dsa.rs:17:7
+   |
+17 | const DILITHIUM_OMEGA: usize = 55;
+   |       ^^^^^^^^^^^^^^^
+
+warning: field `vec` is never read
+   --> qudag-wasm/src/wasm_crypto/ml_dsa.rs:153:9
+    |
+152 |     pub struct PolyVec {
+    |                ------- field in this struct
+153 |         vec: Vec<Poly>,
+    |         ^^^
+
+warning: field `mat` is never read
+   --> qudag-wasm/src/wasm_crypto/ml_dsa.rs:166:9
+    |
+165 |     pub struct PolyMat {
+    |                ------- field in this struct
+166 |         mat: Vec<Vec<Poly>>,
+    |         ^^^
+
+warning: `qudag-wasm` (lib) generated 29 warnings (run `cargo fix --lib -p qudag-wasm` to apply 8 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.16s

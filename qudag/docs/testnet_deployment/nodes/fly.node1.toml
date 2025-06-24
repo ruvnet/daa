@@ -1,0 +1,79 @@
+# QuDAG Node 1 - Toronto (yyz)
+app = "qudag-testnet-node1"
+primary_region = "yyz"
+kill_signal = "SIGINT"
+kill_timeout = "5s"
+
+[build]
+  dockerfile = "../Dockerfile"
+
+[env]
+  RUST_LOG = "info,qudag=debug"
+  QUDAG_NODE_NAME = "toronto-node"
+  QUDAG_NETWORK_ID = "qudag-testnet"
+  QUDAG_DARK_DOMAIN_ENABLED = "true"
+  QUDAG_P2P_PORT = "4001"
+  QUDAG_RPC_PORT = "8080"
+  QUDAG_METRICS_PORT = "9090"
+
+[experimental]
+  auto_rollback = true
+
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+  [[services.ports]]
+    port = 8080
+
+  [[services.http_checks]]
+    interval = "30s"
+    timeout = "10s"
+    grace_period = "5s"
+    method = "GET"
+    path = "/health"
+
+[[services]]
+  internal_port = 4001
+  protocol = "tcp"
+  
+  [[services.ports]]
+    port = 4001
+
+[[services]]
+  internal_port = 4001
+  protocol = "udp"
+  
+  [[services.ports]]
+    port = 4001
+
+[[services]]
+  internal_port = 9090
+  protocol = "tcp"
+  
+  [[services.ports]]
+    port = 9090
+
+[metrics]
+  port = 9090
+  path = "/metrics"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 2
+  memory_mb = 2048
+
+[mounts]
+  source = "qudag_data_node1"
+  destination = "/data/qudag"
+
+[processes]
+  app = "qudag-node --config /data/qudag/config.toml --bootstrap-peers $BOOTSTRAP_PEERS"

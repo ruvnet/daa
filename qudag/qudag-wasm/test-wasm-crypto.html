@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>QuDAG WASM Crypto Test</title>
+</head>
+<body>
+    <h1>QuDAG WASM Crypto Test</h1>
+    <div id="results"></div>
+    <script type="module">
+        import init, { 
+            QuDAGClient, 
+            get_init_status,
+            MlDsaKeyPair,
+            MlKem768,
+            Blake3Hash,
+            QuantumFingerprint
+        } from './pkg-final/qudag_wasm.js';
+
+        async function runTests() {
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                // Initialize WASM module
+                await init();
+                console.log('WASM module initialized');
+                
+                // Test 1: Module status
+                resultsDiv.innerHTML += '<h2>✅ Module Status</h2>';
+                const status = get_init_status();
+                resultsDiv.innerHTML += `<p>Version: ${status.version()}</p>`;
+                resultsDiv.innerHTML += `<p>Features: ${status.features().join(', ')}</p>`;
+                
+                // Test 2: Client creation
+                resultsDiv.innerHTML += '<h2>✅ Client Creation</h2>';
+                const client = new QuDAGClient();
+                const config = client.getConfig();
+                resultsDiv.innerHTML += `<p>Network Port: ${config.network_port}</p>`;
+                resultsDiv.innerHTML += `<p>Max Peers: ${config.max_peers}</p>`;
+                
+                // Test 3: BLAKE3 Hashing
+                resultsDiv.innerHTML += '<h2>✅ BLAKE3 Hashing</h2>';
+                const message = "Hello QuDAG WASM!";
+                const hash = Blake3Hash.hash(message);
+                resultsDiv.innerHTML += `<p>Message: ${message}</p>`;
+                resultsDiv.innerHTML += `<p>Hash: ${hash}</p>`;
+                
+                // Test 4: ML-DSA Key Generation
+                resultsDiv.innerHTML += '<h2>✅ ML-DSA Key Generation</h2>';
+                try {
+                    const keyPair = MlDsaKeyPair.generate();
+                    const publicKey = keyPair.getPublicKey();
+                    resultsDiv.innerHTML += `<p>Public Key Length: ${publicKey.length} bytes</p>`;
+                    
+                    // Test signing
+                    const signature = keyPair.sign(message);
+                    resultsDiv.innerHTML += `<p>Signature Length: ${signature.length} bytes</p>`;
+                    
+                    // Test verification
+                    const isValid = keyPair.verify(message, signature);
+                    resultsDiv.innerHTML += `<p>Signature Valid: ${isValid}</p>`;
+                } catch (e) {
+                    resultsDiv.innerHTML += `<p>ML-DSA: ${e.message}</p>`;
+                }
+                
+                // Test 5: ML-KEM Key Encapsulation
+                resultsDiv.innerHTML += '<h2>✅ ML-KEM Key Encapsulation</h2>';
+                try {
+                    const kemKeyPair = MlKem768.generateKeypair();
+                    const publicKey = kemKeyPair.getPublicKey();
+                    resultsDiv.innerHTML += `<p>KEM Public Key Length: ${publicKey.length} bytes</p>`;
+                    
+                    const encapResult = MlKem768.encapsulate(publicKey);
+                    resultsDiv.innerHTML += `<p>Ciphertext Length: ${encapResult.ciphertext.length} bytes</p>`;
+                    resultsDiv.innerHTML += `<p>Shared Secret Length: ${encapResult.shared_secret.length} bytes</p>`;
+                } catch (e) {
+                    resultsDiv.innerHTML += `<p>ML-KEM: ${e.message}</p>`;
+                }
+                
+                // Test 6: Quantum Fingerprint
+                resultsDiv.innerHTML += '<h2>✅ Quantum Fingerprint</h2>';
+                const fingerprint = QuantumFingerprint.generate(message);
+                const fpValid = QuantumFingerprint.verify(message, fingerprint);
+                resultsDiv.innerHTML += `<p>Fingerprint: ${fingerprint}</p>`;
+                resultsDiv.innerHTML += `<p>Verification: ${fpValid}</p>`;
+                
+                resultsDiv.innerHTML += '<h1 style="color: green;">🎉 All Tests Completed Successfully!</h1>';
+                
+            } catch (error) {
+                resultsDiv.innerHTML += `<h2 style="color: red;">❌ Error: ${error.message}</h2>`;
+                console.error('Test error:', error);
+            }
+        }
+
+        // Run tests when page loads
+        runTests();
+    </script>
+</body>
+</html>

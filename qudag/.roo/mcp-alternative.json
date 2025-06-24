@@ -1,0 +1,77 @@
+{
+  "mcpServers": {
+    "qudag": {
+      "command": "qudag",
+      "args": [
+        "mcp",
+        "start",
+        "--transport",
+        "stdio"
+      ],
+      "alwaysAllow": [
+        "qudag_exchange",
+        "vault",
+        "crypto",
+        "config",
+        "dag",
+        "network",
+        "system"
+      ],
+      "timeout": 600
+    },
+    "qudag-testnet-rpc": {
+      "transport": "http",
+      "url": "http://109.105.222.156:3333/mcp/rpc",
+      "httpHeaders": {
+        "Content-Type": "application/json"
+      },
+      "alwaysAllow": [
+        "qudag_crypto",
+        "qudag_vault",
+        "qudag_dag",
+        "qudag_network",
+        "qudag_exchange"
+      ],
+      "description": "QuDAG Testnet MCP Server (JSON-RPC)",
+      "timeout": 600
+    },
+    "qudag-testnet-proxy": {
+      "command": "node",
+      "args": [
+        "/workspaces/QuDAG/.roo/mcp-http-proxy.js",
+        "http://109.105.222.156:3333"
+      ],
+      "alwaysAllow": [
+        "qudag_crypto",
+        "qudag_vault",
+        "qudag_dag",
+        "qudag_network",
+        "qudag_exchange"
+      ],
+      "description": "QuDAG Testnet MCP Server (Proxy)",
+      "timeout": 600
+    },
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--access-token",
+        "${env:SUPABASE_ACCESS_TOKEN}"
+      ],
+      "alwaysAllow": [
+        "list_tables",
+        "execute_sql",
+        "listTables",
+        "list_projects",
+        "list_organizations",
+        "get_organization",
+        "apply_migration",
+        "get_project",
+        "execute_query",
+        "generate_typescript_types",
+        "listProjects"
+      ]
+    }
+  }
+}

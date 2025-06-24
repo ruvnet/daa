@@ -1,0 +1,70 @@
+{
+  "mcpServers": {
+    "_comment": "QuDAG MCP Server Configurations",
+    
+    "qudag-testnet-http": {
+      "command": "node",
+      "args": [
+        "/workspaces/QuDAG/.roo/mcp-http-proxy.js",
+        "http://109.105.222.156:3333"
+      ],
+      "alwaysAllow": [
+        "qudag_crypto",
+        "qudag_vault",
+        "qudag_dag",
+        "qudag_network",
+        "qudag_exchange"
+      ],
+      "description": "QuDAG Testnet MCP Server (Direct HTTP - WORKING)",
+      "timeout": 600,
+      "_note": "This configuration works correctly"
+    },
+    
+    "qudag-testnet-https": {
+      "command": "node",
+      "args": [
+        "/workspaces/QuDAG/.roo/mcp-http-proxy.js",
+        "https://qudag-testnet-node1.fly.dev"
+      ],
+      "alwaysAllow": [
+        "qudag_crypto",
+        "qudag_vault",
+        "qudag_dag",
+        "qudag_network",
+        "qudag_exchange"
+      ],
+      "description": "QuDAG Testnet MCP Server (HTTPS - TIMES OUT)",
+      "timeout": 600,
+      "_note": "This configuration times out due to Fly.io proxy issues with /mcp endpoint"
+    },
+    
+    "qudag-testnet-direct-http": {
+      "transport": "http",
+      "url": "http://109.105.222.156:3333",
+      "httpHeaders": {
+        "Accept": "application/json"
+      },
+      "alwaysAllow": [
+        "qudag_crypto",
+        "qudag_vault",
+        "qudag_dag",
+        "qudag_network",
+        "qudag_exchange"
+      ],
+      "description": "QuDAG Testnet MCP Server (Direct HTTP without proxy - SSE ERROR)",
+      "timeout": 600,
+      "_note": "This causes SSE (Server-Sent Events) content type errors"
+    }
+  },
+  
+  "_explanation": {
+    "working_endpoints": [
+      "https://qudag-testnet-node1.fly.dev/ - Intro page works",
+      "http://109.105.222.156:3333/mcp - MCP endpoints work"
+    ],
+    "broken_endpoints": [
+      "https://qudag-testnet-node1.fly.dev/mcp - Times out (Fly.io proxy issue)"
+    ],
+    "recommendation": "Use the 'qudag-testnet-http' configuration with the proxy script"
+  }
+}

@@ -1,0 +1,81 @@
+# Prometheus Configuration for QuDAG Testnet Monitoring
+
+global:
+  scrape_interval: 15s       # How frequently to scrape targets
+  evaluation_interval: 15s   # How frequently to evaluate rules
+  scrape_timeout: 10s       # How long until a scrape request times out
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+          # - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - "alerts.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          instance: 'prometheus'
+
+  # QuDAG Node metrics
+  - job_name: 'qudag-nodes'
+    static_configs:
+      - targets: 
+          - 'node1.qudag.local:9090'
+          - 'node2.qudag.local:9090'
+          - 'node3.qudag.local:9090'
+          - 'node4.qudag.local:9090'
+        labels:
+          network: 'testnet'
+    metrics_path: '/metrics'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: node
+        regex: '([^.]+)\..*'
+        replacement: '${1}'
+
+  # Node Exporter for host metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          instance: 'docker-host'
+
+  # cAdvisor for container metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+        labels:
+          instance: 'docker-containers'
+
+  # QuDAG API endpoints health checks
+  - job_name: 'qudag-api'
+    metrics_path: '/api/v1/metrics'
+    static_configs:
+      - targets:
+          - 'node1.qudag.local:8080'
+          - 'node2.qudag.local:8080'
+          - 'node3.qudag.local:8080'
+          - 'node4.qudag.local:8080'
+        labels:
+          network: 'testnet'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: node
+        regex: '([^.]+)\..*'
+        replacement: '${1}'
+
+# Storage configuration
+storage:
+  tsdb:
+    retention:
+      time: 30d
+      size: 10GB

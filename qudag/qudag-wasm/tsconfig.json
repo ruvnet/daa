@@ -1,0 +1,61 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "checkJs": false,
+    "jsx": "react-jsx",
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo",
+    "removeComments": false,
+    "noEmit": false,
+    "importHelpers": true,
+    "downlevelIteration": true,
+    "isolatedModules": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "moduleDetection": "auto",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "preserveSymlinks": false,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@tests/*": ["./tests/*"],
+      "@fixtures/*": ["./tests/fixtures/*"],
+      "@helpers/*": ["./tests/helpers/*"],
+      "@mocks/*": ["./tests/mocks/*"]
+    },
+    "types": ["vitest/globals", "node", "wasm-bindgen"]
+  },
+  "include": [
+    "src/**/*",
+    "tests/**/*",
+    "vitest.config.ts",
+    "vitest.workspace.ts",
+    "test-setup.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "pkg",
+    "target"
+  ],
+  "references": [
+    {
+      "path": "./tsconfig.node.json"
+    }
+  ]
+}

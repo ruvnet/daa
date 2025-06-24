@@ -1,0 +1,54 @@
+[workspace]
+
+[package]
+name = "qudag-exchange-server"
+version = "0.3.0"
+edition = "2021"
+authors = ["QuDAG Exchange Development Team"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ruvnet/QuDAG"
+description = "HTTP API server for QuDAG Exchange with rUv token operations"
+documentation = "https://docs.rs/qudag-exchange-server"
+keywords = ["qudag", "exchange", "server", "api", "tokens"]
+categories = ["web-programming", "cryptography"]
+
+[[bin]]
+name = "qudag-exchange-server"
+path = "src/main.rs"
+
+[dependencies]
+qudag-exchange-core = { version = "0.3.0", path = "../core" }
+
+# Web framework
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+hyper = "1.1"
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Authentication
+jsonwebtoken = "9.2"
+
+# Utilities
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Configuration
+config = "0.13"
+
+[dev-dependencies]
+reqwest = { version = "0.11", features = ["json"] }
+tower = { version = "0.4", features = ["util"] }

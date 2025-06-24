@@ -1,0 +1,88 @@
+   Compiling lock_api v0.4.13
+   Compiling futures-core v0.3.31
+   Compiling smallvec v1.15.1
+   Compiling futures-sink v0.3.31
+   Compiling ahash v0.8.12
+   Compiling crossbeam-epoch v0.9.18
+   Compiling futures-macro v0.3.31
+   Compiling futures-io v0.3.31
+   Compiling futures-task v0.3.31
+   Compiling rayon-core v1.12.1
+   Compiling rand_chacha v0.3.1
+   Compiling serde_json v1.0.140
+   Compiling tokio-macros v2.5.0
+   Compiling metrics-macros v0.7.1
+   Compiling signal-hook-registry v1.4.5
+   Compiling mio v1.0.4
+   Compiling socket2 v0.5.10
+   Compiling futures-channel v0.3.31
+   Compiling hashbrown v0.14.5
+   Compiling ryu v1.0.20
+   Compiling parking_lot_core v0.9.11
+   Compiling rand v0.8.5
+   Compiling either v1.15.0
+   Compiling crossbeam-deque v0.8.6
+   Compiling uuid v1.17.0
+   Compiling bincode v1.3.3
+   Compiling parking_lot v0.12.4
+   Compiling dashmap v5.5.3
+   Compiling metrics v0.21.1
+   Compiling qudag-crypto v0.1.0 (/workspaces/QuDAG/core/crypto)
+   Compiling tokio v1.45.1
+   Compiling rayon v1.10.0
+   Compiling futures-util v0.3.31
+   Compiling futures-executor v0.3.31
+   Compiling futures v0.3.31
+   Compiling qudag-dag v0.1.0 (/workspaces/QuDAG/core/dag)
+error[E0432]: unresolved import `criterion`
+ --> core/dag/benches/dag_benchmarks.rs:2:5
+  |
+2 | use criterion::{black_box, criterion_group, criterion_main, Criterion};
+  |     ^^^^^^^^^ use of unresolved module or unlinked crate `criterion`
+  |
+  = help: if you wanted to use a crate named `criterion`, use `cargo add criterion` to add it to your `Cargo.toml`
+
+error[E0433]: failed to resolve: unresolved import
+  --> core/dag/benches/dag_benchmarks.rs:76:60
+   |
+76 |                     .update_node_state(node.hash(), crate::node::NodeState::Verified)
+   |                                                            ^^^^ unresolved import
+   |
+help: a similar path exists
+   |
+76 |                     .update_node_state(node.hash(), crate::qudag_dag::node::NodeState::Verified)
+   |                                                            +++++++++++
+help: consider importing this enum
+   |
+1  + use qudag_dag::NodeState;
+   |
+help: if you import `NodeState`, refer to it directly
+   |
+76 -                     .update_node_state(node.hash(), crate::node::NodeState::Verified)
+76 +                     .update_node_state(node.hash(), NodeState::Verified)
+   |
+
+warning: unused import: `Edge`
+ --> core/dag/benches/dag_benchmarks.rs:3:17
+  |
+3 | use qudag_dag::{Edge, Graph, Node};
+  |                 ^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+error[E0614]: type `blake3::Hash` cannot be dereferenced
+  --> core/dag/benches/dag_benchmarks.rs:18:21
+   |
+18 |     let node_hash = *node.hash();
+   |                     ^^^^^^^^^^^^ can't be dereferenced
+
+error[E0614]: type `blake3::Hash` cannot be dereferenced
+  --> core/dag/benches/dag_benchmarks.rs:37:20
+   |
+37 |         let hash = *node.hash();
+   |                    ^^^^^^^^^^^^ can't be dereferenced
+
+Some errors have detailed explanations: E0432, E0433, E0614.
+For more information about an error, try `rustc --explain E0432`.
+warning: `qudag-dag` (bench "dag_benchmarks") generated 1 warning
+error: could not compile `qudag-dag` (bench "dag_benchmarks") due to 4 previous errors; 1 warning emitted

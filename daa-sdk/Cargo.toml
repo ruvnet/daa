@@ -1,0 +1,92 @@
+[workspace]
+members = [
+    "crates/daa-chain",
+    "crates/daa-economy",
+    "crates/daa-rules",
+    "crates/daa-ai",
+    "crates/daa-orchestrator",
+    "crates/daa-cli",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+authors = ["DAA Development Team"]
+edition = "2021"
+rust-version = "1.70"
+license = "Apache-2.0"
+repository = "https://github.com/daa-project/daa-sdk"
+homepage = "https://daa.xyz"
+documentation = "https://docs.daa.xyz"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1.40", features = ["full"] }
+async-trait = "0.1"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+
+# Cryptography
+sha2 = "0.10"
+hex = "0.4"
+rand = "0.8"
+
+# HTTP/Networking
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+axum = "0.7"
+
+# CLI
+clap = { version = "4.5", features = ["derive", "cargo", "env"] }
+
+# Testing
+mockall = "0.13"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+# QuDAG integration (optional)
+qudag-protocol = { version = "0.1", optional = true }
+qudag-network = { version = "0.1", optional = true }
+qudag-crypto = { version = "0.1", optional = true }
+qudag-exchange = { version = "0.1", optional = true }
+qudag-mcp = { version = "0.1", optional = true }
+
+# Internal crates
+daa-chain = { path = "crates/daa-chain" }
+daa-economy = { path = "crates/daa-economy" }
+daa-rules = { path = "crates/daa-rules" }
+daa-ai = { path = "crates/daa-ai" }
+daa-orchestrator = { path = "crates/daa-orchestrator" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"
+nursery = "warn"
+cargo = "warn"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+opt-level = 3
+
+[profile.dev]
+debug = true
+opt-level = 0
+
+[profile.test]
+debug = true
+opt-level = 2

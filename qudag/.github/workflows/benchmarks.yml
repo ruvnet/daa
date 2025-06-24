@@ -1,0 +1,396 @@
+name: Performance Benchmarks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'core/**/*.rs'
+      - 'benches/**/*.rs'
+      - 'Cargo.toml'
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - 'core/**/*.rs'
+      - 'benches/**/*.rs'
+  schedule:
+    # Run every day at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      comparison_branch:
+        description: 'Branch to compare against'
+        required: false
+        default: 'main'
+        type: string
+
+env:
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Core cryptography benchmarks
+  crypto-benchmarks:
+    name: Crypto Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        
+      - name: Cache cargo dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-bench-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Install benchmark dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnuplot
+          
+      - name: Run crypto benchmarks
+        run: |
+          cd core/crypto
+          cargo bench --bench crypto_benchmarks -- --output-format bencher | tee crypto_bench.txt
+          cargo bench --bench ml_dsa_performance -- --output-format bencher | tee ml_dsa_bench.txt
+          cargo bench --bench ml_kem_benchmarks -- --output-format bencher | tee ml_kem_bench.txt
+          cargo bench --bench hqc_benchmarks -- --output-format bencher | tee hqc_bench.txt
+          
+      - name: Store benchmark results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Crypto Benchmarks
+          tool: 'cargo'
+          output-file-path: core/crypto/crypto_bench.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          comment-on-alert: true
+          alert-threshold: '150%'
+          fail-on-alert: true
+          comment-always: true
+
+  # DAG consensus benchmarks
+  dag-benchmarks:
+    name: DAG Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        
+      - name: Run DAG benchmarks
+        run: |
+          cd core/dag
+          cargo bench --bench dag_benchmarks -- --output-format bencher | tee dag_bench.txt
+          cargo bench --bench consensus_benchmarks -- --output-format bencher | tee consensus_bench.txt
+          cargo bench --bench qr_avalanche_benchmarks -- --output-format bencher | tee qr_avalanche_bench.txt
+          
+      - name: Store benchmark results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: DAG Benchmarks
+          tool: 'cargo'
+          output-file-path: core/dag/dag_bench.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+  # Network performance benchmarks
+  network-benchmarks:
+    name: Network Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        
+      - name: Run network benchmarks
+        run: |
+          cd core/network
+          cargo bench --bench network_benchmarks -- --output-format bencher | tee network_bench.txt
+          cargo bench --bench routing_benchmarks -- --output-format bencher | tee routing_bench.txt
+          cargo bench --bench nat_traversal_benchmarks -- --output-format bencher | tee nat_bench.txt
+          
+      - name: Store benchmark results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Network Benchmarks
+          tool: 'cargo'
+          output-file-path: core/network/network_bench.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+  # WASM benchmarks
+  wasm-benchmarks:
+    name: WASM Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          
+      - name: Build WASM package
+        run: |
+          cd qudag-wasm
+          wasm-pack build --target nodejs --release
+          
+      - name: Run WASM benchmarks
+        run: |
+          cd qudag-wasm
+          npm install
+          cat > benchmark.js << 'EOF'
+          const { performance } = require('perf_hooks');
+          const wasm = require('./pkg-nodejs');
+          
+          // Initialize WASM
+          wasm.init_crypto();
+          
+          // Benchmark ML-DSA operations
+          console.log('ML-DSA Benchmarks:');
+          const mlDsaKeypair = wasm.generate_ml_dsa_keypair();
+          
+          // Sign benchmark
+          const message = new Uint8Array(1024).fill(42);
+          const signIterations = 1000;
+          const signStart = performance.now();
+          for (let i = 0; i < signIterations; i++) {
+            wasm.ml_dsa_sign(mlDsaKeypair.secret_key, message);
+          }
+          const signTime = (performance.now() - signStart) / signIterations;
+          console.log(`  Sign: ${signTime.toFixed(3)}ms per operation`);
+          
+          // Verify benchmark
+          const signature = wasm.ml_dsa_sign(mlDsaKeypair.secret_key, message);
+          const verifyIterations = 1000;
+          const verifyStart = performance.now();
+          for (let i = 0; i < verifyIterations; i++) {
+            wasm.ml_dsa_verify(mlDsaKeypair.public_key, message, signature);
+          }
+          const verifyTime = (performance.now() - verifyStart) / verifyIterations;
+          console.log(`  Verify: ${verifyTime.toFixed(3)}ms per operation`);
+          
+          // ML-KEM benchmarks
+          console.log('\nML-KEM Benchmarks:');
+          const mlKemKeypair = wasm.generate_ml_kem_keypair();
+          
+          // Encapsulate benchmark
+          const encapIterations = 1000;
+          const encapStart = performance.now();
+          for (let i = 0; i < encapIterations; i++) {
+            wasm.ml_kem_encapsulate(mlKemKeypair.public_key);
+          }
+          const encapTime = (performance.now() - encapStart) / encapIterations;
+          console.log(`  Encapsulate: ${encapTime.toFixed(3)}ms per operation`);
+          
+          // Write results for GitHub Actions
+          const results = `
+          test ml_dsa_sign ... bench: ${Math.round(signTime * 1000000)} ns/iter (+/- 0)
+          test ml_dsa_verify ... bench: ${Math.round(verifyTime * 1000000)} ns/iter (+/- 0)
+          test ml_kem_encapsulate ... bench: ${Math.round(encapTime * 1000000)} ns/iter (+/- 0)
+          `;
+          require('fs').writeFileSync('wasm_bench.txt', results);
+          EOF
+          
+          node benchmark.js
+          
+      - name: Store WASM benchmark results
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: WASM Benchmarks
+          tool: 'cargo'
+          output-file-path: qudag-wasm/wasm_bench.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+  # Memory usage benchmarks
+  memory-benchmarks:
+    name: Memory Usage Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        
+      - name: Install valgrind and massif-visualizer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y valgrind massif-visualizer
+          
+      - name: Build with debug symbols
+        run: cargo build --release --features full
+        
+      - name: Run memory profiling
+        run: |
+          # Profile quantum crypto operations
+          valgrind --tool=massif --massif-out-file=crypto.massif \
+            ./target/release/qudag key generate --algorithm ml-dsa
+            
+          # Profile DAG operations
+          valgrind --tool=massif --massif-out-file=dag.massif \
+            ./target/release/qudag test --dag-operations
+            
+          # Generate reports
+          ms_print crypto.massif > crypto_memory.txt
+          ms_print dag.massif > dag_memory.txt
+          
+      - name: Upload memory profiles
+        uses: actions/upload-artifact@v3
+        with:
+          name: memory-profiles
+          path: |
+            *.massif
+            *_memory.txt
+
+  # Comparative benchmarks
+  comparative-benchmarks:
+    name: Comparative Analysis
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        
+      - name: Run benchmarks on PR branch
+        run: |
+          cargo bench --workspace --features bench > pr_benchmarks.txt
+          
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          
+      - name: Run benchmarks on base branch
+        run: |
+          cargo bench --workspace --features bench > base_benchmarks.txt
+          
+      - name: Compare results
+        run: |
+          cat > compare_benchmarks.py << 'EOF'
+          import re
+          import sys
+          
+          def parse_benchmarks(filename):
+              results = {}
+              with open(filename, 'r') as f:
+                  for line in f:
+                      match = re.search(r'test (\S+) \.\.\. bench:\s+(\d+) ns/iter', line)
+                      if match:
+                          results[match.group(1)] = int(match.group(2))
+              return results
+          
+          base = parse_benchmarks('base_benchmarks.txt')
+          pr = parse_benchmarks('pr_benchmarks.txt')
+          
+          print("# Benchmark Comparison\n")
+          print("| Benchmark | Base | PR | Change |")
+          print("|-----------|------|----|---------:|")
+          
+          for name in sorted(set(base.keys()) | set(pr.keys())):
+              base_time = base.get(name, 0)
+              pr_time = pr.get(name, 0)
+              if base_time > 0:
+                  change = ((pr_time - base_time) / base_time) * 100
+                  sign = "+" if change > 0 else ""
+                  print(f"| {name} | {base_time} | {pr_time} | {sign}{change:.1f}% |")
+          EOF
+          
+          python3 compare_benchmarks.py > benchmark_comparison.md
+          
+      - name: Comment on PR
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const comparison = fs.readFileSync('benchmark_comparison.md', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comparison
+            });
+
+  # Generate performance report
+  performance-report:
+    name: Performance Report
+    needs: [crypto-benchmarks, dag-benchmarks, network-benchmarks, wasm-benchmarks]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Generate performance report
+        run: |
+          cat > PERFORMANCE_REPORT.md << EOF
+          # Performance Benchmark Report
+          
+          Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          Commit: ${{ github.sha }}
+          Branch: ${{ github.ref_name }}
+          
+          ## Summary
+          
+          | Component | Status |
+          |-----------|--------|
+          | Crypto | ${{ needs.crypto-benchmarks.result }} |
+          | DAG | ${{ needs.dag-benchmarks.result }} |
+          | Network | ${{ needs.network-benchmarks.result }} |
+          | WASM | ${{ needs.wasm-benchmarks.result }} |
+          
+          ## Key Metrics
+          
+          ### Quantum Cryptography Performance
+          - ML-DSA sign/verify operations
+          - ML-KEM encapsulation/decapsulation
+          - HQC encryption/decryption
+          
+          ### DAG Consensus Performance
+          - Block creation and validation
+          - QR-Avalanche consensus rounds
+          - Tip selection algorithms
+          
+          ### Network Performance
+          - P2P message throughput
+          - NAT traversal latency
+          - Onion routing overhead
+          
+          ### WASM Performance
+          - Crypto operations in browser/Node.js
+          - Memory usage and allocation
+          - Cross-platform compatibility
+          
+          ## Performance Guidelines
+          
+          Target performance metrics:
+          - ML-DSA sign: < 5ms
+          - ML-DSA verify: < 2ms
+          - ML-KEM encapsulate: < 1ms
+          - Block validation: < 10ms
+          - P2P latency: < 100ms (LAN), < 500ms (WAN)
+          
+          EOF
+          
+      - name: Upload performance report
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-report
+          path: PERFORMANCE_REPORT.md

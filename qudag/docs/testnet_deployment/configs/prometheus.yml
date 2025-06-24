@@ -1,0 +1,76 @@
+# Prometheus configuration for QuDAG Testnet monitoring
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'qudag-testnet'
+    environment: 'testnet'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Load rules files
+rule_files:
+  - "alerts.yml"
+
+# Scrape configurations
+scrape_configs:
+  # QuDAG Node 1 - Toronto
+  - job_name: 'qudag-node1'
+    static_configs:
+      - targets: ['node1:9090']
+        labels:
+          node: 'toronto'
+          region: 'yyz'
+          role: 'bootstrap'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # QuDAG Node 2 - Amsterdam
+  - job_name: 'qudag-node2'
+    static_configs:
+      - targets: ['node2:9090']
+        labels:
+          node: 'amsterdam'
+          region: 'ams'
+          role: 'validator'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # QuDAG Node 3 - Singapore
+  - job_name: 'qudag-node3'
+    static_configs:
+      - targets: ['node3:9090']
+        labels:
+          node: 'singapore'
+          region: 'sin'
+          role: 'validator'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # QuDAG Node 4 - San Francisco
+  - job_name: 'qudag-node4'
+    static_configs:
+      - targets: ['node4:9090']
+        labels:
+          node: 'sanfrancisco'
+          region: 'sjc'
+          role: 'validator'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+# For Fly.io deployment, use these configurations instead:
+# Replace the targets with the actual Fly.io URLs
+# Example:
+# - targets: ['qudag-testnet-node1.fly.dev:9090']

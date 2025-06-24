@@ -1,0 +1,211 @@
+# QuDAG DevOps Makefile
+# Simplifies common DevOps operations
+
+.PHONY: help build test deploy clean monitor
+
+# Default target
+help:
+	@echo "QuDAG DevOps Commands:"
+	@echo "  make build-all       - Build all Docker images"
+	@echo "  make test-ci        - Run CI tests locally"
+	@echo "  make deploy-dev     - Deploy development environment"
+	@echo "  make deploy-prod    - Deploy production environment"
+	@echo "  make deploy-testnet - Deploy testnet (NODE_COUNT=n)"
+	@echo "  make monitor        - Monitor running services"
+	@echo "  make load-test      - Run load tests on testnet"
+	@echo "  make security-scan  - Run security scans"
+	@echo "  make clean-all      - Clean up everything"
+	@echo ""
+	@echo "Docker Commands:"
+	@echo "  make docker-build   - Build production Docker image"
+	@echo "  make docker-push    - Push images to registry"
+	@echo "  make docker-clean   - Clean Docker resources"
+	@echo ""
+	@echo "Release Commands:"
+	@echo "  make release-patch  - Release patch version"
+	@echo "  make release-minor  - Release minor version"
+	@echo "  make release-major  - Release major version"
+
+# Build targets
+build-all: docker-build wasm-build
+
+docker-build:
+	@echo "Building Docker images..."
+	docker build -t qudag:latest .
+	docker build -t qudag:alpine -f Dockerfile.alpine .
+	docker build -t qudag:dev -f Dockerfile.dev .
+
+wasm-build:
+	@echo "Building WASM packages..."
+	cd qudag-wasm && wasm-pack build --target web --out-dir pkg
+	cd qudag-wasm && wasm-pack build --target nodejs --out-dir pkg-nodejs
+	cd qudag-wasm && wasm-pack build --target bundler --out-dir pkg-bundler
+
+# Test targets
+test-ci:
+	@echo "Running CI tests locally..."
+	cargo fmt --all -- --check
+	cargo clippy --all-features --workspace -- -D warnings
+	cargo test --workspace --all-features
+	cd qudag-wasm && wasm-pack test --node
+
+test-integration:
+	@echo "Running integration tests..."
+	docker-compose -f docker-compose.yml up -d
+	sleep 30 # Wait for services
+	cargo test --features integration
+	docker-compose down
+
+# Deployment targets
+deploy-dev:
+	@echo "Deploying development environment..."
+	docker-compose -f docker-compose.dev.yml up -d
+	@echo "Development environment deployed!"
+	@echo "Services available at:"
+	@echo "  - QuDAG Dev: http://localhost:8080"
+	@echo "  - Grafana: http://localhost:3001 (admin/admin)"
+	@echo "  - Jaeger: http://localhost:16686"
+
+deploy-prod:
+	@echo "Deploying production environment..."
+	docker-compose up -d
+	@echo "Production environment deployed!"
+	@echo "Services available at:"
+	@echo "  - QuDAG API: http://localhost:80"
+	@echo "  - Grafana: http://localhost:3000 (admin/admin)"
+
+deploy-testnet:
+	@echo "Deploying testnet with $(NODE_COUNT) nodes..."
+	NODE_COUNT=$(NODE_COUNT) ./scripts/testnet/deploy-testnet.sh deploy
+
+stop-testnet:
+	./scripts/testnet/deploy-testnet.sh stop
+
+clean-testnet:
+	./scripts/testnet/deploy-testnet.sh clean
+
+# Monitoring
+monitor:
+	@echo "Starting monitoring dashboard..."
+	./scripts/testnet/monitor-testnet.sh
+
+monitor-logs:
+	docker-compose logs -f --tail=100
+
+# Load testing
+load-test:
+	@echo "Running load tests..."
+	./scripts/testnet/load-test.sh all
+
+load-test-quick:
+	TEST_DURATION=60 ./scripts/testnet/load-test.sh transactions
+
+# Security
+security-scan:
+	@echo "Running security scans..."
+	cargo audit
+	cargo clippy -- -W clippy::all
+	docker run --rm -v $$(pwd):/src \
+		aquasec/trivy fs --severity HIGH,CRITICAL /src
+
+security-fix:
+	cargo audit fix
+
+# Clean up
+clean-all: clean-docker clean-testnet clean-build
+
+clean-docker:
+	docker-compose down -v
+	docker-compose -f docker-compose.dev.yml down -v
+	docker system prune -f
+
+clean-build:
+	cargo clean
+	rm -rf target/
+	rm -rf qudag-wasm/pkg*
+	rm -rf node_modules/
+
+clean-logs:
+	find . -name "*.log" -type f -delete
+	docker-compose logs --no-color > logs/docker-compose-$(date +%Y%m%d-%H%M%S).log
+	docker-compose logs --flush
+
+# Release management
+release-patch:
+	@echo "Creating patch release..."
+	cargo release patch --execute
+
+release-minor:
+	@echo "Creating minor release..."
+	cargo release minor --execute
+
+release-major:
+	@echo "Creating major release..."
+	cargo release major --execute
+
+tag-release:
+	@VERSION=$$(grep "^version" Cargo.toml | head -1 | cut -d'"' -f2); \
+	git tag -a "v$$VERSION" -m "Release v$$VERSION"; \
+	git push origin "v$$VERSION"
+
+# Development helpers
+dev-shell:
+	docker-compose -f docker-compose.dev.yml exec dev bash
+
+dev-watch:
+	docker-compose -f docker-compose.dev.yml exec dev \
+		cargo watch -x 'run -- start --dev'
+
+# Performance
+bench:
+	cargo bench --workspace --features bench
+
+bench-compare:
+	cargo bench --workspace --features bench -- --save-baseline main
+	git checkout feature-branch
+	cargo bench --workspace --features bench -- --baseline main
+
+profile:
+	cargo build --release
+	perf record --call-graph=dwarf target/release/qudag
+	perf report
+
+# Documentation
+docs:
+	cargo doc --no-deps --open
+	cd qudag-wasm && wasm-pack build --target web
+
+docs-serve:
+	python3 -m http.server 8000 --directory target/doc
+
+# Utilities
+check-deps:
+	@echo "Checking dependencies..."
+	@command -v docker >/dev/null 2>&1 || { echo "docker is required but not installed."; exit 1; }
+	@command -v docker-compose >/dev/null 2>&1 || { echo "docker-compose is required but not installed."; exit 1; }
+	@command -v cargo >/dev/null 2>&1 || { echo "cargo is required but not installed."; exit 1; }
+	@command -v wasm-pack >/dev/null 2>&1 || { echo "wasm-pack is required but not installed."; exit 1; }
+	@echo "All dependencies installed!"
+
+install-tools:
+	cargo install cargo-audit cargo-release cargo-watch
+	cargo install wasm-pack
+	npm install -g npm-check-updates
+
+update-deps:
+	cargo update
+	cd qudag-wasm && ncu -u && npm install
+
+# GitHub Actions local testing
+act-ci:
+	act -j build
+
+act-release:
+	act -j create-release --secret-file .env.secrets
+
+# Quick commands
+up: deploy-dev
+down: clean-docker
+restart: down up
+logs: monitor-logs
+test: test-ci

@@ -1,0 +1,244 @@
+{
+  "name": "QuDAG Command Workflow Registry",
+  "version": "1.0.0",
+  "description": "Master registry mapping all commands to their workflows, agents, and contexts",
+  
+  "command_categories": {
+    "primary_development": {
+      "description": "Core development commands following TDD methodology",
+      "commands": ["tdd-cycle", "security-audit", "performance-benchmark", "integration-test", "deploy-validate"],
+      "workflow": "workflow/tdd_workflow.md"
+    },
+    "development_workflow": {
+      "description": "Supporting development workflow commands",
+      "commands": ["create-test", "implement-feature", "refactor-optimize", "review-security", "update-docs"],
+      "workflow": "workflow/tdd_workflow.md"
+    },
+    "specialized": {
+      "description": "Module-specific specialized commands",
+      "commands": ["crypto-validate", "network-simulate", "dag-visualize", "fuzz-test"],
+      "agents": ["crypto_agent", "network_agent", "consensus_agent", "security_agent"]
+    },
+    "debug": {
+      "description": "Debugging and diagnostics commands",
+      "commands": ["debug-network", "debug-consensus", "debug-performance", "debug-security"],
+      "context": "contexts/test_status.md"
+    }
+  },
+  
+  "workflow_registry": {
+    "tdd_workflow": {
+      "file": "workflow/tdd_workflow.md",
+      "description": "Test-Driven Development workflow with RED-GREEN-REFACTOR phases",
+      "commands": ["tdd-cycle", "create-test", "implement-feature", "refactor-optimize"]
+    },
+    "security_workflow": {
+      "file": "workflow/security_workflow.md",
+      "description": "Security analysis and validation workflow",
+      "commands": ["security-audit", "review-security", "debug-security", "fuzz-test"]
+    },
+    "performance_workflow": {
+      "file": "workflow/performance_workflow.md",
+      "description": "Performance benchmarking and optimization workflow",
+      "commands": ["performance-benchmark", "debug-performance", "refactor-optimize"]
+    },
+    "deployment_workflow": {
+      "file": "workflow/deployment_workflow.md",
+      "description": "Deployment validation and release workflow",
+      "commands": ["deploy-validate", "integration-test"]
+    }
+  },
+  
+  "agent_registry": {
+    "crypto_agent": {
+      "file": "agents/crypto_agent.md",
+      "description": "Handles all cryptographic implementations and validations",
+      "commands": ["crypto-validate", "fuzz-test"],
+      "modules": ["crypto", "ml_kem", "ml_dsa", "hqc"]
+    },
+    "network_agent": {
+      "file": "agents/network_agent.md",
+      "description": "Manages P2P networking and communication protocols",
+      "commands": ["network-simulate", "debug-network"],
+      "modules": ["network", "p2p", "routing", "dark_addressing"]
+    },
+    "consensus_agent": {
+      "file": "agents/consensus_agent.md",
+      "description": "Implements and tests DAG consensus mechanisms",
+      "commands": ["dag-visualize", "debug-consensus"],
+      "modules": ["dag", "consensus", "qr_avalanche"]
+    },
+    "security_agent": {
+      "file": "agents/security_agent.md",
+      "description": "Performs security analysis and vulnerability assessment",
+      "commands": ["security-audit", "review-security", "debug-security"],
+      "modules": ["all"]
+    },
+    "performance_agent": {
+      "file": "agents/performance_agent.md",
+      "description": "Monitors and optimizes system performance",
+      "commands": ["performance-benchmark", "debug-performance"],
+      "modules": ["all"]
+    },
+    "integration_agent": {
+      "file": "agents/integration_agent.md",
+      "description": "Coordinates component integration and system testing",
+      "commands": ["integration-test", "implement-feature"],
+      "modules": ["protocol", "integration"]
+    }
+  },
+  
+  "context_registry": {
+    "test_status": {
+      "file": "contexts/test_status.md",
+      "description": "Tracks test execution status across all modules",
+      "used_by": ["all"]
+    },
+    "integration_context": {
+      "file": "contexts/integration_context.md",
+      "description": "Maintains integration test state and coordination",
+      "used_by": ["integration-test", "implement-feature"]
+    },
+    "security_context": {
+      "file": "contexts/security_context.md",
+      "description": "Tracks security issues and audit status",
+      "used_by": ["security-audit", "review-security", "debug-security"]
+    },
+    "performance_context": {
+      "file": "contexts/performance_context.md",
+      "description": "Maintains performance metrics and benchmarks",
+      "used_by": ["performance-benchmark", "debug-performance"]
+    }
+  },
+  
+  "command_dependencies": {
+    "tdd-cycle": {
+      "depends_on": ["create-test"],
+      "triggers": ["implement-feature", "refactor-optimize"]
+    },
+    "security-audit": {
+      "depends_on": ["crypto-validate"],
+      "triggers": ["debug-security", "fuzz-test"]
+    },
+    "performance-benchmark": {
+      "depends_on": ["integration-test"],
+      "triggers": ["debug-performance", "refactor-optimize"]
+    },
+    "deploy-validate": {
+      "depends_on": ["integration-test", "security-audit", "performance-benchmark"],
+      "triggers": []
+    }
+  },
+  
+  "execution_order": {
+    "development_cycle": [
+      "create-test",
+      "tdd-cycle",
+      "implement-feature",
+      "integration-test",
+      "security-audit",
+      "performance-benchmark",
+      "refactor-optimize",
+      "deploy-validate"
+    ],
+    "debug_cycle": [
+      "debug-network",
+      "debug-consensus",
+      "debug-performance",
+      "debug-security"
+    ]
+  },
+  
+  "command_mapping": {
+    "tdd-cycle": {
+      "file": "tdd-cycle.md",
+      "workflow": "tdd_workflow",
+      "agents": ["crypto_agent", "network_agent", "consensus_agent", "integration_agent"]
+    },
+    "security-audit": {
+      "file": "security-audit.md",
+      "workflow": "security_workflow",
+      "agents": ["security_agent"]
+    },
+    "performance-benchmark": {
+      "file": "performance-benchmark.md",
+      "workflow": "performance_workflow",
+      "agents": ["performance_agent"]
+    },
+    "integration-test": {
+      "file": "integration-test.md",
+      "workflow": "deployment_workflow",
+      "agents": ["integration_agent"]
+    },
+    "deploy-validate": {
+      "file": "deploy-validate.md",
+      "workflow": "deployment_workflow",
+      "agents": ["integration_agent"]
+    },
+    "create-test": {
+      "file": "create-test.md",
+      "workflow": "tdd_workflow",
+      "agents": ["integration_agent"]
+    },
+    "implement-feature": {
+      "file": "implement-feature.md",
+      "workflow": "tdd_workflow",
+      "agents": ["integration_agent"]
+    },
+    "refactor-optimize": {
+      "file": "refactor-optimize.md",
+      "workflow": "performance_workflow",
+      "agents": ["performance_agent"]
+    },
+    "review-security": {
+      "file": "review-security.md",
+      "workflow": "security_workflow",
+      "agents": ["security_agent"]
+    },
+    "update-docs": {
+      "file": "update-docs.md",
+      "workflow": "tdd_workflow",
+      "agents": ["integration_agent"]
+    },
+    "crypto-validate": {
+      "file": "crypto-validate.md",
+      "workflow": null,
+      "agents": ["crypto_agent"]
+    },
+    "network-simulate": {
+      "file": "network-simulate.md",
+      "workflow": null,
+      "agents": ["network_agent"]
+    },
+    "dag-visualize": {
+      "file": "dag-visualize.md",
+      "workflow": null,
+      "agents": ["consensus_agent"]
+    },
+    "fuzz-test": {
+      "file": "fuzz-test.md",
+      "workflow": "security_workflow",
+      "agents": ["security_agent", "crypto_agent"]
+    },
+    "debug-network": {
+      "file": "debug-network.md",
+      "workflow": null,
+      "agents": ["network_agent"]
+    },
+    "debug-consensus": {
+      "file": "debug-consensus.md",
+      "workflow": null,
+      "agents": ["consensus_agent"]
+    },
+    "debug-performance": {
+      "file": "debug-performance.md",
+      "workflow": "performance_workflow",
+      "agents": ["performance_agent"]
+    },
+    "debug-security": {
+      "file": "debug-security.md",
+      "workflow": "security_workflow",
+      "agents": ["security_agent"]
+    }
+  }
+}

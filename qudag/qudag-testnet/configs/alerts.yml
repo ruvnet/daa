@@ -1,0 +1,118 @@
+# Prometheus Alert Rules for QuDAG Testnet
+
+groups:
+  - name: qudag_node_alerts
+    interval: 30s
+    rules:
+      # Node Down Alert
+      - alert: NodeDown
+        expr: up{job=~"qudag-node.*"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: qudag
+        annotations:
+          summary: "QuDAG node {{ $labels.node }} is down"
+          description: "Node {{ $labels.node }} in region {{ $labels.region }} has been down for more than 2 minutes."
+
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total{job=~"qudag-node.*"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: qudag
+        annotations:
+          summary: "High CPU usage on {{ $labels.node }}"
+          description: "CPU usage on node {{ $labels.node }} is above 80% for 5 minutes."
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: (process_resident_memory_bytes{job=~"qudag-node.*"} / 1024 / 1024 / 1024) > 1.5
+        for: 5m
+        labels:
+          severity: warning
+          service: qudag
+        annotations:
+          summary: "High memory usage on {{ $labels.node }}"
+          description: "Memory usage on node {{ $labels.node }} is above 1.5GB for 5 minutes."
+
+      # Low Peer Count
+      - alert: LowPeerCount
+        expr: qudag_peers_total{job=~"qudag-node.*"} < 2
+        for: 5m
+        labels:
+          severity: warning
+          service: qudag
+        annotations:
+          summary: "Low peer count on {{ $labels.node }}"
+          description: "Node {{ $labels.node }} has less than 2 peers for 5 minutes."
+
+      # No New Blocks
+      - alert: NoNewBlocks
+        expr: rate(qudag_blocks_total{job=~"qudag-node.*"}[10m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+          service: qudag
+        annotations:
+          summary: "No new blocks on {{ $labels.node }}"
+          description: "Node {{ $labels.node }} hasn't produced new blocks for 10 minutes."
+
+      # High Error Rate
+      - alert: HighErrorRate
+        expr: rate(qudag_errors_total{job=~"qudag-node.*"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: qudag
+        annotations:
+          summary: "High error rate on {{ $labels.node }}"
+          description: "Node {{ $labels.node }} is experiencing high error rate."
+
+      # Disk Space Low
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes{job=~"qudag-node.*",mountpoint="/"} / node_filesystem_size_bytes{job=~"qudag-node.*",mountpoint="/"}) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+          service: qudag
+        annotations:
+          summary: "Low disk space on {{ $labels.node }}"
+          description: "Node {{ $labels.node }} has less than 10% disk space available."
+
+      # Network Latency High
+      - alert: HighNetworkLatency
+        expr: qudag_p2p_latency_ms{job=~"qudag-node.*"} > 500
+        for: 5m
+        labels:
+          severity: warning
+          service: qudag
+        annotations:
+          summary: "High network latency on {{ $labels.node }}"
+          description: "Node {{ $labels.node }} is experiencing network latency above 500ms."
+
+  - name: qudag_consensus_alerts
+    interval: 30s
+    rules:
+      # Consensus Failure
+      - alert: ConsensusFailure
+        expr: increase(qudag_consensus_failures_total{job=~"qudag-node.*"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: qudag
+        annotations:
+          summary: "Consensus failure on {{ $labels.node }}"
+          description: "Node {{ $labels.node }} is experiencing consensus failures."
+
+      # Fork Detection
+      - alert: ForkDetected
+        expr: qudag_forks_detected_total{job=~"qudag-node.*"} > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: qudag
+        annotations:
+          summary: "Fork detected on {{ $labels.node }}"
+          description: "Node {{ $labels.node }} has detected a fork in the DAG."

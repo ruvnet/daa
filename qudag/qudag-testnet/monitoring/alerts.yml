@@ -1,0 +1,139 @@
+# Prometheus Alert Rules for QuDAG Testnet
+
+groups:
+  # Node Health Alerts
+  - name: node_health
+    interval: 30s
+    rules:
+      - alert: NodeDown
+        expr: up{job="qudag-nodes"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "QuDAG node {{ $labels.node }} is down"
+          description: "Node {{ $labels.node }} has been unreachable for more than 2 minutes."
+
+      - alert: HighCPUUsage
+        expr: process_cpu_seconds_total{job="qudag-nodes"} > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on node {{ $labels.node }}"
+          description: "CPU usage on {{ $labels.node }} has been above 80% for 5 minutes."
+
+      - alert: HighMemoryUsage
+        expr: (process_resident_memory_bytes{job="qudag-nodes"} / 1024 / 1024 / 1024) > 1.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on node {{ $labels.node }}"
+          description: "Memory usage on {{ $labels.node }} is above 1.5GB."
+
+  # Network Health Alerts
+  - name: network_health
+    interval: 30s
+    rules:
+      - alert: LowPeerCount
+        expr: qudag_p2p_peer_count{job="qudag-nodes"} < 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low peer count on node {{ $labels.node }}"
+          description: "Node {{ $labels.node }} has fewer than 2 peers connected."
+
+      - alert: NetworkPartition
+        expr: qudag_p2p_peer_count{job="qudag-nodes"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Node {{ $labels.node }} is isolated from the network"
+          description: "Node {{ $labels.node }} has no peer connections."
+
+      - alert: HighNetworkLatency
+        expr: qudag_p2p_latency_seconds{job="qudag-nodes"} > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High network latency on node {{ $labels.node }}"
+          description: "Network latency on {{ $labels.node }} is above 500ms."
+
+  # Consensus Alerts
+  - name: consensus_health
+    interval: 30s
+    rules:
+      - alert: ConsensusStalled
+        expr: rate(qudag_dag_vertices_created_total{job="qudag-nodes"}[5m]) == 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Consensus stalled on node {{ $labels.node }}"
+          description: "No new DAG vertices created on {{ $labels.node }} for 10 minutes."
+
+      - alert: ConsensusDesync
+        expr: stddev(qudag_dag_depth{job="qudag-nodes"}) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Consensus desynchronization detected"
+          description: "DAG depth variance across nodes is greater than 10."
+
+  # Storage Alerts
+  - name: storage_health
+    interval: 30s
+    rules:
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/data"} / node_filesystem_size_bytes{mountpoint="/data"}) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Less than 10% disk space remaining on /data mount."
+
+      - alert: DatabaseError
+        expr: increase(qudag_storage_errors_total{job="qudag-nodes"}[5m]) > 5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database errors on node {{ $labels.node }}"
+          description: "More than 5 database errors in the last 5 minutes."
+
+  # API Health Alerts
+  - name: api_health
+    interval: 30s
+    rules:
+      - alert: APIDown
+        expr: up{job="qudag-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API endpoint down on node {{ $labels.node }}"
+          description: "API endpoint on {{ $labels.node }} has been unreachable for 2 minutes."
+
+      - alert: HighAPILatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="qudag-api"}[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API latency on node {{ $labels.node }}"
+          description: "95th percentile API latency is above 1 second."
+
+      - alert: APIErrorRate
+        expr: rate(http_requests_total{job="qudag-api",status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API error rate on node {{ $labels.node }}"
+          description: "API error rate is above 5% on {{ $labels.node }}."

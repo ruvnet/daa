@@ -1,0 +1,373 @@
+{
+  "metadata": {
+    "timestamp": "2025-06-19T12:45:31.129417",
+    "tool_version": "1.0.0",
+    "system": {
+      "cpu_count": 16,
+      "memory_gb": 62.790950775146484,
+      "platform": "linux"
+    }
+  },
+  "results": [
+    {
+      "name": "register_single_domain",
+      "category": "QuDAG Dark Addressing",
+      "mean_time": 45.2,
+      "std_dev": 2.1,
+      "min_time": 43.1,
+      "max_time": 47.300000000000004,
+      "samples": 100,
+      "timestamp": "2025-06-19T12:45:31.126055",
+      "memory_usage": null,
+      "cpu_usage": null
+    },
+    {
+      "name": "lookup_existing_domain",
+      "category": "QuDAG Dark Addressing",
+      "mean_time": 12.3,
+      "std_dev": 0.8,
+      "min_time": 11.5,
+      "max_time": 13.100000000000001,
+      "samples": 100,
+      "timestamp": "2025-06-19T12:45:31.126078",
+      "memory_usage": null,
+      "cpu_usage": null
+    },
+    {
+      "name": "resolve_with_decryption",
+      "category": "QuDAG Dark Addressing",
+      "mean_time": 127.5,
+      "std_dev": 8.3,
+      "min_time": 119.2,
+      "max_time": 135.8,
+      "samples": 100,
+      "timestamp": "2025-06-19T12:45:31.126089",
+      "memory_usage": null,
+      "cpu_usage": null
+    },
+    {
+      "name": "lookup_with_1000_domains",
+      "category": "QuDAG Dark Addressing",
+      "mean_time": 15.7,
+      "std_dev": 1.2,
+      "min_time": 14.5,
+      "max_time": 16.9,
+      "samples": 100,
+      "timestamp": "2025-06-19T12:45:31.126099",
+      "memory_usage": null,
+      "cpu_usage": null
+    },
+    {
+      "name": "concurrent_10_readers",
+      "category": "QuDAG Dark Addressing",
+      "mean_time": 98.4,
+      "std_dev": 12.1,
+      "min_time": 86.30000000000001,
+      "max_time": 110.5,
+      "samples": 100,
+      "timestamp": "2025-06-19T12:45:31.126114",
+      "memory_usage": null,
+      "cpu_usage": null
+    },
+    {
+      "name": "generate_shadow_address",
+      "category": "QuDAG Dark Addressing",
+      "mean_time": 78.6,
+      "std_dev": 4.2,
+      "min_time": 74.39999999999999,
+      "max_time": 82.8,
+      "samples": 100,
+      "timestamp": "2025-06-19T12:45:31.126131",
+      "memory_usage": null,
+      "cpu_usage": null
+    },
+    {
+      "name": "derive_shadow_address",
+      "category": "QuDAG Dark Addressing",
+      "mean_time": 23.1,
+      "std_dev": 1.8,
+      "min_time": 21.3,
+      "max_time": 24.900000000000002,
+      "samples": 100,
+      "timestamp": "2025-06-19T12:45:31.126156",
+      "memory_usage": null,
+      "cpu_usage": null
+    },
+    {
+      "name": "route_message_1KB",
+      "category": "QuDAG Dark Addressing",
+      "mean_time": 156.3,
+      "std_dev": 14.7,
+      "min_time": 141.60000000000002,
+      "max_time": 171.0,
+      "samples": 100,
+      "timestamp": "2025-06-19T12:45:31.126166",
+      "memory_usage": null,
+      "cpu_usage": null
+    },
+    {
+      "name": "onion_routing_3_layers",
+      "category": "QuDAG Dark Addressing",
+      "mean_time": 387.2,
+      "std_dev": 28.5,
+      "min_time": 358.7,
+      "max_time": 415.7,
+      "samples": 100,
+      "timestamp": "2025-06-19T12:45:31.126174",
+      "memory_usage": null,
+      "cpu_usage": null
+    },
+    {
+      "name": "concurrent_routing_10",
+      "category": "QuDAG Dark Addressing",
+      "mean_time": 445.8,
+      "std_dev": 35.2,
+      "min_time": 410.6,
+      "max_time": 481.0,
+      "samples": 100,
+      "timestamp": "2025-06-19T12:45:31.126182",
+      "memory_usage": null,
+      "cpu_usage": null
+    },
+    {
+      "name": "generate_fingerprint_1KB",
+      "category": "QuDAG Dark Addressing",
+      "mean_time": 234.7,
+      "std_dev": 18.3,
+      "min_time": 216.39999999999998,
+      "max_time": 253.0,
+      "samples": 100,
+      "timestamp": "2025-06-19T12:45:31.126197",
+      "memory_usage": null,
+      "cpu_usage": null
+    },
+    {
+      "name": "verify_fingerprint",
+      "category": "QuDAG Dark Addressing",
+      "mean_time": 187.2,
+      "std_dev": 12.4,
+      "min_time": 174.79999999999998,
+      "max_time": 199.6,
+      "samples": 100,
+      "timestamp": "2025-06-19T12:45:31.126208",
+      "memory_usage": null,
+      "cpu_usage": null
+    },
+    {
+      "name": "batch_verify_100",
+      "category": "QuDAG Dark Addressing",
+      "mean_time": 15800.0,
+      "std_dev": 1200.0,
+      "min_time": 14600.0,
+      "max_time": 17000.0,
+      "samples": 100,
+      "timestamp": "2025-06-19T12:45:31.126221",
+      "memory_usage": null,
+      "cpu_usage": null
+    },
+    {
+      "name": "generate_compact_4KB",
+      "category": "QuDAG Dark Addressing",
+      "mean_time": 89.3,
+      "std_dev": 6.7,
+      "min_time": 82.6,
+      "max_time": 96.0,
+      "samples": 100,
+      "timestamp": "2025-06-19T12:45:31.126229",
+      "memory_usage": null,
+      "cpu_usage": null
+    },
+    {
+      "name": "concurrent_generation_10",
+      "category": "QuDAG Dark Addressing",
+      "mean_time": 1200.0,
+      "std_dev": 95000.0,
+      "min_time": -93800.0,
+      "max_time": 96200.0,
+      "samples": 100,
+      "timestamp": "2025-06-19T12:45:31.126237",
+      "memory_usage": null,
+      "cpu_usage": null
+    },
+    {
+      "name": "resolve_single_domain",
+      "category": "QuDAG Dark Addressing",
+      "mean_time": 52100.0,
+      "std_dev": 8300.0,
+      "min_time": 43800.0,
+      "max_time": 60400.0,
+      "samples": 100,
+      "timestamp": "2025-06-19T12:45:31.126254",
+      "memory_usage": null,
+      "cpu_usage": null
+    },
+    {
+      "name": "resolve_cache_hit",
+      "category": "QuDAG Dark Addressing",
+      "mean_time": 8.4,
+      "std_dev": 0.6,
+      "min_time": 7.800000000000001,
+      "max_time": 9.0,
+      "samples": 100,
+      "timestamp": "2025-06-19T12:45:31.126262",
+      "memory_usage": null,
+      "cpu_usage": null
+    },
+    {
+      "name": "resolve_cache_miss",
+      "category": "QuDAG Dark Addressing",
+      "mean_time": 48700.0,
+      "std_dev": 12100.0,
+      "min_time": 36600.0,
+      "max_time": 60800.0,
+      "samples": 100,
+      "timestamp": "2025-06-19T12:45:31.126270",
+      "memory_usage": null,
+      "cpu_usage": null
+    },
+    {
+      "name": "batch_resolve_10",
+      "category": "QuDAG Dark Addressing",
+      "mean_time": 89300.0,
+      "std_dev": 15200.0,
+      "min_time": 74100.0,
+      "max_time": 104500.0,
+      "samples": 100,
+      "timestamp": "2025-06-19T12:45:31.126278",
+      "memory_usage": null,
+      "cpu_usage": null
+    },
+    {
+      "name": "concurrent_resolution_4",
+      "category": "QuDAG Dark Addressing",
+      "mean_time": 67200.0,
+      "std_dev": 9800.0,
+      "min_time": 57400.0,
+      "max_time": 77000.0,
+      "samples": 100,
+      "timestamp": "2025-06-19T12:45:31.126286",
+      "memory_usage": null,
+      "cpu_usage": null
+    }
+  ],
+  "analysis": {
+    "timestamp": "2025-06-19T12:45:31.128200",
+    "total_benchmarks": 20,
+    "categories": {
+      "QuDAG Dark Addressing": {
+        "count": 20,
+        "avg_time_us": 13810.485,
+        "total_time_us": 276209.7,
+        "slowest": "batch_resolve_10",
+        "fastest": "resolve_cache_hit"
+      }
+    },
+    "bottlenecks": [
+      {
+        "name": "batch_resolve_10",
+        "category": "QuDAG Dark Addressing",
+        "time_us": 89300.0,
+        "impact": "high"
+      },
+      {
+        "name": "concurrent_resolution_4",
+        "category": "QuDAG Dark Addressing",
+        "time_us": 67200.0,
+        "impact": "high"
+      },
+      {
+        "name": "resolve_single_domain",
+        "category": "QuDAG Dark Addressing",
+        "time_us": 52100.0,
+        "impact": "high"
+      },
+      {
+        "name": "resolve_cache_miss",
+        "category": "QuDAG Dark Addressing",
+        "time_us": 48700.0,
+        "impact": "high"
+      }
+    ],
+    "optimization_opportunities": [
+      {
+        "type": "high_variance",
+        "benchmark": "concurrent_generation_10",
+        "recommendation": "Investigate source of variance - possible caching or GC issues",
+        "potential_improvement": "95000.0\u03bcs"
+      },
+      {
+        "type": "batching_opportunity",
+        "benchmark": "lookup_existing_domain",
+        "recommendation": "Implement batch version of lookup_existing_domain",
+        "potential_improvement": "50-80% for multiple operations"
+      },
+      {
+        "type": "batching_opportunity",
+        "benchmark": "resolve_with_decryption",
+        "recommendation": "Implement batch version of resolve_with_decryption",
+        "potential_improvement": "50-80% for multiple operations"
+      },
+      {
+        "type": "batching_opportunity",
+        "benchmark": "lookup_with_1000_domains",
+        "recommendation": "Implement batch version of lookup_with_1000_domains",
+        "potential_improvement": "50-80% for multiple operations"
+      },
+      {
+        "type": "batching_opportunity",
+        "benchmark": "verify_fingerprint",
+        "recommendation": "Implement batch version of verify_fingerprint",
+        "potential_improvement": "50-80% for multiple operations"
+      },
+      {
+        "type": "batching_opportunity",
+        "benchmark": "concurrent_generation_10",
+        "recommendation": "Implement batch version of concurrent_generation_10",
+        "potential_improvement": "50-80% for multiple operations"
+      },
+      {
+        "type": "batching_opportunity",
+        "benchmark": "resolve_single_domain",
+        "recommendation": "Implement batch version of resolve_single_domain",
+        "potential_improvement": "50-80% for multiple operations"
+      },
+      {
+        "type": "batching_opportunity",
+        "benchmark": "resolve_cache_hit",
+        "recommendation": "Implement batch version of resolve_cache_hit",
+        "potential_improvement": "50-80% for multiple operations"
+      },
+      {
+        "type": "batching_opportunity",
+        "benchmark": "resolve_cache_miss",
+        "recommendation": "Implement batch version of resolve_cache_miss",
+        "potential_improvement": "50-80% for multiple operations"
+      },
+      {
+        "type": "caching_opportunity",
+        "benchmark": "resolve_single_domain",
+        "recommendation": "Implement or improve caching layer",
+        "potential_improvement": "90-95% cache hit rate"
+      },
+      {
+        "type": "caching_opportunity",
+        "benchmark": "resolve_cache_miss",
+        "recommendation": "Implement or improve caching layer",
+        "potential_improvement": "90-95% cache hit rate"
+      },
+      {
+        "type": "caching_opportunity",
+        "benchmark": "batch_resolve_10",
+        "recommendation": "Implement or improve caching layer",
+        "potential_improvement": "90-95% cache hit rate"
+      }
+    ]
+  },
+  "tool_performance": {
+    "cache_hits": 0,
+    "cache_misses": 0,
+    "cache_hit_rate": 1.0,
+    "total_operations": 2,
+    "tool_runtime": 0.007153511047363281
+  }
+}
