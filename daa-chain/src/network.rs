@@ -6,9 +6,9 @@ use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
 use serde::{Deserialize, Serialize};
 
-use qudag_network::{Network as QuDAGNetwork, NetworkConfig, NetworkEvent, PeerId};
-use qudag_protocol::{ProtocolMessage, ProtocolHandler};
-use qudag_core::{Block, Transaction, Hash};
+use crate::qudag_stubs::qudag_network::{Network as QuDAGNetwork, NetworkConfig, NetworkEvent, PeerId};
+use crate::qudag_stubs::qudag_protocol::{ProtocolMessage, ProtocolHandler};
+use crate::qudag_stubs::qudag_core::{Block, Transaction, Hash};
 
 use crate::{Result, ChainError};
 

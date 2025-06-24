@@ -1,3 +1,5 @@
+mod qudag_stubs;
+mod qudag_stubs;
 //! # DAA Chain
 //!
 //! Blockchain integration layer for the Decentralized Autonomous Agents (DAA) system.
@@ -11,9 +13,9 @@ use thiserror::Error;
 use uuid::Uuid;
 
 // Re-export QuDAG types for convenience
-pub use qudag_core::{Block, Transaction, Hash};
-pub use qudag_network::{Network, NetworkConfig, NetworkEvent};
-pub use qudag_protocol::{ProtocolMessage, ProtocolError};
+pub use crate::qudag_stubs::qudag_core::{Block, Transaction, Hash};
+pub use crate::qudag_stubs::qudag_network::{Network, NetworkConfig, NetworkEvent};
+pub use crate::qudag_stubs::qudag_protocol::{ProtocolMessage, ProtocolError};
 
 pub mod block;
 pub mod transaction;

@@ -1,3 +1,6 @@
+mod qudag_stubs;
+mod qudag_stubs;
+mod qudag_stubs;
 //! # DAA Orchestrator
 //!
 //! Orchestration layer for the Decentralized Autonomous Agents (DAA) system.
@@ -13,7 +16,7 @@ use tokio::sync::RwLock;
 use hex;
 
 // Re-export QuDAG protocol types
-pub use qudag_protocol::{Node, NodeConfig, Message};
+pub use crate::qudag_stubs::qudag_protocol::{Node, NodeConfig, Message};
 
 pub mod coordinator;
 pub mod workflow;

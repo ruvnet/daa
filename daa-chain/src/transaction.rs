@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use blake3::Hasher;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 
-use qudag_core::{Transaction, Hash};
+use crate::qudag_stubs::qudag_core::{Transaction, Hash};
 use crate::{Result, ChainError};
 
 /// Transaction types supported by DAA Chain

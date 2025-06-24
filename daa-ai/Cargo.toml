@@ -1,43 +1,37 @@
 [package]
 name = "daa-ai"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-repository.workspace = true
-homepage.workspace = true
-documentation.workspace = true
-keywords.workspace = true
-categories.workspace = true
-description = "AI integration layer for DAA system with Claude support via QuDAG MCP"
+version = "0.2.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "AI integration layer for DAA system with MCP protocol"
+repository = "https://github.com/ruvnet/daa"
+homepage = "https://github.com/ruvnet/daa"
+documentation = "https://docs.rs/daa-ai"
+keywords = ["daa", "blockchain", "autonomous", "agents", "ai"]
+categories = ["cryptography", "web-programming"]
 
 [dependencies]
-# Workspace dependencies
-tokio.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-thiserror.workspace = true
-anyhow.workspace = true
-uuid.workspace = true
-tracing.workspace = true
-
-# QuDAG dependencies for AI integration
-qudag-crypto.workspace = true
-qudag-mcp = { workspace = true, optional = true }
-
-# DAA internal dependencies
-daa-rules = { workspace = true, optional = true }
-
-# AI and MCP specific dependencies
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+anyhow = "1.0"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+tracing = "0.1"
 async-trait = "0.1"
 reqwest = { version = "0.11", features = ["json"] }
+dashmap = "5.5"
+daa-rules = { version = "0.2.0", optional = true }
 
-# Optional database support
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid"], optional = true }
+# QuDAG dependencies - commented out until published
+# qudag-crypto = { version = "0.1", optional = true }
+# qudag-mcp = { version = "0.1", optional = true }
 
 [features]
-default = ["mcp", "claude"]
-mcp = ["qudag-mcp"]
-claude = []
+default = []
 rules-integration = ["daa-rules"]
-database = ["sqlx"]
-full = ["mcp", "claude", "rules-integration", "database"]
+# Enable these once QuDAG is published:
+# qudag = ["qudag-crypto", "qudag-mcp"]
+# mcp = ["qudag-mcp"]
+
+[workspace]

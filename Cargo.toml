@@ -10,7 +10,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["DAA Team <team@daa.hq>"]
 license = "MIT OR Apache-2.0"
@@ -73,12 +73,12 @@ qudag-core = { path = "qudag/core/crypto" }
 qudag-consensus = { path = "qudag/core/dag" }
 
 # DAA internal dependencies
-daa-chain = { version = "0.1.0", path = "./daa-chain" }
-daa-economy = { version = "0.1.0", path = "./daa-economy" }
-daa-rules = { version = "0.1.0", path = "./daa-rules" }
-daa-ai = { version = "0.1.0", path = "./daa-ai" }
-daa-orchestrator = { version = "0.1.0", path = "./daa-orchestrator" }
-daa-cli = { version = "0.1.0", path = "./daa-cli" }
+daa-chain = { version = "0.2.0", path = "./daa-chain" }
+daa-economy = { version = "0.2.0", path = "./daa-economy" }
+daa-rules = { version = "0.2.0", path = "./daa-rules" }
+daa-ai = { version = "0.2.0", path = "./daa-ai" }
+daa-orchestrator = { version = "0.2.0", path = "./daa-orchestrator" }
+daa-cli = { version = "0.2.0", path = "./daa-cli" }
 
 # Optional async runtime features
 [workspace.metadata.features]

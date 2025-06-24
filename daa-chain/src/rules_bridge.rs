@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use async_trait::async_trait;
 
 use daa_rules::{Rule, RuleEngine, RuleResult, ExecutionContext};
-use qudag_core::{Block, Transaction, Hash};
+use crate::qudag_stubs::qudag_core::{Block, Transaction, Hash};
 
 use crate::{Result, ChainError};
 use crate::transaction::{DaaTransaction, TransactionType};

@@ -6,8 +6,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, RwLock};
 
-use qudag_consensus::{ConsensusEngine as QuDAGConsensus, ConsensusMessage, ConsensusState};
-use qudag_core::{Block, Hash};
+use crate::qudag_stubs::qudag_consensus::{ConsensusEngine as QuDAGConsensus, ConsensusMessage, ConsensusState};
+use crate::qudag_stubs::qudag_core::{Block, Hash};
 use crate::{ChainConfig, Result, ChainError};
 
 /// Consensus engine for DAA Chain

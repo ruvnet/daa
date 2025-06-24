@@ -1,3 +1,6 @@
+use crate::qudag_stubs::qudag_exchange;
+use crate::qudag_stubs::qudag_exchange;
+use crate::qudag_stubs::qudag_exchange;
 //! Exchange integration for DAA Economy using QuDAG Exchange
 
 use std::collections::HashMap;
@@ -8,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use rust_decimal::Decimal;
 use uuid::Uuid;
 
-use qudag_exchange::{Exchange, ExchangeConfig, Order, OrderType, Trade};
 use crate::{Result, EconomyError};
 
 /// Exchange manager integrating with QuDAG Exchange

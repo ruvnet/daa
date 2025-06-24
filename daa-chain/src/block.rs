@@ -5,7 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use blake3::Hasher;
 
-use qudag_core::{Block, Transaction, Hash};
+use crate::qudag_stubs::qudag_core::{Block, Transaction, Hash};
 use crate::{Result, ChainError};
 
 /// Block builder for constructing valid blocks

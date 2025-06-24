@@ -7,7 +7,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Deserialize, Serialize};
 
-use qudag_core::{Block, Transaction, Hash};
+use crate::qudag_stubs::qudag_core::{Block, Transaction, Hash};
 use crate::{Result, ChainError};
 
 /// Storage interface for DAA Chain data
@@ -361,7 +361,7 @@ pub struct StorageStats {
 mod tests {
     use super::*;
     use tempfile::TempDir;
-    use qudag_core::Block;
+    use crate::qudag_stubs::qudag_core::Block;
 
     #[tokio::test]
     async fn test_file_storage() {

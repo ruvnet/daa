@@ -157,7 +157,7 @@ impl ResourceAllocation {
             id,
             resource_type,
             allocated_amount,
-            requesting_entity,
+            requesting_entity: requesting_entity.clone(),
             purpose,
             start_time: Utc::now(),
             end_time: None,
@@ -244,13 +244,13 @@ impl ResourceManager {
             allocation_id.clone(),
             resource_type,
             amount,
-            requesting_entity,
+            requesting_entity: requesting_entity.clone(),
             purpose,
             cost,
         );
 
         self.allocations.insert(allocation_id.clone(), allocation);
-        info!("Allocated {} {} to {}", amount, resource.unit, requesting_entity);
+        info!("Allocated {} {} to {}", amount, resource.unit, info!("Allocated {} {} to {}", amount, resource.unit, requesting_entity);allocation.requesting_entity);
         
         Ok(allocation_id)
     }

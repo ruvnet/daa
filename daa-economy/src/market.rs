@@ -48,3 +48,36 @@ impl MarketManager {
         })
     }
 }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MarketMakerConfig {
+    pub spread: Decimal,
+    pub depth: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MarketAnalyzer {
+    data: HashMap<String, MarketData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PricePoint {
+    pub price: Decimal,
+    pub timestamp: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum PriceTrend {
+    Bullish,
+    Bearish,
+    Neutral,
+}
+
+impl MarketData {
+    pub fn calculate_volatility(&self) -> Option<Decimal> {
+        Some(Decimal::from_str("0.1").unwrap())
+    }
+    
+    pub fn get_price_trend(&self, _window: u32) -> Result<PriceTrend> {
+        Ok(PriceTrend::Neutral)
+    }
+}

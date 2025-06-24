@@ -1,3 +1,6 @@
+mod qudag_stubs;
+mod qudag_stubs;
+mod qudag_stubs;
 //! # DAA AI
 //!
 //! AI integration layer for the Decentralized Autonomous Agents (DAA) system.
@@ -13,7 +16,7 @@ use uuid::Uuid;
 use tokio::sync::RwLock;
 
 // Re-export QuDAG MCP types
-pub use qudag_mcp::{MCPClient, MCPMessage, MCPError, Tool, ToolCall, ToolResult};
+pub use crate::qudag_stubs::qudag_mcp::{MCPClient, MCPMessage, MCPError, Tool, ToolCall, ToolResult};
 
 pub mod claude;
 pub mod agents;

@@ -10,6 +10,7 @@ use crate::error::{EconomyError, Result};
 
 /// Risk level enumeration
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum RiskLevel {
     VeryLow,
     Low,
@@ -65,6 +66,7 @@ impl std::fmt::Display for RiskLevel {
 
 /// Individual risk factor
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct RiskFactor {
     pub name: String,
     pub description: String,
@@ -108,6 +110,7 @@ impl RiskFactor {
 
 /// Risk categories
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum RiskCategory {
     Market,
     Liquidity,
@@ -136,6 +139,7 @@ impl std::fmt::Display for RiskCategory {
 
 /// Complete risk assessment
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct RiskAssessment {
     pub id: String,
     pub entity: String,
@@ -479,6 +483,7 @@ impl Default for RiskAssessmentEngine {
 
 /// Risk statistics summary
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct RiskStatistics {
     pub total_assessments: usize,
     pub level_distribution: HashMap<RiskLevel, usize>,

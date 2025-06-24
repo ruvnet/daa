@@ -276,8 +276,8 @@ impl AccountBalance {
     pub fn lock_funds(&mut self, amount: Decimal) -> Result<()> {
         if self.free_balance < amount {
             return Err(EconomyError::InsufficientFunds {
-                required: amount,
-                available: self.free_balance,
+                required: amount.to_u128().unwrap_or(0),
+                available: self.free_balance.to_u128().unwrap_or(0),
             });
         }
 
@@ -419,7 +419,9 @@ impl TradingEngine {
         }
 
         // Unlock funds
-        self.unlock_order_funds(order)?;
+        let order_id_copy = *order_id;
+        drop(order);
+        self.unlock_order_funds_by_id(&order_id_copy)?;
         
         // Cancel the order
         order.cancel()?;
@@ -537,8 +539,8 @@ impl TradingEngine {
             balance.lock_funds(amount)?;
         } else {
             return Err(EconomyError::InsufficientFunds {
-                required: amount,
-                available: Decimal::ZERO,
+                required: amount.to_u128().unwrap_or(0),
+                available: 0,
             });
         }
 
@@ -673,7 +675,9 @@ impl TradingEngine {
 
         for order_id in expired_order_ids {
             if let Some(order) = self.orders.get_mut(&order_id) {
-                self.unlock_order_funds(order)?;
+                let order_id_copy = *order_id;
+        drop(order);
+        self.unlock_order_funds_by_id(&order_id_copy)?;
                 order.status = OrderStatus::Expired;
                 order.updated_at = Utc::now();
                 info!("Expired order: {}", order_id);
@@ -847,3 +851,11 @@ mod tests {
         assert_eq!(engine.get_order("test_cancel").unwrap().status, OrderStatus::Cancelled);
     }
 }
+    fn unlock_order_funds_by_id(&mut self, order_id: &Uuid) -> Result<()> {
+        if let Some(order) = self.orders.get(order_id) {
+            let amount = order.amount;
+            let token = order.base_token.clone();
+            self.unlock_funds(&token, amount)?;
+        }
+        Ok(())
+    }
