@@ -5,7 +5,8 @@ members = [
     "daa-rules",
     "daa-ai",
     "daa-orchestrator",
-    "daa-cli"
+    "daa-cli",
+    "daa-mcp"
 ]
 resolver = "2"
 
@@ -42,6 +43,8 @@ async-trait = "0.1"
 clap = { version = "4.0", features = ["derive"] }
 tempfile = "3.8"
 once_cell = "1.19"
+jsonrpc-core = "18.0"
+tokio-tungstenite = "0.21"
 
 # Additional dependencies needed by QuDAG crates
 proptest = "1.0"
@@ -79,6 +82,7 @@ daa-rules = { version = "0.2.0", path = "./daa-rules" }
 daa-ai = { version = "0.2.0", path = "./daa-ai" }
 daa-orchestrator = { version = "0.2.0", path = "./daa-orchestrator" }
 daa-cli = { version = "0.2.0", path = "./daa-cli" }
+daa-mcp = { version = "0.2.0", path = "./daa-mcp" }
 
 # Optional async runtime features
 [workspace.metadata.features]
