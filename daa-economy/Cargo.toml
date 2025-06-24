@@ -34,4 +34,3 @@ default = []
 # qudag = ["qudag-crypto", "qudag-exchange"]
 # exchange = ["qudag-exchange"]
 
-[workspace]

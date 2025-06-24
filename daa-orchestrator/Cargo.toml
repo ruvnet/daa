@@ -42,4 +42,3 @@ ai-integration = ["daa-ai"]
 # protocol = ["qudag-protocol"]
 # network = ["qudag-network"]
 
-[workspace]

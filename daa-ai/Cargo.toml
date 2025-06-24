@@ -34,4 +34,3 @@ rules-integration = ["daa-rules"]
 # qudag = ["qudag-crypto", "qudag-mcp"]
 # mcp = ["qudag-mcp"]
 
-[workspace]

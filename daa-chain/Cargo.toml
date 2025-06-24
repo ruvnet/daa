@@ -41,4 +41,3 @@ rules-bridge = ["daa-rules"]
 # network = ["qudag-network"]
 # consensus = ["qudag-dag"]
 
-[workspace]
