@@ -39,7 +39,9 @@ pub enum RoutingStrategy {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoutedMessage {
     pub id: String,
+    #[serde(with = "peer_id_serde")]
     pub source: PeerId,
+    #[serde(with = "peer_id_serde")]
     pub destination: PeerId,
     pub payload: Vec<u8>,
     pub ttl: u8,
@@ -57,8 +59,30 @@ pub enum RoutingStrategyType {
 /// Onion layer for privacy routing
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OnionLayer {
+    #[serde(with = "peer_id_serde")]
     pub next_hop: PeerId,
     pub encrypted_payload: Vec<u8>,
+}
+
+mod peer_id_serde {
+    use super::*;
+    use serde::{Deserializer, Serializer};
+    use std::str::FromStr;
+    
+    pub fn serialize<S>(peer_id: &PeerId, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&peer_id.to_string())
+    }
+    
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<PeerId, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        PeerId::from_str(&s).map_err(serde::de::Error::custom)
+    }
 }
 
 /// Router manages message routing in the P2P network
@@ -255,7 +279,8 @@ impl Router {
             let nonce = Nonce::try_assume_unique_for_key(&nonce_bytes)?;
             
             // Encrypt
-            let aad = Aad::from(&peer_id.to_bytes());
+            let peer_bytes = peer_id.to_bytes();
+            let aad = Aad::from(&peer_bytes);
             key.seal_in_place_append_tag(nonce, aad, &mut current_payload)?;
             
             layers.push(OnionLayer {
@@ -313,7 +338,7 @@ fn calculate_route_cost(entry: &RouteEntry) -> f64 {
         .map(|b| 100.0 / b) // Higher bandwidth = lower cost
         .unwrap_or(1.0);
     
-    let reliability_cost = 1.0 / (entry.reliability_score + 0.1);
+    let reliability_cost = 1.0 / (entry.reliability_score as f64 + 0.1);
     
     // Weighted sum
     0.5 * latency_cost + 0.3 * bandwidth_cost + 0.2 * reliability_cost

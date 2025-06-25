@@ -80,7 +80,7 @@ impl ConditionEvaluator {
             
             RuleCondition::And { conditions } => {
                 for condition in conditions {
-                    if !self.evaluate_condition(condition, context).await? {
+                    if !Box::pin(self.evaluate_condition(condition, context)).await? {
                         return Ok(false);
                     }
                 }
@@ -89,7 +89,7 @@ impl ConditionEvaluator {
             
             RuleCondition::Or { conditions } => {
                 for condition in conditions {
-                    if self.evaluate_condition(condition, context).await? {
+                    if Box::pin(self.evaluate_condition(condition, context)).await? {
                         return Ok(true);
                     }
                 }
@@ -97,7 +97,7 @@ impl ConditionEvaluator {
             }
             
             RuleCondition::Not { condition } => {
-                let result = self.evaluate_condition(condition, context).await?;
+                let result = Box::pin(self.evaluate_condition(condition, context)).await?;
                 Ok(!result)
             }
             

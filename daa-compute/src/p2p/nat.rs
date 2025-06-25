@@ -9,6 +9,7 @@ use std::sync::Arc;
 use tokio::sync::{RwLock, Mutex};
 use anyhow::{Result, anyhow};
 use tracing::{info, debug, warn};
+use igd_next;
 
 /// STUN server configuration
 #[derive(Debug, Clone)]
@@ -440,12 +441,12 @@ fn generate_foundation() -> String {
 
 /// UPnP port mapping for automatic port forwarding
 pub struct UpnpPortMapper {
-    gateway: Option<igd::Gateway>,
+    gateway: Option<igd_next::Gateway>,
 }
 
 impl UpnpPortMapper {
     pub async fn new() -> Result<Self> {
-        match igd::search_gateway(Default::default()).await {
+        match igd_next::search_gateway(Default::default()).await {
             Ok(gateway) => {
                 info!("Found UPnP gateway: {}", gateway.addr);
                 Ok(Self {
@@ -460,7 +461,7 @@ impl UpnpPortMapper {
     }
     
     /// Add port mapping
-    pub async fn add_port(&self, protocol: igd::PortMappingProtocol, external_port: u16, internal_port: u16, description: &str) -> Result<()> {
+    pub async fn add_port(&self, protocol: igd_next::PortMappingProtocol, external_port: u16, internal_port: u16, description: &str) -> Result<()> {
         if let Some(gateway) = &self.gateway {
             gateway.add_port(
                 protocol,
@@ -477,7 +478,7 @@ impl UpnpPortMapper {
     }
     
     /// Remove port mapping
-    pub async fn remove_port(&self, protocol: igd::PortMappingProtocol, external_port: u16) -> Result<()> {
+    pub async fn remove_port(&self, protocol: igd_next::PortMappingProtocol, external_port: u16) -> Result<()> {
         if let Some(gateway) = &self.gateway {
             gateway.remove_port(protocol, external_port).await?;
             info!("Removed UPnP port mapping: {}", external_port);

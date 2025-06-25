@@ -11,6 +11,7 @@ use thiserror::Error;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use regex::Regex;
+use async_trait::async_trait;
 
 pub mod engine;
 pub mod conditions;

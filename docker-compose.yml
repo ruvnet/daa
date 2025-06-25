@@ -1,0 +1,165 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database for development
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: daa_dev
+      POSTGRES_USER: daa
+      POSTGRES_PASSWORD: daa_dev_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U daa -d daa_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and session storage
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # DAA Orchestrator service
+  orchestrator:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.orchestrator
+    environment:
+      - DAA_LOG_LEVEL=debug
+      - DAA_DATABASE_URL=postgres://daa:daa_dev_pass@postgres:5432/daa_dev
+      - DAA_REDIS_URL=redis://redis:6379
+      - DAA_NETWORK_PORT=8080
+      - DAA_RPC_PORT=9944
+      - RUST_LOG=debug
+    ports:
+      - "8080:8080"
+      - "9944:9944"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - orchestrator_data:/app/data
+      - orchestrator_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # DAA MCP Server
+  mcp-server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mcp-server
+    environment:
+      - DAA_LOG_LEVEL=debug
+      - DAA_MCP_PORT=3000
+      - DAA_MCP_HOST=0.0.0.0
+      - DAA_ORCHESTRATOR_URL=http://orchestrator:8080
+      - RUST_LOG=debug
+    ports:
+      - "3000:3000"
+    depends_on:
+      orchestrator:
+        condition: service_healthy
+    volumes:
+      - mcp_data:/app/data
+      - mcp_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # Development environment
+  dev:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    environment:
+      - DAA_LOG_LEVEL=debug
+      - DAA_DATABASE_URL=postgres://daa:daa_dev_pass@postgres:5432/daa_dev
+      - DAA_REDIS_URL=redis://redis:6379
+      - RUST_LOG=debug
+    ports:
+      - "3001:3000"  # Alternative port for dev MCP server
+      - "8081:8080"  # Alternative port for dev orchestrator
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - .:/workspace
+      - dev_cargo_cache:/usr/local/cargo/registry
+      - dev_target_cache:/workspace/target
+    working_dir: /workspace
+    tty: true
+    stdin_open: true
+
+  # Monitoring with Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+
+  # Grafana for dashboards
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources
+
+  # Jaeger for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+
+volumes:
+  postgres_data:
+  redis_data:
+  orchestrator_data:
+  orchestrator_logs:
+  mcp_data:
+  mcp_logs:
+  prometheus_data:
+  grafana_data:
+  dev_cargo_cache:
+  dev_target_cache:
+
+networks:
+  default:
+    name: daa-network

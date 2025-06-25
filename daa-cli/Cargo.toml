@@ -15,7 +15,7 @@ tokio = { version = "1.0", features = ["full"] }
 anyhow = "1.0"
 clap = { version = "4.0", features = ["derive"] }
 colorful = "0.2"
-daa-orchestrator = { version = "0.2.0", features = ["default"] }
+daa-orchestrator = { path = "../daa-orchestrator", features = ["default"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 

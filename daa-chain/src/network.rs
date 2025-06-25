@@ -7,8 +7,18 @@ use tokio::sync::{broadcast, RwLock};
 use serde::{Deserialize, Serialize};
 
 use crate::qudag_stubs::qudag_network::{Network as QuDAGNetwork, NetworkConfig, NetworkEvent, PeerId};
-use crate::qudag_stubs::qudag_protocol::{ProtocolMessage, ProtocolHandler};
-use crate::qudag_stubs::qudag_core::{Block, Transaction, Hash};
+use crate::qudag_stubs::qudag_protocol::{ProtocolMessage};
+use crate::qudag_stubs::qudag_core::{Block, Transaction};
+
+/// Protocol handler trait
+#[async_trait::async_trait]
+pub trait ProtocolHandler: Send + Sync {
+    async fn handle_protocol_message(
+        &self,
+        peer_id: PeerId,
+        message: ProtocolMessage,
+    ) -> Result<Option<ProtocolMessage>, Box<dyn std::error::Error + Send + Sync>>;
+}
 
 use crate::{Result, ChainError};
 

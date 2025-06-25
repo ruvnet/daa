@@ -1,0 +1,62 @@
+# Development Dockerfile for DAA SDK
+# This image includes development tools and is suitable for development/testing
+
+FROM rust:1.75-bookworm
+
+# Install development dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    libsqlite3-dev \
+    ca-certificates \
+    curl \
+    git \
+    vim \
+    htop \
+    postgresql-client \
+    sqlite3 \
+    jq \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust development tools
+RUN rustup component add rustfmt clippy \
+    && cargo install cargo-watch cargo-audit cargo-deny cargo-llvm-cov
+
+# Create development user
+RUN useradd -m -s /bin/bash -G sudo dev \
+    && echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy source code
+COPY --chown=dev:dev . .
+
+# Build in debug mode for faster iteration
+RUN cargo build --workspace
+
+# Switch to dev user
+USER dev
+
+# Install additional development tools for the user
+RUN cargo install --locked cargo-expand cargo-machete
+
+# Set up git configuration (can be overridden with environment variables)
+RUN git config --global user.name "DAA Developer" \
+    && git config --global user.email "dev@daa.hq" \
+    && git config --global init.defaultBranch main
+
+# Development environment variables
+ENV RUST_LOG=debug
+ENV DAA_LOG_LEVEL=debug
+ENV DAA_TEST_MODE=true
+
+# Expose common development ports
+EXPOSE 3000 8080 9944
+
+# Development health check
+HEALTHCHECK --interval=60s --timeout=10s --start-period=10s --retries=2 \
+    CMD cargo --version && rustc --version || exit 1
+
+# Default to interactive shell for development
+CMD ["/bin/bash"]

@@ -16,7 +16,7 @@ use std::time::Duration;
 use libp2p::{
     Swarm, SwarmBuilder, PeerId, Multiaddr,
     kad::{Kademlia, KademliaConfig, KademliaEvent, store::MemoryStore},
-    gossipsub::{Gossipsub, GossipsubEvent, MessageAuthenticity, ValidationMode},
+    gossipsub::{self, Gossipsub, GossipsubEvent, MessageAuthenticity, ValidationMode},
     identify::{Identify, IdentifyConfig, IdentifyEvent},
     ping::{Ping, PingEvent},
     mdns::{Mdns, MdnsEvent},

@@ -1,6 +1,6 @@
 [package]
 name = "daa-rules"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/daa-hq/daa-sdk"
@@ -19,6 +19,7 @@ thiserror = "1.0"
 anyhow = "1.0"
 uuid = { version = "1.6", features = ["v4", "serde"] }
 tracing = "0.1"
+async-trait = "0.1"
 
 # Rules engine specific dependencies
 regex = "1.0"

@@ -21,10 +21,32 @@ lazy_static::lazy_static! {
 /// Message containing gradient update
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GradientMessage {
+    #[serde(with = "peer_id_serde")]
     pub peer_id: PeerId,
     pub round: u64,
     pub compressed_gradient: Vec<u8>,
     pub timestamp: SystemTime,
+}
+
+mod peer_id_serde {
+    use super::*;
+    use serde::{Deserializer, Serializer};
+    use std::str::FromStr;
+    
+    pub fn serialize<S>(peer_id: &PeerId, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&peer_id.to_string())
+    }
+    
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<PeerId, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        PeerId::from_str(&s).map_err(serde::de::Error::custom)
+    }
 }
 
 /// All-reduce algorithm for gradient aggregation

@@ -6,7 +6,8 @@ members = [
     "daa-ai",
     "daa-orchestrator",
     "daa-cli",
-    "daa-mcp"
+    "daa-mcp",
+    "daa-compute"
 ]
 resolver = "2"
 
@@ -83,6 +84,7 @@ daa-ai = { version = "0.2.0", path = "./daa-ai" }
 daa-orchestrator = { version = "0.2.0", path = "./daa-orchestrator" }
 daa-cli = { version = "0.2.0", path = "./daa-cli" }
 daa-mcp = { version = "0.2.0", path = "./daa-mcp" }
+daa-compute = { version = "0.1.0", path = "./daa-compute" }
 
 # Optional async runtime features
 [workspace.metadata.features]

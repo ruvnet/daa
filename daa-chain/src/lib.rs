@@ -1,15 +1,14 @@
-mod qudag_stubs;
 //! # DAA Chain
 //!
 //! Blockchain integration layer for the Decentralized Autonomous Agents (DAA) system.
 //! Provides QuDAG network integration for secure, scalable blockchain operations.
 
-use std::collections::HashMap;
+mod qudag_stubs;
+
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use uuid::Uuid;
 
 // Re-export QuDAG types for convenience
 pub use crate::qudag_stubs::qudag_core::{Block, Transaction, Hash};
@@ -23,17 +22,23 @@ pub mod storage;
 pub mod consensus;
 pub mod qudag_consensus;
 
-#[cfg(feature = "rules-integration")]
+#[cfg(feature = "rules-bridge")]
 pub mod rules_bridge;
 
 /// Chain-specific error types
 #[derive(Error, Debug)]
 pub enum ChainError {
+    // #[error("Network error: {0}")]
+    // Network(#[from] qudag_network::NetworkError),
+    
+    // #[error("Protocol error: {0}")]
+    // Protocol(#[from] qudag_protocol::ProtocolError),
+    
     #[error("Network error: {0}")]
-    Network(#[from] qudag_network::NetworkError),
+    Network(String),
     
     #[error("Protocol error: {0}")]
-    Protocol(#[from] qudag_protocol::ProtocolError),
+    Protocol(String),
     
     #[error("Invalid transaction: {0}")]
     InvalidTransaction(String),

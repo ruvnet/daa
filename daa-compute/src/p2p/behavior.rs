@@ -9,7 +9,7 @@ use libp2p::{
     mdns::{Mdns, MdnsEvent},
     relay::{self, Relay},
     autonat::{self, AutoNat},
-    upnp::tokio::Behaviour as Upnp,
+    upnp,
     dcutr,
 };
 use std::time::Duration;
@@ -28,7 +28,7 @@ pub struct NetworkBehavior {
     pub mdns: Option<Mdns>,
     pub relay: Option<Relay>,
     pub autonat: Option<AutoNat>,
-    pub upnp: Option<Upnp>,
+    pub upnp: Option<upnp::tokio::Behaviour>,
     pub dcutr: Option<dcutr::Behaviour>,
 }
 
@@ -97,7 +97,7 @@ impl NetworkBehavior {
 
         // UPnP
         let upnp = if config.enable_nat_traversal {
-            Some(Upnp::default())
+            Some(upnp::tokio::Behaviour::default())
         } else {
             None
         };

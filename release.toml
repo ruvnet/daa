@@ -1,0 +1,56 @@
+# Configuration for cargo-release
+# https://github.com/sunng87/cargo-release
+
+[workspace]
+# Release all workspace members together
+members = ["daa-*"]
+
+# Pre-release checks
+pre-release-commit-message = "chore: Release {{crate_name}} v{{version}}"
+pre-release-replacements = [
+    {file="CHANGELOG.md", search="## Unreleased", replace="## Unreleased\n\n## [{{version}}] - {{date}}", exactly=1},
+    {file="README.md", search="daa-([a-z-]+) = \"[^\"]*\"", replace="daa-$1 = \"{{version}}\""},
+]
+
+# Post-release tasks
+post-release-commit-message = "chore: Start next development iteration"
+tag-message = "Release {{crate_name}} v{{version}}"
+tag-prefix = "v"
+
+# Publishing configuration
+publish = true
+registry = "crates-io"
+push = true
+push-remote = "origin"
+
+# Release workflow
+allow-branch = ["main", "release/*"]
+sign-commit = false
+sign-tag = false
+verify = true
+
+# Custom hooks
+pre-release-hook = ["cargo", "test", "--all-features"]
+post-release-hook = ["echo", "Released {{crate_name}} v{{version}}"]
+
+# Individual crate configurations
+[daa-rules]
+pre-release-replacements = []
+
+[daa-chain]
+pre-release-replacements = []
+
+[daa-economy]
+pre-release-replacements = []
+
+[daa-ai]
+pre-release-replacements = []
+
+[daa-orchestrator]
+pre-release-replacements = []
+
+[daa-mcp]
+pre-release-replacements = []
+
+[daa-cli]
+pre-release-replacements = []
