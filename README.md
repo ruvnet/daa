@@ -757,7 +757,7 @@ We welcome contributions from the community! Here's how to get involved:
 
 ### 💡 **Feature Requests**
 - Discuss ideas in [GitHub Discussions](https://github.com/ruvnet/daa/discussions)
-- Follow our [feature request template](/.github/ISSUE_TEMPLATE/feature_request.md)
+- Open an issue with your feature request
 
 ### 🔧 **Code Contributions**
 1. Fork the repository
@@ -787,11 +787,13 @@ We welcome contributions from the community! Here's how to get involved:
 - [Prime Coordinator Documentation](prime-rust/crates/prime-coordinator/README.md)
 - [Prime CLI Documentation](prime-rust/crates/prime-cli/README.md)
 
-### 📘 **Guides & Tutorials**
-- [Getting Started Guide](docs/getting-started.md)
-- [Building Your First Agent](docs/tutorials/first-agent.md)
-- [Distributed ML Training](docs/tutorials/distributed-training.md)
-- [Swarm Coordination](docs/tutorials/swarm-coordination.md)
+### 📘 **Architecture & API Documentation**
+- [Architecture Overview](docs/architecture/README.md)
+- [AI API Documentation](docs/api/ai.md)
+- [Economy API Documentation](docs/api/economy.md)
+- [Orchestrator API Documentation](docs/api/orchestrator.md)
+- [Rules API Documentation](docs/api/rules.md)
+- [Troubleshooting Guide](docs/troubleshooting/README.md)
 
 ---
 
