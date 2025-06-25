@@ -445,6 +445,130 @@ daa-cli swarm start --agents 10 --task "distributed_training"
 
 ---
 
+## 🔧 MCP Integration (Model Context Protocol)
+
+DAA provides a comprehensive MCP server that exposes all CLI capabilities through standardized JSON-RPC 2.0 protocols, enabling seamless integration with AI development environments like Claude Code.
+
+### 🚀 **Quick Setup**
+
+The MCP server is pre-configured and ready to use:
+
+```bash
+# MCP server is automatically configured in .roo/mcp.json
+# Simply restart Claude Code to activate DAA tools
+```
+
+### 🛠️ **Available MCP Tools (17 total)**
+
+#### 🎛️ **Orchestrator Management**
+- `daa_init` - Initialize new DAA configuration with templates
+- `daa_start` - Start the DAA orchestrator (daemon mode available)
+- `daa_status` - Get comprehensive system status and health
+- `daa_stop` - Stop orchestrator gracefully or forcefully
+
+#### 🤖 **Agent Lifecycle**
+- `daa_agent_list` - List all registered agents with status
+- `daa_agent_show` - Show detailed agent information
+- `daa_agent_create` - Create new agents with custom capabilities
+- `daa_agent_stop` - Stop specific agents (graceful or forced)
+- `daa_agent_restart` - Restart agents with latest configuration
+
+#### ⚙️ **Configuration Management**
+- `daa_config_show` - Display current DAA configuration
+- `daa_config_get` - Retrieve specific configuration values
+- `daa_config_set` - Update configuration with dot notation
+
+#### 🌐 **Network Operations**
+- `daa_network_status` - Show QuDAG network connectivity
+- `daa_network_connect` - Connect to specific network nodes
+- `daa_network_peers` - List active peer connections
+
+#### ⚖️ **Rules & Monitoring**
+- `daa_add_rule` - Add governance rules to the rules engine
+- `daa_logs` - View system logs with filtering options
+
+### 📊 **MCP Resources (5 available)**
+
+Access live system data through structured resources:
+
+- `daa://status/orchestrator` - Real-time orchestrator health metrics
+- `daa://config/current` - Active system configuration
+- `daa://agents/list` - Live agent registry and status
+- `daa://network/peers` - Network topology and peer information
+- `daa://rules/active` - Currently active governance rules
+
+### 🔄 **Example MCP Usage**
+
+```javascript
+// Through Claude Code MCP tools:
+
+// Check system status
+await mcpTool('daa_status', {});
+// Returns: { orchestrator: "running", agents: 3, rules: 12, ... }
+
+// List active agents
+await mcpTool('daa_agent_list', {});
+// Returns: { agents: [{ id: "agent-001", name: "treasury_bot", ... }] }
+
+// Create a new treasury agent
+await mcpTool('daa_agent_create', {
+  name: "yield_optimizer", 
+  agent_type: "defi",
+  capabilities: "yield_farming,risk_assessment"
+});
+
+// Monitor system configuration
+await mcpResource('daa://config/current');
+// Returns: { orchestrator: { interval: 60, max_agents: 10 }, ... }
+```
+
+### ⚡ **Integration Benefits**
+
+- **🔥 Zero Setup** - MCP server runs automatically with Claude Code
+- **🔄 Real-time Data** - Live system status and metrics via resources
+- **🛠️ Full CLI Access** - All DAA CLI commands available as MCP tools
+- **📊 Structured Responses** - JSON-formatted data for easy processing
+- **🔒 Secure Communication** - STDIO transport with protocol validation
+- **⚡ Fast Execution** - Local execution with minimal latency
+
+### 🐛 **Troubleshooting MCP**
+
+If MCP tools don't appear in Claude Code:
+
+```bash
+# 1. Verify MCP server functionality
+python3 /workspaces/daa/daa-mcp-server.py
+
+# 2. Check configuration
+cat .roo/mcp.json
+
+# 3. Test server response
+echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | python3 /workspaces/daa/daa-mcp-server.py
+
+# 4. Restart Claude Code to reload MCP configuration
+```
+
+### 📋 **MCP Configuration**
+
+The MCP server is configured in `.roo/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "daa-mcp": {
+      "name": "DAA MCP Server", 
+      "command": "/workspaces/daa/daa-mcp-server.py",
+      "transport": "stdio",
+      "protocolVersion": "2024-11-05"
+    }
+  }
+}
+```
+
+**Protocol Compatibility**: Uses stable MCP protocol version `2024-11-05` for maximum compatibility with Claude Code and other MCP clients.
+
+---
+
 ## 🏗️ Development Guide
 
 ### 📦 **Complete Crate Overview**
