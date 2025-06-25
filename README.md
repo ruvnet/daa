@@ -550,20 +550,112 @@ echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | python3 /workspaces/daa/
 
 ### 📋 **MCP Configuration**
 
-The MCP server is configured in `.roo/mcp.json`:
+The MCP server is configured in `.roo/mcp.json`. Here's the complete configuration example:
 
 ```json
 {
   "mcpServers": {
     "daa-mcp": {
-      "name": "DAA MCP Server", 
-      "command": "/workspaces/daa/daa-mcp-server.py",
+      "name": "DAA MCP Server",
+      "description": "Model Context Protocol server for DAA - Complete DAA CLI capabilities including orchestrator, agents, rules, and network management",
       "transport": "stdio",
-      "protocolVersion": "2024-11-05"
+      "command": "/workspaces/daa/daa-mcp-server.py",
+      "args": [],
+      "capabilities": {
+        "tools": true,
+        "resources": true,
+        "prompts": false
+      },
+      "features": [
+        "orchestrator-management",
+        "agent-lifecycle",
+        "rules-engine",
+        "network-operations",
+        "configuration-management",
+        "log-monitoring",
+        "ai-integration"
+      ],
+      "metadata": {
+        "version": "0.2.0",
+        "protocolVersion": "2024-11-05",
+        "supportedTransports": ["stdio"],
+        "orchestratorTools": 4,
+        "agentTools": 5,
+        "configTools": 3,
+        "networkTools": 3,
+        "rulesTools": 1,
+        "logTools": 1,
+        "totalTools": 17,
+        "resources": 5
+      }
     }
   }
 }
 ```
+
+### 🔧 **Setting Up MCP Configuration**
+
+To configure the DAA MCP server in your environment:
+
+#### **1. Create Configuration Directory**
+```bash
+# For Claude Code
+mkdir -p .roo
+
+# For Claude Desktop  
+mkdir -p ~/.claude_desktop
+```
+
+#### **2. Create MCP Configuration File**
+
+**For Claude Code (`.roo/mcp.json`):**
+```json
+{
+  "mcpServers": {
+    "daa-mcp": {
+      "name": "DAA MCP Server",
+      "command": "/path/to/daa/daa-mcp-server.py",
+      "transport": "stdio"
+    }
+  }
+}
+```
+
+**For Claude Desktop (`~/.claude_desktop/mcp_settings.json`):**
+```json
+{
+  "mcpServers": {
+    "daa-mcp": {
+      "command": "python3",
+      "args": ["/path/to/daa/daa-mcp-server.py"],
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  }
+}
+```
+
+#### **3. Update Paths**
+```bash
+# Update the command path to your DAA installation
+# Replace /path/to/daa with your actual DAA directory
+sed -i 's|/path/to/daa|/workspaces/daa|g' .roo/mcp.json
+```
+
+#### **4. Verify Configuration**
+```bash
+# Test the MCP server directly
+python3 /workspaces/daa/daa-mcp-server.py
+
+# Verify configuration file syntax
+python3 -m json.tool .roo/mcp.json
+```
+
+#### **5. Restart Client**
+- **Claude Code**: Restart the application
+- **Claude Desktop**: Restart the application
+- **Other MCP Clients**: Follow client-specific restart procedures
 
 **Protocol Compatibility**: Uses stable MCP protocol version `2024-11-05` for maximum compatibility with Claude Code and other MCP clients.
 
