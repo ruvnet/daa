@@ -105,8 +105,10 @@ pub struct DaaChain {
 impl DaaChain {
     /// Create a new DAA Chain instance
     pub async fn new(config: ChainConfig) -> Result<Self> {
-        let network = Network::new(config.network.clone()).await?;
-        let storage = storage::Storage::new(&config.storage_path)?;
+        let network = Network::new(config.network.clone()).await
+            .map_err(|e| ChainError::Network(e))?;
+        let storage = storage::Storage::new(&config.storage_path)
+            .map_err(|e| ChainError::Storage(e.to_string()))?;
         
         let consensus = if config.enable_consensus {
             Some(consensus::ConsensusEngine::new(&config).await?)
@@ -127,7 +129,8 @@ impl DaaChain {
         tracing::info!("Starting DAA Chain: {}", self.config.chain_id);
         
         // Start network layer
-        self.network.start().await?;
+        self.network.start().await
+            .map_err(|e| ChainError::Network(e))?;
         
         // Start consensus engine if enabled
         if let Some(consensus) = &mut self.consensus {
@@ -150,7 +153,8 @@ impl DaaChain {
         self.storage.add_pending_transaction(tx).await?;
         
         // Broadcast to network
-        self.network.broadcast_transaction(tx_hash).await?;
+        self.network.broadcast_transaction(tx_hash).await
+            .map_err(|e| ChainError::Network(e))?;
         
         Ok(tx_hash)
     }
@@ -180,7 +184,7 @@ impl DaaChain {
             tokio::select! {
                 // Process network events
                 event = self.network.next_event() => {
-                    match event? {
+                    match event.map_err(|e| ChainError::Network(e))? {
                         NetworkEvent::TransactionReceived(tx) => {
                             self.handle_transaction_received(tx).await?;
                         }
@@ -192,6 +196,9 @@ impl DaaChain {
                         }
                         NetworkEvent::PeerDisconnected(peer_id) => {
                             tracing::info!("Peer disconnected: {}", peer_id);
+                        }
+                        NetworkEvent::MessageReceived { .. } => {
+                            // Handle message received events
                         }
                     }
                 }
@@ -274,9 +281,11 @@ impl DaaChain {
         self.storage.add_block(block.clone()).await?;
         
         // Broadcast to network
-        self.network.broadcast_block(block).await?;
+        let block_hash = block.hash();
+        self.network.broadcast_block(block).await
+            .map_err(|e| ChainError::Network(e))?;
         
-        tracing::info!("Produced block: {}", block.hash());
+        tracing::info!("Produced block: {}", block_hash);
         
         Ok(())
     }

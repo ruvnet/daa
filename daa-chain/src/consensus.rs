@@ -1,12 +1,13 @@
 //! Consensus mechanism for DAA Chain using QuDAG consensus primitives
 
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, RwLock};
 
-use crate::qudag_stubs::qudag_consensus::{ConsensusEngine as QuDAGConsensus, ConsensusMessage, ConsensusState};
+use crate::qudag_stubs::qudag_consensus::ConsensusEngine as QuDAGConsensus;
 use crate::qudag_stubs::qudag_core::{Block, Hash};
 use crate::{ChainConfig, Result, ChainError};
 
@@ -290,8 +291,8 @@ impl ConsensusEngine {
     /// Start consensus loop
     async fn start_consensus_loop(&mut self) -> Result<()> {
         let event_sender = self.event_sender.clone();
-        let state = self.state.clone();
-        let validators = self.validators.clone();
+        let state = Arc::clone(&self.state);
+        let validators = Arc::clone(&self.validators);
         
         tokio::spawn(async move {
             let mut round_timer = tokio::time::interval(Duration::from_secs(15)); // 15 second rounds
@@ -378,7 +379,7 @@ impl ConsensusEngine {
         let validators = self.validators.read().await;
         let threshold = (validators.values().map(|v| v.stake).sum::<u64>() * 2) / 3;
         
-        for (proposer, block) in &state.proposals {
+        for (_proposer, block) in &state.proposals {
             let votes_for_block: u64 = state.votes.values()
                 .filter(|v| matches!(v.vote_type, VoteType::Precommit))
                 .filter(|v| v.block_hash == block.hash())

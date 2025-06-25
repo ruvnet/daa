@@ -162,7 +162,7 @@ impl NatTraversal {
         use stun::agent::*;
         use stun::message::*;
         use stun::xoraddr::*;
-        use stun::Client;
+        use stun::client::Client;
         
         // Parse STUN server URL
         let server_addr = server.trim_start_matches("stun:")
@@ -186,7 +186,10 @@ impl NatTraversal {
         let mut xor_addr = XorMappedAddress::default();
         xor_addr.get_from(&response)?;
         
-        Ok(SocketAddr::from(xor_addr))
+        // Convert XorMappedAddress to SocketAddr manually
+        let ip = std::net::IpAddr::from(xor_addr.ip());
+        let port = xor_addr.port();
+        Ok(SocketAddr::new(ip, port))
     }
     
     /// Perform comprehensive STUN tests
@@ -446,7 +449,7 @@ pub struct UpnpPortMapper {
 
 impl UpnpPortMapper {
     pub async fn new() -> Result<Self> {
-        match igd_next::search_gateway(Default::default()).await {
+        match igd_next::search_gateway(Default::default()) {
             Ok(gateway) => {
                 info!("Found UPnP gateway: {}", gateway.addr);
                 Ok(Self {
@@ -469,7 +472,7 @@ impl UpnpPortMapper {
                 SocketAddr::new(gateway.addr.ip(), internal_port),
                 0, // Infinite lease
                 description,
-            ).await?;
+            )?;
             
             info!("Added UPnP port mapping: {} -> {}", external_port, internal_port);
         }
@@ -480,7 +483,7 @@ impl UpnpPortMapper {
     /// Remove port mapping
     pub async fn remove_port(&self, protocol: igd_next::PortMappingProtocol, external_port: u16) -> Result<()> {
         if let Some(gateway) = &self.gateway {
-            gateway.remove_port(protocol, external_port).await?;
+            gateway.remove_port(protocol, external_port)?;
             info!("Removed UPnP port mapping: {}", external_port);
         }
         

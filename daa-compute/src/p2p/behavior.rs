@@ -1,15 +1,14 @@
 //! Network behavior composition for P2P communication
 
 use libp2p::{
-    NetworkBehaviour, PeerId,
-    kad::{Kademlia, KademliaConfig, KademliaEvent, store::MemoryStore},
-    gossipsub::{Gossipsub, GossipsubEvent, MessageAuthenticity, ValidationMode, Topic},
-    identify::{Identify, IdentifyConfig, IdentifyEvent},
-    ping::{Ping, PingEvent},
-    mdns::{Mdns, MdnsEvent},
-    relay::{self, Relay},
-    autonat::{self, AutoNat},
-    upnp,
+    swarm::NetworkBehaviour, PeerId,
+    kad::{Behaviour as Kademlia, Config as KademliaConfig, Event as KademliaEvent, store::MemoryStore},
+    gossipsub::{Behaviour as Gossipsub, Event as GossipsubEvent, MessageAuthenticity, ValidationMode, IdentTopic as Topic},
+    identify::{Behaviour as Identify, Config as IdentifyConfig, Event as IdentifyEvent},
+    ping::{Behaviour as Ping, Event as PingEvent},
+    mdns::{tokio::Behaviour as Mdns, Event as MdnsEvent},
+    relay,
+    autonat,
     dcutr,
 };
 use std::time::Duration;
@@ -19,15 +18,14 @@ use super::SwarmConfig;
 
 /// Composed network behavior
 #[derive(NetworkBehaviour)]
-#[behaviour(event_process = false)]
 pub struct NetworkBehavior {
     pub kademlia: Kademlia<MemoryStore>,
     pub gossipsub: Gossipsub,
     pub identify: Identify,
     pub ping: Ping,
     pub mdns: Option<Mdns>,
-    pub relay: Option<Relay>,
-    pub autonat: Option<AutoNat>,
+    pub relay: Option<relay::Behaviour>,
+    pub autonat: Option<autonat::Behaviour>,
     pub upnp: Option<upnp::tokio::Behaviour>,
     pub dcutr: Option<dcutr::Behaviour>,
 }

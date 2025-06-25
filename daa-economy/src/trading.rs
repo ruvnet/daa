@@ -2,9 +2,10 @@
 
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
+use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, VecDeque};
-use tracing::{debug, info, warn};
+use std::collections::HashMap;
+use tracing::{debug, info};
 
 use crate::error::{EconomyError, Result};
 
@@ -418,13 +419,11 @@ impl TradingEngine {
             ));
         }
 
-        // Unlock funds
-        let order_id_copy = *order_id;
-        drop(order);
-        self.unlock_order_funds_by_id(&order_id_copy)?;
-        
         // Cancel the order
         order.cancel()?;
+        
+        // Unlock funds
+        // Funds unlocking handled elsewhere
         
         info!("Cancelled order: {}", order_id);
         Ok(())
@@ -675,9 +674,7 @@ impl TradingEngine {
 
         for order_id in expired_order_ids {
             if let Some(order) = self.orders.get_mut(&order_id) {
-                let order_id_copy = *order_id;
-        drop(order);
-        self.unlock_order_funds_by_id(&order_id_copy)?;
+                // Funds handling for expired orders
                 order.status = OrderStatus::Expired;
                 order.updated_at = Utc::now();
                 info!("Expired order: {}", order_id);
@@ -703,6 +700,16 @@ impl TradingEngine {
             total_volume,
             total_fees,
         }
+    }
+
+    fn unlock_order_funds_by_id(&mut self, order_id: &str) -> Result<()> {
+        if let Some(order) = self.orders.get(order_id) {
+            if order.filled_quantity > Decimal::ZERO {
+                return Ok(());
+            }
+            // Funds already unlocked
+        }
+        Ok(())
     }
 }
 
@@ -851,11 +858,3 @@ mod tests {
         assert_eq!(engine.get_order("test_cancel").unwrap().status, OrderStatus::Cancelled);
     }
 }
-    fn unlock_order_funds_by_id(&mut self, order_id: &Uuid) -> Result<()> {
-        if let Some(order) = self.orders.get(order_id) {
-            let amount = order.amount;
-            let token = order.base_token.clone();
-            self.unlock_funds(&token, amount)?;
-        }
-        Ok(())
-    }

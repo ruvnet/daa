@@ -436,29 +436,13 @@ impl EconomicOptimizer {
 
     /// Calculate expected return for an asset
     fn calculate_expected_return(&self, market_data: &MarketData) -> Result<Decimal> {
-        if market_data.price_history.len() < 2 {
-            return Ok(rust_decimal_macros::dec!(0.05)); // Default 5% return
-        }
-
-        // Simple moving average of price changes
-        let mut returns = Vec::new();
-        for i in 1..market_data.price_history.len() {
-            let current_price = market_data.price_history[i].price;
-            let previous_price = market_data.price_history[i - 1].price;
-            
-            if previous_price > Decimal::ZERO {
-                let return_rate = (current_price - previous_price) / previous_price;
-                returns.push(return_rate);
-            }
-        }
-
-        let expected_return = if !returns.is_empty() {
-            returns.iter().sum::<Decimal>() / Decimal::from(returns.len())
+        // For now, use a simple calculation based on price change
+        if market_data.price_change_24h != Decimal::ZERO {
+            // Annualize the 24h change (rough approximation)
+            Ok(market_data.price_change_24h * rust_decimal_macros::dec!(365))
         } else {
-            rust_decimal_macros::dec!(0.05)
-        };
-
-        Ok(expected_return)
+            Ok(rust_decimal_macros::dec!(0.05)) // Default 5% return
+        }
     }
 
     /// Calculate portfolio metrics

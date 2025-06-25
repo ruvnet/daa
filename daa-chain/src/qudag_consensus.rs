@@ -10,9 +10,9 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, Mutex, RwLock};
-use tracing::{debug, error, info, warn};
+use tracing::{info, warn};
 
-use crate::qudag_stubs::qudag_core::{Block, Hash, Transaction};
+use crate::qudag_stubs::qudag_core::Hash;
 use crate::{ChainError, Result};
 
 /// Model update types that can be consensused
@@ -98,7 +98,7 @@ impl ByzantineAggregator {
         let mut valid_updates = Vec::new();
 
         // Filter out Byzantine nodes
-        for (node_id, weights) in updates {
+        for (node_id, weights) in &updates {
             if self.byzantine_nodes.contains(&node_id) {
                 continue;
             }
@@ -166,7 +166,7 @@ impl ByzantineAggregator {
             // Implement statistical anomaly detection here
             // For now, use simple threshold
             let mean_magnitude: f32 = weights.iter().map(|w| w.abs()).sum::<f32>() / weights.len() as f32;
-            if mean_magnitude > 10.0 * self.max_deviation {
+            if mean_magnitude > 10.0 * self.max_deviation as f32 {
                 return true;
             }
         }
@@ -332,7 +332,7 @@ impl ValidatorNetwork {
     }
 
     /// Perform actual validation (placeholder for real implementation)
-    async fn perform_validation(&self, validator: &ValidatorNode, update: &ModelUpdate) -> Result<bool> {
+    async fn perform_validation(&self, _validator: &ValidatorNode, update: &ModelUpdate) -> Result<bool> {
         // In a real implementation, this would:
         // 1. Verify cryptographic signatures
         // 2. Test model update impact
@@ -440,7 +440,7 @@ impl CheckpointConsensus {
         validator_votes: HashMap<String, bool>,
     ) -> Result<bool> {
         let checkpoints = self.checkpoints.read().await;
-        let checkpoint = checkpoints.get(checkpoint_id)
+        let _checkpoint = checkpoints.get(checkpoint_id)
             .ok_or_else(|| ChainError::Consensus("Checkpoint not found".to_string()))?;
 
         let positive_votes = validator_votes.values().filter(|&&v| v).count();

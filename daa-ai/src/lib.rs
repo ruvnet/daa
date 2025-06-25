@@ -1,19 +1,15 @@
-mod qudag_stubs;
-mod qudag_stubs;
-mod qudag_stubs;
 //! # DAA AI
 //!
 //! AI integration layer for the Decentralized Autonomous Agents (DAA) system.
 //! Provides Claude AI integration via QuDAG MCP (Model Context Protocol) for 
 //! intelligent decision making and task automation.
 
-use std::collections::HashMap;
-use std::sync::Arc;
+mod qudag_stubs;
 
+use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
-use tokio::sync::RwLock;
 
 // Re-export QuDAG MCP types
 pub use crate::qudag_stubs::qudag_mcp::{MCPClient, MCPMessage, MCPError, Tool, ToolCall, ToolResult};
@@ -34,7 +30,7 @@ pub mod database;
 #[derive(Error, Debug)]
 pub enum AIError {
     #[error("MCP error: {0}")]
-    MCP(#[from] qudag_mcp::MCPError),
+    MCP(#[from] MCPError),
     
     #[error("Claude API error: {0}")]
     Claude(String),

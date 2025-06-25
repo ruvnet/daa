@@ -23,6 +23,7 @@ dashmap = "5.5"
 rust_decimal = "1.33"
 rust_decimal_macros = "1.35"
 chrono = { version = "0.4", features = ["serde"] }
+num-traits = "0.2"
 
 # QuDAG dependencies - commented out until published
 # qudag-crypto = { version = "0.1", optional = true }

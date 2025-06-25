@@ -15,11 +15,11 @@ use std::sync::Arc;
 use std::time::Duration;
 use libp2p::{
     Swarm, SwarmBuilder, PeerId, Multiaddr,
-    kad::{Kademlia, KademliaConfig, KademliaEvent, store::MemoryStore},
-    gossipsub::{self, Gossipsub, GossipsubEvent, MessageAuthenticity, ValidationMode},
-    identify::{Identify, IdentifyConfig, IdentifyEvent},
-    ping::{Ping, PingEvent},
-    mdns::{Mdns, MdnsEvent},
+    kad::{Behaviour as Kademlia, Config as KademliaConfig, Event as KademliaEvent, store::MemoryStore},
+    gossipsub::{self, Behaviour as Gossipsub, Event as GossipsubEvent, MessageAuthenticity, ValidationMode},
+    identify::{Behaviour as Identify, Config as IdentifyConfig, Event as IdentifyEvent},
+    ping::{Behaviour as Ping, Event as PingEvent},
+    mdns::{tokio::Behaviour as Mdns, Event as MdnsEvent},
     relay,
     autonat,
     upnp,

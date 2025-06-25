@@ -17,7 +17,7 @@ pub trait ProtocolHandler: Send + Sync {
         &self,
         peer_id: PeerId,
         message: ProtocolMessage,
-    ) -> Result<Option<ProtocolMessage>, Box<dyn std::error::Error + Send + Sync>>;
+    ) -> std::result::Result<Option<ProtocolMessage>, Box<dyn std::error::Error + Send + Sync>>;
 }
 
 use crate::{Result, ChainError};
@@ -81,7 +81,7 @@ impl NetworkManager {
     /// Create a new network manager
     pub async fn new(config: NetworkConfig) -> Result<Self> {
         let network = QuDAGNetwork::new(config).await
-            .map_err(ChainError::Network)?;
+            .map_err(|e| ChainError::Network(e))?;
         
         let (event_sender, _) = broadcast::channel(1000);
         let peers = Arc::new(RwLock::new(HashMap::new()));
@@ -172,10 +172,10 @@ impl NetworkManager {
     /// Send direct message to peer
     pub async fn send_to_peer(&mut self, peer_id: PeerId, message: DaaProtocolMessage) -> Result<()> {
         let serialized = serde_json::to_vec(&message)
-            .map_err(|e| ChainError::Network(format!("Serialization failed: {}", e).into()))?;
+            .map_err(|e| ChainError::Network(format!("Serialization failed: {}", e)))?;
         
         self.network.send_to_peer(peer_id, serialized).await
-            .map_err(ChainError::Network)?;
+            .map_err(|e| ChainError::Network(e))?;
         
         Ok(())
     }
@@ -224,10 +224,10 @@ impl NetworkManager {
     /// Broadcast message to all peers
     async fn broadcast_message(&mut self, message: DaaProtocolMessage) -> Result<()> {
         let serialized = serde_json::to_vec(&message)
-            .map_err(|e| ChainError::Network(format!("Serialization failed: {}", e).into()))?;
+            .map_err(|e| ChainError::Network(format!("Serialization failed: {}", e)))?;
         
         self.network.broadcast(serialized).await
-            .map_err(ChainError::Network)?;
+            .map_err(|e| ChainError::Network(e))?;
         
         Ok(())
     }
@@ -312,8 +312,8 @@ impl DaaProtocolHandler {
                         peer_info.agent_id = Some(agent_id.clone());
                         peer_info.capabilities = capabilities.clone();
                     } else {
-                        peers.insert(peer_id, PeerInfo {
-                            peer_id,
+                        peers.insert(peer_id.clone(), PeerInfo {
+                            peer_id: peer_id.clone(),
                             agent_id: Some(agent_id.clone()),
                             capabilities: capabilities.clone(),
                             last_seen: std::time::SystemTime::now()
@@ -366,7 +366,7 @@ impl ProtocolHandler for DaaProtocolHandler {
         &self,
         peer_id: PeerId,
         message: ProtocolMessage,
-    ) -> Result<Option<ProtocolMessage>, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> std::result::Result<Option<ProtocolMessage>, Box<dyn std::error::Error + Send + Sync>> {
         // Deserialize DAA message
         if let Ok(daa_message) = serde_json::from_slice::<DaaProtocolMessage>(message.data()) {
             if let Err(e) = self.handle_message(peer_id, daa_message).await {

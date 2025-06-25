@@ -244,13 +244,14 @@ impl ResourceManager {
             allocation_id.clone(),
             resource_type,
             amount,
-            requesting_entity: requesting_entity.clone(),
+            requesting_entity.clone(),
             purpose,
             cost,
         );
 
+        let requesting_entity_clone = allocation.requesting_entity.clone();
         self.allocations.insert(allocation_id.clone(), allocation);
-        info!("Allocated {} {} to {}", amount, resource.unit, info!("Allocated {} {} to {}", amount, resource.unit, requesting_entity);allocation.requesting_entity);
+        info!("Allocated {} {} to {}", amount, resource.unit, requesting_entity_clone);
         
         Ok(allocation_id)
     }
