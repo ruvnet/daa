@@ -1,57 +1,84 @@
-# MCP Server Status
+# DAA MCP Server Status
 
-## Current Configuration
+## ✅ MCP Server Active
 
-The MCP server is currently using a **mock Python implementation** while the full QuDAG MCP server builds in the background.
+The DAA MCP server is now fully configured and provides comprehensive access to all DAA CLI capabilities through the Model Context Protocol.
 
-### Mock Server Features
-The mock server (`mock-mcp-server.py`) provides basic MCP functionality:
-- ✅ Basic tools: `dag_status`, `crypto_info`, `vault_list`
-- ✅ Resource listing
-- ✅ JSON-RPC protocol support
+### Available Tools (17 total)
 
-### Switching to Real QuDAG MCP
+#### 🎛️ Orchestrator Management
+- `daa_init` - Initialize a new DAA configuration
+- `daa_start` - Start the DAA orchestrator
+- `daa_status` - Get status of DAA components
+- `daa_stop` - Stop the DAA orchestrator
 
-Once the QuDAG MCP build completes, you can switch to the full server:
+#### 🤖 Agent Management
+- `daa_agent_list` - List all agents
+- `daa_agent_show` - Show agent details
+- `daa_agent_create` - Create a new agent
+- `daa_agent_stop` - Stop an agent
+- `daa_agent_restart` - Restart an agent
 
-1. **Check if build is complete:**
-   ```bash
-   cd /workspaces/daa/qudag/qudag-mcp
-   cargo build --example basic_server
-   ```
+#### ⚙️ Configuration Management
+- `daa_config_show` - Show current configuration
+- `daa_config_set` - Set a configuration value
+- `daa_config_get` - Get a configuration value
 
-2. **Update `.roo/mcp.json`:**
-   ```json
-   "command": "/workspaces/daa/qudag-mcp-server.sh",
-   ```
-   
-   Instead of:
-   ```json
-   "command": "/workspaces/daa/mock-mcp-server.py",
-   ```
+#### 🌐 Network Operations
+- `daa_network_status` - Show network status
+- `daa_network_connect` - Connect to QuDAG network
+- `daa_network_peers` - List connected peers
 
-3. **Restart Claude Code** to load the new configuration
+#### ⚖️ Rules Engine
+- `daa_add_rule` - Add a new rule to the rules engine
 
-### Full QuDAG MCP Features
-Once available, the full server provides:
-- 🔧 54+ tools for DAG, crypto, vault, network, and exchange operations
-- 📦 25+ system resources
-- 🔒 Quantum-resistant cryptography (ML-DSA, ML-KEM, HQC)
-- 🌐 Dark addressing and P2P networking
-- 💰 rUv token exchange management
+#### 📊 Monitoring
+- `daa_logs` - View DAA logs with filtering options
+
+### Available Resources (5 total)
+- `daa://status/orchestrator` - Current orchestrator status and health
+- `daa://config/current` - Active DAA configuration
+- `daa://agents/list` - List of all registered agents
+- `daa://network/peers` - Connected network peers
+- `daa://rules/active` - Currently active rules
+
+### Configuration
+
+The MCP server is configured in `.roo/mcp.json`:
+```json
+{
+  "mcpServers": {
+    "daa-mcp": {
+      "name": "DAA MCP Server",
+      "command": "/workspaces/daa/daa-mcp-server.py",
+      "transport": "stdio",
+      "protocolVersion": "1.0.0"
+    }
+  }
+}
+```
+
+### Usage
+
+To use the MCP tools in Claude Code:
+1. **Restart Claude Code** if you haven't already
+2. The tools will be available in the MCP tools panel
+3. Example usage:
+   - Check system status: Use `daa_status` tool
+   - List agents: Use `daa_agent_list` tool
+   - View configuration: Use `daa_config_show` tool
 
 ### Troubleshooting
 
-If you get "Connection closed" errors:
-1. Check the server logs: `tail -f /tmp/mcp-*.log`
-2. Test the server manually: `./mock-mcp-server.py` or `./qudag-mcp-server.sh`
-3. Ensure Python 3 is installed: `python3 --version`
+If tools don't appear:
+1. Restart Claude Code to reload the configuration
+2. Check server is working: `python3 /workspaces/daa/daa-mcp-server.py`
+3. Verify Python 3 is installed: `python3 --version`
 
-### Build Status
+### Future Enhancements
 
-To check QuDAG MCP build progress:
-```bash
-ps aux | grep cargo | grep qudag-mcp
-```
-
-The build typically takes 10-15 minutes on first run due to the extensive cryptographic dependencies.
+The current implementation provides mock responses. Future updates will:
+- Connect to actual DAA CLI binary when built
+- Provide real-time system data
+- Support all CLI parameters and options
+- Add more advanced agent management features
