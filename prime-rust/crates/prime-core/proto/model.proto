@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package prime.core;
+
+// Model parameter representation
+message ModelParameter {
+    // Parameter name (e.g., "layer1.weight", "layer1.bias")
+    string name = 1;
+    
+    // Tensor shape
+    repeated int64 shape = 2;
+    
+    // Serialized tensor data
+    bytes data = 3;
+    
+    // Data type (e.g., "float32", "float16")
+    string dtype = 4;
+    
+    // Whether this parameter is trainable
+    bool trainable = 5;
+}
+
+// Complete model state
+message ModelState {
+    // Model architecture identifier
+    string architecture = 1;
+    
+    // Model version
+    string version = 2;
+    
+    // All model parameters
+    repeated ModelParameter parameters = 3;
+    
+    // Model metadata
+    ModelMetadata metadata = 4;
+}
+
+message ModelMetadata {
+    // Total number of parameters
+    int64 total_parameters = 1;
+    
+    // Number of trainable parameters
+    int64 trainable_parameters = 2;
+    
+    // Model size in bytes
+    int64 size_bytes = 3;
+    
+    // Creation timestamp
+    int64 created_at = 4;
+    
+    // Last modified timestamp
+    int64 modified_at = 5;
+    
+    // Training configuration
+    map<string, string> training_config = 6;
+}
+
+// Delta update for model parameters (used in DiLoCo)
+message ModelDelta {
+    // Reference model version
+    string base_version = 1;
+    
+    // New model version after applying delta
+    string new_version = 2;
+    
+    // Parameter updates
+    repeated ParameterDelta deltas = 3;
+    
+    // Global step
+    int64 global_step = 4;
+}
+
+message ParameterDelta {
+    // Parameter name
+    string name = 1;
+    
+    // Delta values (can be sparse)
+    bytes delta_data = 2;
+    
+    // Indices for sparse updates (optional)
+    repeated int64 sparse_indices = 3;
+}

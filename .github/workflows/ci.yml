@@ -1,0 +1,288 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    strategy:
+      matrix:
+        rust:
+          - stable
+          - beta
+          - nightly
+        include:
+          - rust: stable
+            can-fail: false
+          - rust: beta  
+            can-fail: false
+          - rust: nightly
+            can-fail: true
+    
+    continue-on-error: ${{ matrix.can-fail }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ matrix.rust }}
+        components: rustfmt, clippy
+
+    - name: Setup Rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        key: ${{ matrix.rust }}
+
+    - name: Check Cargo.toml format
+      run: |
+        cargo fmt --all -- --check
+        
+    - name: Run Clippy
+      run: |
+        cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+    - name: Build workspace
+      run: |
+        cargo build --workspace --all-features --verbose
+
+    - name: Run tests
+      run: |
+        cargo test --workspace --all-features --verbose
+        
+    - name: Run doc tests
+      run: |
+        cargo test --workspace --doc --all-features --verbose
+
+    - name: Check documentation
+      run: |
+        cargo doc --workspace --all-features --no-deps --document-private-items
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install cargo-audit
+      run: cargo install cargo-audit
+
+    - name: Security audit
+      run: cargo audit
+
+    - name: Install cargo-deny  
+      run: cargo install cargo-deny
+
+    - name: Check licenses and dependencies
+      run: cargo deny check
+
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: llvm-tools-preview
+
+    - name: Install cargo-llvm-cov
+      uses: taiki-e/install-action@cargo-llvm-cov
+
+    - name: Setup Rust cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Generate code coverage
+      run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: lcov.info
+        fail_ci_if_error: true
+
+  benchmarks:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Setup Rust cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Run benchmarks
+      run: |
+        cargo bench --workspace
+
+    - name: Store benchmark results
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        tool: 'cargo'
+        output-file-path: target/criterion/*/base/benchmark.json
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        auto-push: true
+        alert-threshold: '200%'
+        comment-on-alert: true
+        fail-on-alert: true
+
+  minimal-versions:
+    name: Minimal Versions Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@nightly
+
+    - name: Install cargo-minimal-versions
+      run: cargo install cargo-minimal-versions
+
+    - name: Check minimal versions
+      run: cargo minimal-versions check --workspace
+
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: daa_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Setup Rust cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Setup test environment
+      env:
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/daa_test
+        DAA_TEST_MODE: true
+      run: |
+        # Setup test database
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client
+        
+        # Run integration tests
+        cargo test --workspace --test '*integration*' --all-features
+
+    - name: Run orchestrator tests
+      run: |
+        cd daa-orchestrator
+        cargo test --all-features -- --test-threads=1
+
+    - name: Test MCP integration
+      run: |
+        cd daa-mcp
+        cargo test --all-features --examples
+
+  workspace-consistency:
+    name: Workspace Consistency
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Check workspace dependencies
+      run: |
+        # Verify all workspace members build together
+        cargo check --workspace
+        
+        # Check for unused dependencies
+        cargo install cargo-machete
+        cargo machete
+
+    - name: Verify version consistency
+      run: |
+        # Check that all crates have consistent versions
+        VERSION=$(grep '^version' Cargo.toml | head -1 | cut -d'"' -f2)
+        echo "Expected version: $VERSION"
+        
+        for crate in daa-*; do
+          if [ -f "$crate/Cargo.toml" ]; then
+            CRATE_VERSION=$(grep '^version' "$crate/Cargo.toml" | head -1 | cut -d'"' -f2)
+            if [ "$CRATE_VERSION" != "$VERSION" ]; then
+              echo "Version mismatch in $crate: expected $VERSION, got $CRATE_VERSION"
+              exit 1
+            fi
+          fi
+        done
+
+  msrv:
+    name: Minimum Supported Rust Version
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust 1.70.0 (MSRV)
+      uses: dtolnay/rust-toolchain@1.70.0
+
+    - name: Setup Rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        key: msrv
+
+    - name: Check with MSRV
+      run: |
+        cargo check --workspace --all-features
+
+    - name: Test with MSRV  
+      run: |
+        cargo test --workspace --all-features

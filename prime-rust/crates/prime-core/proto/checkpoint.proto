@@ -1,0 +1,130 @@
+syntax = "proto3";
+
+package prime.core;
+
+import "model.proto";
+import "gradient.proto";
+
+// Training checkpoint for DiLoCo
+message Checkpoint {
+    // Unique checkpoint identifier
+    string checkpoint_id = 1;
+    
+    // Global step number
+    int64 global_step = 2;
+    
+    // Local step number (within DiLoCo round)
+    int64 local_step = 3;
+    
+    // Model state at this checkpoint
+    ModelState model_state = 4;
+    
+    // Optimizer state
+    OptimizerState optimizer_state = 5;
+    
+    // Training metrics
+    TrainingMetrics metrics = 6;
+    
+    // Checkpoint metadata
+    CheckpointMetadata metadata = 7;
+}
+
+message OptimizerState {
+    // Optimizer type (e.g., "AdamW", "SGD")
+    string optimizer_type = 1;
+    
+    // Learning rate
+    float learning_rate = 2;
+    
+    // Momentum buffers
+    repeated OptimizerBuffer momentum_buffers = 3;
+    
+    // Additional optimizer state (e.g., Adam's second moments)
+    repeated OptimizerBuffer additional_buffers = 4;
+    
+    // Optimizer configuration
+    map<string, string> config = 5;
+}
+
+message OptimizerBuffer {
+    // Parameter name this buffer is associated with
+    string parameter_name = 1;
+    
+    // Buffer data
+    bytes data = 2;
+    
+    // Buffer type (e.g., "momentum", "second_moment")
+    string buffer_type = 3;
+}
+
+message TrainingMetrics {
+    // Training loss
+    float training_loss = 1;
+    
+    // Validation loss (if available)
+    float validation_loss = 2;
+    
+    // Additional metrics
+    map<string, float> custom_metrics = 3;
+    
+    // Gradient norm
+    float gradient_norm = 4;
+    
+    // Learning rate at this step
+    float learning_rate = 5;
+}
+
+message CheckpointMetadata {
+    // Worker node that created this checkpoint
+    string worker_id = 1;
+    
+    // DiLoCo round number
+    int64 diloco_round = 2;
+    
+    // Creation timestamp
+    int64 created_at = 3;
+    
+    // Training duration in seconds
+    float training_duration = 4;
+    
+    // Hardware info
+    HardwareInfo hardware_info = 5;
+}
+
+message HardwareInfo {
+    // GPU model (if applicable)
+    string gpu_model = 1;
+    
+    // Number of GPUs
+    int32 num_gpus = 2;
+    
+    // Available GPU memory in bytes
+    int64 gpu_memory = 3;
+    
+    // CPU info
+    string cpu_model = 4;
+    
+    // RAM in bytes
+    int64 ram_bytes = 5;
+}
+
+// Checkpoint summary for quick loading
+message CheckpointSummary {
+    // Checkpoint ID
+    string checkpoint_id = 1;
+    
+    // Global step
+    int64 global_step = 2;
+    
+    // Training loss
+    float training_loss = 3;
+    
+    // File size in bytes
+    int64 size_bytes = 4;
+    
+    // Creation timestamp
+    int64 created_at = 5;
+    
+    // Storage location
+    string storage_path = 6;
+}

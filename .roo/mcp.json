@@ -1,0 +1,33 @@
+{
+  "mcpServers": {
+    "daa-mcp": {
+      "name": "DAA MCP Server",
+      "description": "Model Context Protocol interface for DAA management with 3-agent swarm coordination",
+      "transport": "http",
+      "url": "http://localhost:3001",
+      "websocketUrl": "ws://localhost:3001/ws",
+      "capabilities": {
+        "tools": true,
+        "resources": true,
+        "prompts": true
+      },
+      "features": [
+        "agent-management",
+        "swarm-coordination",
+        "task-orchestration",
+        "discovery-protocol",
+        "parallel-execution"
+      ],
+      "startCommand": "./claude-flow mcp start --port 3001",
+      "metadata": {
+        "version": "0.2.0",
+        "protocolVersion": "0.1.0",
+        "defaultPort": 3001,
+        "supportedTransports": ["http", "websocket", "stdio"],
+        "managementTools": 17,
+        "systemResources": 21,
+        "promptTemplates": 11
+      }
+    }
+  }
+}

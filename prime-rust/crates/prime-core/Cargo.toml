@@ -1,0 +1,47 @@
+[package]
+name = "prime-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+
+[dependencies]
+# Core dependencies
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+# Machine learning
+# tch.workspace = true  # Temporarily commented
+
+# Protocol buffers
+prost.workspace = true
+bytes = "1.5"
+
+# Compression
+byteorder = "1.5"
+
+# Cryptography
+sha2 = "0.10"
+hex = "0.4"
+
+# Storage
+bincode = "1.3"
+
+# DAA ecosystem
+daa-ai.workspace = true
+daa-chain.workspace = true
+
+[build-dependencies]
+prost-build.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+tokio = { workspace = true, features = ["test-util"] }

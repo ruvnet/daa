@@ -1,0 +1,53 @@
+# Multi-stage Dockerfile for DAA SDK - Distroless variant
+# This creates a minimal, secure image with Google's distroless base
+
+# Build stage
+FROM rust:1.75-bookworm as builder
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    libsqlite3-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy workspace configuration
+COPY Cargo.toml Cargo.lock ./
+COPY crates/ ./crates/
+
+# Copy all crate sources
+COPY daa-*/ ./
+COPY src/ ./src/
+
+# Build statically linked binaries
+ENV RUSTFLAGS="-C target-feature=+crt-static"
+RUN cargo build --release --workspace --target x86_64-unknown-linux-gnu
+
+# Runtime stage using distroless
+FROM gcr.io/distroless/cc-debian12
+
+# Copy binaries from builder
+COPY --from=builder /app/target/x86_64-unknown-linux-gnu/release/daa-cli /usr/local/bin/
+COPY --from=builder /app/target/x86_64-unknown-linux-gnu/release/daa-orchestrator /usr/local/bin/
+COPY --from=builder /app/target/x86_64-unknown-linux-gnu/release/daa-mcp-server /usr/local/bin/
+
+# Create minimal directory structure
+# Note: distroless doesn't have mkdir, shell, or package managers
+COPY --from=builder --chown=65532:65532 /tmp /app
+
+# Use non-root user (nobody)
+USER 65532:65532
+WORKDIR /app
+
+# Default command
+ENTRYPOINT ["/usr/local/bin/daa-orchestrator"]
+
+# Metadata
+LABEL org.opencontainers.image.title="DAA SDK Distroless"
+LABEL org.opencontainers.image.description="Decentralized Autonomous Architecture SDK - Distroless"
+LABEL org.opencontainers.image.vendor="DAA Team"
+LABEL org.opencontainers.image.source="https://github.com/daa-hq/daa-sdk"

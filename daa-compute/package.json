@@ -1,0 +1,57 @@
+{
+  "name": "@daa/compute-wasm",
+  "version": "0.1.0",
+  "description": "Decentralized AI training framework with WebAssembly support for browsers",
+  "main": "pkg/daa_compute.js",
+  "module": "pkg/daa_compute.js",
+  "types": "pkg/daa_compute.d.ts",
+  "files": [
+    "pkg/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "wasm-pack build --target web --out-dir pkg",
+    "build:nodejs": "wasm-pack build --target nodejs --out-dir pkg-node",
+    "build:bundler": "wasm-pack build --target bundler --out-dir pkg-bundler",
+    "build:all": "npm run build && npm run build:nodejs && npm run build:bundler",
+    "test": "wasm-pack test --chrome --headless",
+    "test:node": "wasm-pack test --node",
+    "prepublishOnly": "npm run build:all"
+  },
+  "keywords": [
+    "webassembly",
+    "wasm",
+    "decentralized",
+    "ai",
+    "machine-learning",
+    "federated-learning",
+    "p2p",
+    "blockchain",
+    "rust"
+  ],
+  "author": "DAA Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/daa.git",
+    "directory": "daa-compute"
+  },
+  "homepage": "https://github.com/ruvnet/daa#readme",
+  "bugs": {
+    "url": "https://github.com/ruvnet/daa/issues"
+  },
+  "devDependencies": {
+    "wasm-pack": "^0.12.1"
+  },
+  "peerDependencies": {
+    "@types/node": "^18.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "browserslist": [
+    "defaults",
+    "not IE 11"
+  ]
+}

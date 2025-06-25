@@ -1,0 +1,51 @@
+# Dockerfile for DAA Orchestrator service
+FROM rust:1.75-bookworm as builder
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    libsqlite3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy workspace and orchestrator code
+COPY Cargo.toml Cargo.lock ./
+COPY daa-orchestrator/ ./daa-orchestrator/
+COPY daa-rules/ ./daa-rules/
+COPY daa-chain/ ./daa-chain/
+COPY daa-ai/ ./daa-ai/
+COPY daa-mcp/ ./daa-mcp/
+
+# Build only the orchestrator
+RUN cargo build --release --bin daa-orchestrator
+
+# Runtime stage  
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    libsqlite3-0 \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -r -s /bin/false -m -d /app daa
+
+# Copy orchestrator binary
+COPY --from=builder --chown=daa:daa /app/target/release/daa-orchestrator /usr/local/bin/
+
+# Setup directories
+RUN mkdir -p /app/{data,logs,config} && chown -R daa:daa /app
+
+USER daa
+WORKDIR /app
+
+# Orchestrator ports
+EXPOSE 8080 9944
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+CMD ["daa-orchestrator", "--bind", "0.0.0.0:8080"]

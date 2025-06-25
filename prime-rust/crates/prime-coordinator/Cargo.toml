@@ -1,0 +1,32 @@
+[package]
+name = "prime-coordinator"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+description = "Governance and coordination layer using DAA for Prime distributed ML"
+
+[dependencies]
+prime-core = { path = "../prime-core" }
+prime-dht = { path = "../prime-dht" }
+prime-trainer = { path = "../prime-trainer" }
+daa-ai = { workspace = true }
+daa-orchestrator = { workspace = true }
+daa-rules = { workspace = true }
+tokio.workspace = true
+futures.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util", "macros"] }
+mockall.workspace = true
+proptest.workspace = true

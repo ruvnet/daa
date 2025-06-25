@@ -1,0 +1,408 @@
+name: Docker Images
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Rebuild weekly on Sundays at 3 AM UTC
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+    inputs:
+      push_images:
+        description: 'Push images to registries'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  REGISTRY_GHCR: ghcr.io
+  REGISTRY_DOCKER: docker.io
+
+jobs:
+  build-base-images:
+    name: Build Base Images
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    strategy:
+      matrix:
+        base:
+          - debian
+          - alpine
+          - distroless
+    
+    outputs:
+      image_digest_debian: ${{ steps.build-debian.outputs.digest }}
+      image_digest_alpine: ${{ steps.build-alpine.outputs.digest }}
+      image_digest_distroless: ${{ steps.build-distroless.outputs.digest }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to GitHub Container Registry
+      if: github.event_name != 'pull_request' || github.event.inputs.push_images == 'true'
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY_GHCR }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Login to Docker Hub
+      if: (github.event_name != 'pull_request' || github.event.inputs.push_images == 'true') && secrets.DOCKER_USERNAME != ''
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY_DOCKER }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          ${{ env.REGISTRY_GHCR }}/${{ github.repository }}-${{ matrix.base }}
+          ${{ secrets.DOCKER_USERNAME != '' && format('{0}/daa-{1}', env.REGISTRY_DOCKER, matrix.base) || '' }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+
+    - name: Build Debian image
+      if: matrix.base == 'debian'
+      id: build-debian
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: docker/Dockerfile.debian
+        platforms: linux/amd64,linux/arm64
+        push: ${{ github.event_name != 'pull_request' || github.event.inputs.push_images == 'true' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha,scope=${{ matrix.base }}
+        cache-to: type=gha,mode=max,scope=${{ matrix.base }}
+
+    - name: Build Alpine image
+      if: matrix.base == 'alpine'
+      id: build-alpine
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: docker/Dockerfile.alpine
+        platforms: linux/amd64,linux/arm64
+        push: ${{ github.event_name != 'pull_request' || github.event.inputs.push_images == 'true' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha,scope=${{ matrix.base }}
+        cache-to: type=gha,mode=max,scope=${{ matrix.base }}
+
+    - name: Build Distroless image
+      if: matrix.base == 'distroless'
+      id: build-distroless
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: docker/Dockerfile.distroless
+        platforms: linux/amd64,linux/arm64
+        push: ${{ github.event_name != 'pull_request' || github.event.inputs.push_images == 'true' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha,scope=${{ matrix.base }}
+        cache-to: type=gha,mode=max,scope=${{ matrix.base }}
+
+  build-service-images:
+    name: Build Service Images
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    
+    strategy:
+      matrix:
+        service:
+          - orchestrator
+          - mcp-server
+          - cli
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to GitHub Container Registry
+      if: github.event_name != 'pull_request' || github.event.inputs.push_images == 'true'
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY_GHCR }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Login to Docker Hub
+      if: (github.event_name != 'pull_request' || github.event.inputs.push_images == 'true') && secrets.DOCKER_USERNAME != ''
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY_DOCKER }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          ${{ env.REGISTRY_GHCR }}/${{ github.repository }}-${{ matrix.service }}
+          ${{ secrets.DOCKER_USERNAME != '' && format('{0}/daa-{1}', env.REGISTRY_DOCKER, matrix.service) || '' }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+
+    - name: Build and push service image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: docker/Dockerfile.${{ matrix.service }}
+        platforms: linux/amd64,linux/arm64
+        push: ${{ github.event_name != 'pull_request' || github.event.inputs.push_images == 'true' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha,scope=${{ matrix.service }}
+        cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  build-development-images:
+    name: Build Development Images
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to GitHub Container Registry
+      if: github.event_name != 'pull_request' || github.event.inputs.push_images == 'true'
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY_GHCR }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          ${{ env.REGISTRY_GHCR }}/${{ github.repository }}-dev
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build development image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: docker/Dockerfile.dev
+        platforms: linux/amd64,linux/arm64
+        push: ${{ github.event_name != 'pull_request' || github.event.inputs.push_images == 'true' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha,scope=dev
+        cache-to: type=gha,mode=max,scope=dev
+
+  security-scan:
+    name: Security Scan
+    needs: build-base-images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name != 'pull_request'
+    
+    strategy:
+      matrix:
+        base: [debian, alpine, distroless]
+    
+    steps:
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.REGISTRY_GHCR }}/${{ github.repository }}-${{ matrix.base }}:${{ github.sha }}
+        format: 'sarif'
+        output: 'trivy-results-${{ matrix.base }}.sarif'
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results-${{ matrix.base }}.sarif'
+
+  test-images:
+    name: Test Docker Images
+    needs: [build-base-images, build-service-images]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    strategy:
+      matrix:
+        service: [orchestrator, mcp-server, cli]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Test image functionality
+      run: |
+        # Test basic functionality of each service image
+        case "${{ matrix.service }}" in
+          "cli")
+            docker run --rm ${{ env.REGISTRY_GHCR }}/${{ github.repository }}-cli:${{ github.sha }} --version
+            docker run --rm ${{ env.REGISTRY_GHCR }}/${{ github.repository }}-cli:${{ github.sha }} --help
+            ;;
+          "orchestrator")
+            # Test orchestrator health check
+            docker run --rm -d --name test-orchestrator \
+              ${{ env.REGISTRY_GHCR }}/${{ github.repository }}-orchestrator:${{ github.sha }}
+            sleep 10
+            docker logs test-orchestrator
+            docker stop test-orchestrator
+            ;;
+          "mcp-server")
+            # Test MCP server startup
+            docker run --rm -d --name test-mcp \
+              ${{ env.REGISTRY_GHCR }}/${{ github.repository }}-mcp-server:${{ github.sha }}
+            sleep 10
+            docker logs test-mcp
+            docker stop test-mcp
+            ;;
+        esac
+
+  docker-compose-test:
+    name: Docker Compose Integration Test
+    needs: [build-base-images, build-service-images]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Create test docker-compose.yml
+      run: |
+        cat > docker-compose.test.yml << EOF
+        version: '3.8'
+        services:
+          orchestrator:
+            image: ${{ env.REGISTRY_GHCR }}/${{ github.repository }}-orchestrator:${{ github.sha }}
+            environment:
+              - DAA_LOG_LEVEL=debug
+              - DAA_TEST_MODE=true
+            ports:
+              - "8080:8080"
+            healthcheck:
+              test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+              interval: 30s
+              timeout: 10s
+              retries: 3
+          
+          mcp-server:
+            image: ${{ env.REGISTRY_GHCR }}/${{ github.repository }}-mcp-server:${{ github.sha }}
+            environment:
+              - DAA_LOG_LEVEL=debug
+              - DAA_TEST_MODE=true
+            ports:
+              - "3000:3000"
+            depends_on:
+              - orchestrator
+            healthcheck:
+              test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+              interval: 30s
+              timeout: 10s
+              retries: 3
+        EOF
+
+    - name: Run integration test
+      run: |
+        docker-compose -f docker-compose.test.yml up -d
+        sleep 30
+        
+        # Check service health
+        docker-compose -f docker-compose.test.yml ps
+        docker-compose -f docker-compose.test.yml logs
+        
+        # Cleanup
+        docker-compose -f docker-compose.test.yml down
+
+  publish-manifests:
+    name: Publish Multi-arch Manifests
+    needs: [build-base-images, build-service-images, test-images]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    
+    steps:
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY_GHCR }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Login to Docker Hub
+      if: secrets.DOCKER_USERNAME != ''
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY_DOCKER }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Create and push manifests
+      run: |
+        # Create manifests for multi-arch support
+        for service in debian alpine distroless orchestrator mcp-server cli; do
+          echo "Creating manifest for $service..."
+          
+          # GitHub Container Registry
+          docker manifest create \
+            ${{ env.REGISTRY_GHCR }}/${{ github.repository }}-$service:latest \
+            ${{ env.REGISTRY_GHCR }}/${{ github.repository }}-$service:${{ github.sha }}
+          
+          docker manifest push ${{ env.REGISTRY_GHCR }}/${{ github.repository }}-$service:latest
+        done
+
+  cleanup:
+    name: Cleanup Old Images
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event_name == 'schedule'
+    
+    steps:
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY_GHCR }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Delete old images
+      run: |
+        # Keep only the last 10 images for each service
+        for service in debian alpine distroless orchestrator mcp-server cli dev; do
+          echo "Cleaning up old images for $service..."
+          
+          # This would typically use the GitHub API to delete old package versions
+          # For now, we'll just log what we would do
+          echo "Would delete old versions of ${{ env.REGISTRY_GHCR }}/${{ github.repository }}-$service"
+        done

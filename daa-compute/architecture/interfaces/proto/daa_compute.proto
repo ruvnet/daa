@@ -1,0 +1,882 @@
+// DAA-Compute Protocol Buffer Definitions
+// This file defines the network protocol for distributed machine learning
+
+syntax = "proto3";
+
+package daa_compute;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/any.proto";
+
+// ============================================================================
+// Core Message Types
+// ============================================================================
+
+message NetworkMessage {
+  string message_id = 1;
+  string sender_id = 2;
+  optional string recipient_id = 3; // None for broadcast
+  MessageType message_type = 4;
+  MessagePayload payload = 5;
+  google.protobuf.Timestamp timestamp = 6;
+  bytes signature = 7;
+  uint32 sequence_number = 8;
+  optional string trace_id = 9;
+}
+
+enum MessageType {
+  MESSAGE_TYPE_UNSPECIFIED = 0;
+  MESSAGE_TYPE_TASK_ASSIGNMENT = 1;
+  MESSAGE_TYPE_TASK_RESULT = 2;
+  MESSAGE_TYPE_MODEL_UPDATE = 3;
+  MESSAGE_TYPE_GRADIENT_SHARE = 4;
+  MESSAGE_TYPE_CHECKPOINT_ANNOUNCEMENT = 5;
+  MESSAGE_TYPE_CONSENSUS_VOTE = 6;
+  MESSAGE_TYPE_HEARTBEAT = 7;
+  MESSAGE_TYPE_NODE_JOIN = 8;
+  MESSAGE_TYPE_NODE_LEAVE = 9;
+  MESSAGE_TYPE_VALIDATION_REQUEST = 10;
+  MESSAGE_TYPE_SYNC_REQUEST = 11;
+}
+
+message MessagePayload {
+  oneof payload {
+    TaskAssignment task_assignment = 1;
+    TaskResult task_result = 2;
+    ModelUpdate model_update = 3;
+    GradientUpdate gradient_update = 4;
+    CheckpointVertex checkpoint_vertex = 5;
+    ConsensusVote consensus_vote = 6;
+    HeartbeatData heartbeat = 7;
+    NodeInfo node_info = 8;
+    ValidationRequest validation_request = 9;
+    SyncEvent sync_event = 10;
+  }
+}
+
+// ============================================================================
+// Node Information
+// ============================================================================
+
+message NodeInfo {
+  string node_id = 1;
+  NodeType node_type = 2;
+  NodeCapabilities capabilities = 3;
+  NetworkAddress network_address = 4;
+  float reputation = 5;
+  google.protobuf.Duration uptime = 6;
+  NodeStatus status = 7;
+  google.protobuf.Timestamp last_seen = 8;
+}
+
+enum NodeType {
+  NODE_TYPE_UNSPECIFIED = 0;
+  NODE_TYPE_CLOUD = 1;
+  NODE_TYPE_EDGE = 2;
+  NODE_TYPE_BROWSER = 3;
+}
+
+enum NodeStatus {
+  NODE_STATUS_UNSPECIFIED = 0;
+  NODE_STATUS_HEALTHY = 1;
+  NODE_STATUS_BUSY = 2;
+  NODE_STATUS_DEGRADED = 3;
+  NODE_STATUS_JOINING = 4;
+  NODE_STATUS_LEAVING = 5;
+  NODE_STATUS_FAILED = 6;
+}
+
+message NodeCapabilities {
+  ComputePower compute_power = 1;
+  MemoryCapacity memory_capacity = 2;
+  StorageCapacity storage_capacity = 3;
+  NetworkBandwidth network_bandwidth = 4;
+  repeated Feature supported_features = 5;
+}
+
+message ComputePower {
+  uint32 cpu_cores = 1;
+  uint32 gpu_count = 2;
+  uint32 gpu_memory_gb = 3;
+  float tflops = 4;
+  repeated Precision supported_precision = 5;
+}
+
+enum Precision {
+  PRECISION_UNSPECIFIED = 0;
+  PRECISION_FP32 = 1;
+  PRECISION_FP16 = 2;
+  PRECISION_BF16 = 3;
+  PRECISION_INT8 = 4;
+  PRECISION_INT4 = 5;
+}
+
+message MemoryCapacity {
+  uint32 ram_gb = 1;
+  uint32 vram_gb = 2;
+  uint32 available_gb = 3;
+}
+
+message StorageCapacity {
+  uint64 total_gb = 1;
+  uint64 available_gb = 2;
+  uint32 io_bandwidth_mbps = 3;
+}
+
+message NetworkBandwidth {
+  float download_mbps = 1;
+  float upload_mbps = 2;
+  float latency_ms = 3;
+}
+
+enum Feature {
+  FEATURE_UNSPECIFIED = 0;
+  FEATURE_MODEL_HOSTING = 1;
+  FEATURE_COORDINATION = 2;
+  FEATURE_VALIDATION = 3;
+  FEATURE_WEBASSEMBLY = 4;
+  FEATURE_WEBGPU = 5;
+  FEATURE_QUANTUM_RESISTANT_CRYPTO = 6;
+}
+
+message NetworkAddress {
+  string ip = 1;
+  uint32 port = 2;
+  NetworkProtocol protocol = 3;
+}
+
+enum NetworkProtocol {
+  NETWORK_PROTOCOL_UNSPECIFIED = 0;
+  NETWORK_PROTOCOL_TCP = 1;
+  NETWORK_PROTOCOL_QUIC = 2;
+  NETWORK_PROTOCOL_WEBSOCKET = 3;
+  NETWORK_PROTOCOL_WEBRTC = 4;
+}
+
+// ============================================================================
+// Training and Task Management
+// ============================================================================
+
+message TaskAssignment {
+  string task_id = 1;
+  TaskType task_type = 2;
+  string assigned_node_id = 3;
+  google.protobuf.Timestamp deadline = 4;
+  Priority priority = 5;
+  repeated string dependencies = 6;
+  TaskParameters parameters = 7;
+  uint64 round_number = 8;
+}
+
+enum TaskType {
+  TASK_TYPE_UNSPECIFIED = 0;
+  TASK_TYPE_TRAINING = 1;
+  TASK_TYPE_VALIDATION = 2;
+  TASK_TYPE_AGGREGATION = 3;
+  TASK_TYPE_CHECKPOINT = 4;
+  TASK_TYPE_INFERENCE = 5;
+}
+
+enum Priority {
+  PRIORITY_UNSPECIFIED = 0;
+  PRIORITY_LOW = 1;
+  PRIORITY_MEDIUM = 2;
+  PRIORITY_HIGH = 3;
+  PRIORITY_CRITICAL = 4;
+}
+
+message TaskParameters {
+  uint32 batch_size = 1;
+  float learning_rate = 2;
+  repeated uint64 data_indices = 3;
+  repeated string model_shard_ids = 4;
+  map<string, string> custom_params = 5;
+  TrainingConfig training_config = 6;
+}
+
+message TrainingConfig {
+  uint32 local_epochs = 1;
+  float weight_decay = 2;
+  float momentum = 3;
+  OptimizerType optimizer = 4;
+  SchedulerType lr_scheduler = 5;
+}
+
+enum OptimizerType {
+  OPTIMIZER_TYPE_UNSPECIFIED = 0;
+  OPTIMIZER_TYPE_SGD = 1;
+  OPTIMIZER_TYPE_ADAM = 2;
+  OPTIMIZER_TYPE_LAMB = 3;
+  OPTIMIZER_TYPE_ADAMW = 4;
+}
+
+enum SchedulerType {
+  SCHEDULER_TYPE_UNSPECIFIED = 0;
+  SCHEDULER_TYPE_CONSTANT = 1;
+  SCHEDULER_TYPE_LINEAR = 2;
+  SCHEDULER_TYPE_COSINE = 3;
+  SCHEDULER_TYPE_EXPONENTIAL = 4;
+}
+
+message TaskResult {
+  string task_id = 1;
+  string node_id = 2;
+  ResultType result_type = 3;
+  google.protobuf.Duration execution_time = 4;
+  ResourceUsage resource_usage = 5;
+  map<string, float> metrics = 6;
+  bool success = 7;
+  optional string error_message = 8;
+}
+
+enum ResultType {
+  RESULT_TYPE_UNSPECIFIED = 0;
+  RESULT_TYPE_GRADIENT_UPDATE = 1;
+  RESULT_TYPE_MODEL_UPDATE = 2;
+  RESULT_TYPE_VALIDATION_RESULT = 3;
+  RESULT_TYPE_CHECKPOINT_CREATED = 4;
+  RESULT_TYPE_ERROR = 5;
+}
+
+// ============================================================================
+// Model and Gradient Updates
+// ============================================================================
+
+message ModelUpdate {
+  string update_id = 1;
+  ParameterUpdate parameter_update = 2;
+  optional OptimizerState optimizer_state = 3;
+  UpdateMetadata metadata = 4;
+  uint64 model_version = 5;
+}
+
+message GradientUpdate {
+  string gradient_id = 1;
+  map<string, Tensor> layer_gradients = 2;
+  uint32 batch_size = 3;
+  float loss_value = 4;
+  float gradient_norm = 5;
+  optional float compression_ratio = 6;
+  CompressionMethod compression_method = 7;
+}
+
+enum CompressionMethod {
+  COMPRESSION_METHOD_UNSPECIFIED = 0;
+  COMPRESSION_METHOD_NONE = 1;
+  COMPRESSION_METHOD_QUANTIZATION = 2;
+  COMPRESSION_METHOD_SPARSIFICATION = 3;
+  COMPRESSION_METHOD_LOW_RANK = 4;
+}
+
+message ParameterUpdate {
+  map<string, Tensor> updates = 1;
+  UpdateType update_type = 2;
+  float learning_rate = 3;
+  uint64 step_number = 4;
+}
+
+enum UpdateType {
+  UPDATE_TYPE_UNSPECIFIED = 0;
+  UPDATE_TYPE_GRADIENT = 1;
+  UPDATE_TYPE_PARAMETER = 2;
+  UPDATE_TYPE_MOMENTUM = 3;
+  UPDATE_TYPE_OPTIMIZER_STATE = 4;
+}
+
+message Tensor {
+  repeated uint32 shape = 1;
+  DataType dtype = 2;
+  bytes data = 3;
+  optional CompressionInfo compression_info = 4;
+}
+
+enum DataType {
+  DATA_TYPE_UNSPECIFIED = 0;
+  DATA_TYPE_F32 = 1;
+  DATA_TYPE_F16 = 2;
+  DATA_TYPE_BF16 = 3;
+  DATA_TYPE_I32 = 4;
+  DATA_TYPE_I8 = 5;
+  DATA_TYPE_U8 = 6;
+}
+
+message CompressionInfo {
+  CompressionMethod method = 1;
+  float ratio = 2;
+  bytes metadata = 3;
+}
+
+message OptimizerState {
+  map<string, Tensor> state_dict = 1;
+  uint64 step_count = 2;
+  float learning_rate = 3;
+  OptimizerType optimizer_type = 4;
+}
+
+message UpdateMetadata {
+  string update_id = 1;
+  repeated string source_nodes = 2;
+  AggregationMethod aggregation_method = 3;
+  QualityMetrics quality_metrics = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+enum AggregationMethod {
+  AGGREGATION_METHOD_UNSPECIFIED = 0;
+  AGGREGATION_METHOD_AVERAGE = 1;
+  AGGREGATION_METHOD_WEIGHTED_AVERAGE = 2;
+  AGGREGATION_METHOD_MEDIAN = 3;
+  AGGREGATION_METHOD_TRIMMED_MEAN = 4;
+  AGGREGATION_METHOD_FEDERATED_AVERAGE = 5;
+}
+
+message QualityMetrics {
+  float gradient_norm = 1;
+  float parameter_change_norm = 2;
+  float convergence_indicator = 3;
+  float noise_estimate = 4;
+}
+
+// ============================================================================
+// Checkpoint and DAG Management
+// ============================================================================
+
+message CheckpointVertex {
+  string vertex_id = 1;
+  string checkpoint_id = 2;
+  repeated string parent_checkpoints = 3;
+  bytes model_state_hash = 4;
+  uint64 round_number = 5;
+  google.protobuf.Timestamp timestamp = 6;
+  CheckpointMetadata metadata = 7;
+  ConsensusProof consensus_proof = 8;
+  repeated StorageLocation storage_locations = 9;
+  MergeStrategy merge_strategy = 10;
+}
+
+message CheckpointMetadata {
+  string model_version = 1;
+  uint64 total_parameters = 2;
+  uint64 training_steps = 3;
+  float loss_value = 4;
+  optional float accuracy = 5;
+  repeated string contributors = 6;
+  TrainingMetrics training_metrics = 7;
+}
+
+message TrainingMetrics {
+  uint64 round_number = 1;
+  float loss = 2;
+  optional float accuracy = 3;
+  float convergence_rate = 4;
+  float node_participation = 5;
+  google.protobuf.Duration communication_overhead = 6;
+  google.protobuf.Duration computation_time = 7;
+  map<string, float> custom_metrics = 8;
+}
+
+message MergeStrategy {
+  oneof strategy {
+    LinearMerge linear = 1;
+    WeightedMerge weighted = 2;
+    ForkStrategy fork = 3;
+    EnsembleMerge ensemble = 4;
+  }
+}
+
+message LinearMerge {
+  // Simple linear progression
+}
+
+message WeightedMerge {
+  MergeAlgorithm algorithm = 1;
+  repeated float weights = 2;
+}
+
+enum MergeAlgorithm {
+  MERGE_ALGORITHM_UNSPECIFIED = 0;
+  MERGE_ALGORITHM_AVERAGE = 1;
+  MERGE_ALGORITHM_WEIGHTED_AVERAGE = 2;
+  MERGE_ALGORITHM_FISHER_WEIGHTED = 3;
+  MERGE_ALGORITHM_OPTIMAL_TRANSPORT = 4;
+}
+
+message ForkStrategy {
+  string reason = 1;
+  string experiment_id = 2;
+}
+
+message EnsembleMerge {
+  repeated string model_checkpoints = 1;
+  EnsembleMethod method = 2;
+}
+
+enum EnsembleMethod {
+  ENSEMBLE_METHOD_UNSPECIFIED = 0;
+  ENSEMBLE_METHOD_VOTING = 1;
+  ENSEMBLE_METHOD_AVERAGING = 2;
+  ENSEMBLE_METHOD_STACKING = 3;
+}
+
+message StorageLocation {
+  string url = 1;
+  StorageType storage_type = 2;
+  optional string access_key = 3;
+  bytes content_hash = 4;
+}
+
+enum StorageType {
+  STORAGE_TYPE_UNSPECIFIED = 0;
+  STORAGE_TYPE_LOCAL = 1;
+  STORAGE_TYPE_S3_COMPATIBLE = 2;
+  STORAGE_TYPE_IPFS = 3;
+  STORAGE_TYPE_DISTRIBUTED = 4;
+}
+
+// ============================================================================
+// Consensus and Validation
+// ============================================================================
+
+message ConsensusVote {
+  string proposal_id = 1;
+  string voter_id = 2;
+  VoteDecision decision = 3;
+  google.protobuf.Timestamp timestamp = 4;
+  bytes signature = 5;
+  string justification = 6;
+}
+
+enum VoteDecision {
+  VOTE_DECISION_UNSPECIFIED = 0;
+  VOTE_DECISION_ACCEPT = 1;
+  VOTE_DECISION_REJECT = 2;
+  VOTE_DECISION_ABSTAIN = 3;
+}
+
+message ConsensusProof {
+  uint64 round = 1;
+  ConsensusDecision decision = 2;
+  repeated SignedVote signatures = 3;
+  google.protobuf.Timestamp timestamp = 4;
+  uint32 total_validators = 5;
+  uint32 participating_validators = 6;
+}
+
+enum ConsensusDecision {
+  CONSENSUS_DECISION_UNSPECIFIED = 0;
+  CONSENSUS_DECISION_ACCEPT = 1;
+  CONSENSUS_DECISION_REJECT = 2;
+  CONSENSUS_DECISION_PENDING = 3;
+}
+
+message SignedVote {
+  string voter_id = 1;
+  bytes signature = 2;
+  VoteDecision decision = 3;
+}
+
+message ValidationRequest {
+  string request_id = 1;
+  ValidationType validation_type = 2;
+  bytes data = 3;
+  optional bytes expected_result = 4;
+  google.protobuf.Timestamp deadline = 5;
+  float required_confidence = 6;
+}
+
+enum ValidationType {
+  VALIDATION_TYPE_UNSPECIFIED = 0;
+  VALIDATION_TYPE_GRADIENT_VERIFICATION = 1;
+  VALIDATION_TYPE_MODEL_INTEGRITY = 2;
+  VALIDATION_TYPE_COMPUTATION_CORRECTNESS = 3;
+  VALIDATION_TYPE_CONSENSUS_PARTICIPATION = 4;
+}
+
+message ValidationResult {
+  string request_id = 1;
+  bool is_valid = 2;
+  float confidence = 3;
+  string details = 4;
+  string validator_id = 5;
+  google.protobuf.Timestamp timestamp = 6;
+}
+
+// ============================================================================
+// Synchronization and Coordination
+// ============================================================================
+
+message SyncEvent {
+  string sync_id = 1;
+  SyncType sync_type = 2;
+  repeated string participants = 3;
+  google.protobuf.Timestamp deadline = 4;
+  SyncParameters parameters = 5;
+}
+
+enum SyncType {
+  SYNC_TYPE_UNSPECIFIED = 0;
+  SYNC_TYPE_MODEL_SYNC = 1;
+  SYNC_TYPE_GRADIENT_ALL_REDUCE = 2;
+  SYNC_TYPE_CHECKPOINT_SYNC = 3;
+  SYNC_TYPE_CONSENSUS_SYNC = 4;
+}
+
+message SyncParameters {
+  AggregationMethod aggregation_method = 1;
+  float timeout_seconds = 2;
+  uint32 min_participants = 3;
+  bool allow_stragglers = 4;
+}
+
+message SyncResult {
+  string sync_id = 1;
+  bool success = 2;
+  repeated string participants = 3;
+  google.protobuf.Duration duration = 4;
+  float data_transferred_mb = 5;
+  optional string error_message = 6;
+}
+
+// ============================================================================
+// Resource Monitoring and Heartbeat
+// ============================================================================
+
+message HeartbeatData {
+  string node_id = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  NodeStatus status = 3;
+  repeated string current_tasks = 4;
+  ResourceUsage resource_usage = 5;
+  optional string last_checkpoint = 6;
+  NetworkMetrics network_metrics = 7;
+}
+
+message ResourceUsage {
+  float cpu_percent = 1;
+  uint32 memory_used_mb = 2;
+  float gpu_utilization = 3;
+  float network_in_mbps = 4;
+  float network_out_mbps = 5;
+  float storage_read_mbps = 6;
+  float storage_write_mbps = 7;
+  float temperature_celsius = 8;
+}
+
+message NetworkMetrics {
+  uint32 connected_peers = 1;
+  float average_latency_ms = 2;
+  uint32 messages_sent = 3;
+  uint32 messages_received = 4;
+  float bandwidth_utilization = 5;
+}
+
+// ============================================================================
+// Model Sharding
+// ============================================================================
+
+message ShardInfo {
+  string shard_id = 1;
+  ShardType shard_type = 2;
+  repeated string layer_names = 3;
+  uint64 parameter_count = 4;
+  uint64 size_bytes = 5;
+  repeated string dependencies = 6;
+  bytes checksum = 7;
+  ComputeRequirements compute_requirements = 8;
+}
+
+enum ShardType {
+  SHARD_TYPE_UNSPECIFIED = 0;
+  SHARD_TYPE_SEQUENTIAL = 1;
+  SHARD_TYPE_PARALLEL = 2;
+  SHARD_TYPE_PIPELINE = 3;
+  SHARD_TYPE_EXPERT = 4;
+}
+
+message ComputeRequirements {
+  uint64 flops_per_sample = 1;
+  uint32 memory_mb = 2;
+  Precision preferred_precision = 3;
+  bool requires_gpu = 4;
+}
+
+message ShardAssignment {
+  map<string, string> shard_to_node = 1; // shard_id -> node_id
+  uint64 assignment_version = 2;
+  google.protobuf.Timestamp created_at = 3;
+}
+
+// ============================================================================
+// Error Handling
+// ============================================================================
+
+message ErrorInfo {
+  ErrorCode code = 1;
+  string message = 2;
+  string details = 3;
+  google.protobuf.Timestamp timestamp = 4;
+  string node_id = 5;
+}
+
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  ERROR_CODE_NETWORK_ERROR = 1;
+  ERROR_CODE_COMPUTATION_ERROR = 2;
+  ERROR_CODE_VALIDATION_FAILED = 3;
+  ERROR_CODE_CONSENSUS_FAILED = 4;
+  ERROR_CODE_RESOURCE_EXHAUSTED = 5;
+  ERROR_CODE_TIMEOUT = 6;
+  ERROR_CODE_INVALID_REQUEST = 7;
+  ERROR_CODE_PERMISSION_DENIED = 8;
+}
+
+// ============================================================================
+// Batch Operations
+// ============================================================================
+
+message BatchMessage {
+  repeated NetworkMessage messages = 1;
+  uint32 batch_id = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  CompressionInfo compression_info = 4;
+}
+
+message BatchRequest {
+  string request_id = 1;
+  repeated google.protobuf.Any requests = 2;
+  bool require_all_success = 3;
+}
+
+message BatchResponse {
+  string request_id = 1;
+  repeated google.protobuf.Any responses = 2;
+  repeated ErrorInfo errors = 3;
+  bool all_successful = 4;
+}
+
+// ============================================================================
+// Service Definitions (for gRPC)
+// ============================================================================
+
+service ComputeNodeService {
+  // Node management
+  rpc RegisterNode(NodeInfo) returns (RegistrationResponse);
+  rpc UpdateNodeInfo(NodeInfo) returns (UpdateResponse);
+  rpc GetNodeInfo(NodeInfoRequest) returns (NodeInfo);
+  
+  // Task management
+  rpc AssignTask(TaskAssignment) returns (TaskResponse);
+  rpc ReportTaskResult(TaskResult) returns (TaskResponse);
+  rpc GetTaskStatus(TaskStatusRequest) returns (TaskStatus);
+  
+  // Model operations
+  rpc UpdateModel(ModelUpdate) returns (UpdateResponse);
+  rpc GetModelShard(ShardRequest) returns (ShardResponse);
+  rpc ValidateModel(ValidationRequest) returns (ValidationResult);
+  
+  // Synchronization
+  rpc SynchronizeRound(SyncEvent) returns (SyncResult);
+  rpc ParticipateInConsensus(ConsensusVote) returns (ConsensusResponse);
+  
+  // Streaming operations
+  rpc StreamHeartbeats(stream HeartbeatData) returns (stream HeartbeatAck);
+  rpc StreamMessages(stream NetworkMessage) returns (stream NetworkMessage);
+}
+
+service CoordinatorService {
+  // Training coordination
+  rpc InitializeRound(RoundRequest) returns (TrainingRound);
+  rpc DistributeTasks(TaskDistributionRequest) returns (TaskDistributionResponse);
+  rpc AggregateUpdates(AggregationRequest) returns (AggregatedUpdate);
+  
+  // Checkpoint management
+  rpc CreateCheckpoint(CheckpointRequest) returns (CheckpointVertex);
+  rpc GetCheckpoint(CheckpointQuery) returns (CheckpointVertex);
+  rpc ListCheckpoints(CheckpointListRequest) returns (CheckpointList);
+  
+  // Network management
+  rpc GetNetworkStatus(NetworkStatusRequest) returns (NetworkStatus);
+  rpc GetTrainingMetrics(MetricsRequest) returns (TrainingMetrics);
+}
+
+// ============================================================================
+// Request/Response Messages
+// ============================================================================
+
+message RegistrationResponse {
+  bool accepted = 1;
+  string node_id = 2;
+  string welcome_message = 3;
+  NodeConfig assigned_config = 4;
+}
+
+message UpdateResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message TaskResponse {
+  bool accepted = 1;
+  string message = 2;
+  optional string task_id = 3;
+}
+
+message NodeInfoRequest {
+  string node_id = 1;
+}
+
+message TaskStatusRequest {
+  string task_id = 1;
+}
+
+message TaskStatus {
+  string task_id = 1;
+  TaskState state = 2;
+  float progress = 3;
+  optional string error_message = 4;
+}
+
+enum TaskState {
+  TASK_STATE_UNSPECIFIED = 0;
+  TASK_STATE_PENDING = 1;
+  TASK_STATE_RUNNING = 2;
+  TASK_STATE_COMPLETED = 3;
+  TASK_STATE_FAILED = 4;
+  TASK_STATE_CANCELLED = 5;
+}
+
+message ShardRequest {
+  string shard_id = 1;
+  bool include_data = 2;
+}
+
+message ShardResponse {
+  ShardInfo shard_info = 1;
+  optional bytes shard_data = 2;
+}
+
+message ConsensusResponse {
+  bool vote_accepted = 1;
+  string message = 2;
+}
+
+message HeartbeatAck {
+  google.protobuf.Timestamp timestamp = 1;
+  bool acknowledged = 2;
+}
+
+message RoundRequest {
+  uint64 round_number = 1;
+  repeated string participating_nodes = 2;
+}
+
+message TrainingRound {
+  uint64 round_id = 1;
+  uint64 round_number = 2;
+  google.protobuf.Timestamp start_time = 3;
+  google.protobuf.Duration timeout = 4;
+  repeated string participating_nodes = 5;
+  uint64 model_version = 6;
+}
+
+message TaskDistributionRequest {
+  uint64 round_id = 1;
+  repeated string available_nodes = 2;
+  TaskDistributionStrategy strategy = 3;
+}
+
+enum TaskDistributionStrategy {
+  TASK_DISTRIBUTION_STRATEGY_UNSPECIFIED = 0;
+  TASK_DISTRIBUTION_STRATEGY_ROUND_ROBIN = 1;
+  TASK_DISTRIBUTION_STRATEGY_CAPABILITY_BASED = 2;
+  TASK_DISTRIBUTION_STRATEGY_LOAD_BALANCED = 3;
+}
+
+message TaskDistributionResponse {
+  map<string, TaskAssignment> assignments = 1; // node_id -> task
+  uint32 total_tasks = 2;
+}
+
+message AggregationRequest {
+  repeated ModelUpdate updates = 1;
+  AggregationMethod method = 2;
+  AggregationParameters parameters = 3;
+}
+
+message AggregationParameters {
+  float weight_threshold = 1;
+  bool enable_compression = 2;
+  uint32 max_contributors = 3;
+}
+
+message CheckpointRequest {
+  string model_state_hash = 1;
+  uint64 round_number = 2;
+  CheckpointMetadata metadata = 3;
+}
+
+message CheckpointQuery {
+  oneof query {
+    string checkpoint_id = 1;
+    uint64 round_number = 2;
+    string model_version = 3;
+  }
+}
+
+message CheckpointListRequest {
+  uint32 limit = 1;
+  uint32 offset = 2;
+  optional uint64 since_round = 3;
+}
+
+message CheckpointList {
+  repeated CheckpointVertex checkpoints = 1;
+  uint32 total_count = 2;
+}
+
+message NetworkStatusRequest {
+  bool include_detailed_metrics = 1;
+}
+
+message NetworkStatus {
+  uint32 total_nodes = 1;
+  uint32 active_nodes = 2;
+  float average_latency_ms = 3;
+  float total_bandwidth_gbps = 4;
+  uint32 consensus_round = 5;
+  map<string, uint32> node_type_counts = 6;
+}
+
+message MetricsRequest {
+  optional uint64 since_round = 1;
+  repeated string metric_types = 2;
+}
+
+message NodeConfig {
+  uint32 max_concurrent_tasks = 1;
+  ResourceLimits resource_limits = 2;
+  NetworkConfig network_config = 3;
+  StorageConfig storage_config = 4;
+}
+
+message ResourceLimits {
+  uint32 max_memory_gb = 1;
+  float max_cpu_percent = 2;
+  float max_gpu_percent = 3;
+  float max_bandwidth_mbps = 4;
+}
+
+message NetworkConfig {
+  string listen_address = 1;
+  repeated string bootstrap_peers = 2;
+  uint32 max_connections = 3;
+  google.protobuf.Duration heartbeat_interval = 4;
+}
+
+message StorageConfig {
+  string local_path = 1;
+  repeated StorageLocation remote_backends = 2;
+  uint32 replication_factor = 3;
+  bool compression_enabled = 4;
+}

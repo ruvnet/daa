@@ -1,0 +1,49 @@
+[package]
+name = "daa-security"
+version = "0.1.0"
+edition = "2021"
+authors = ["DAA Security Team"]
+description = "Comprehensive security module for DAA with post-quantum crypto"
+
+[dependencies]
+# QuDAG for post-quantum cryptography
+qudag-crypto = { path = "../../qudag/core/crypto" }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+bincode = "1.3"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+
+# Random number generation
+rand = "0.8"
+rand_chacha = "0.3"
+rand_distr = "0.4"
+
+# Logging
+log = "0.4"
+env_logger = "0.10"
+
+[dev-dependencies]
+criterion = "0.5"
+proptest = "1.0"
+
+[lib]
+name = "daa_security"
+path = "mod.rs"
+
+[[bin]]
+name = "daa-security-demo"
+path = "main.rs"
+
+[features]
+default = ["full"]
+full = ["post-quantum", "privacy", "staking"]
+post-quantum = []
+privacy = []
+staking = []

@@ -1,0 +1,245 @@
+syntax = "proto3";
+
+package prime.core;
+
+import "gradient.proto";
+import "model.proto";
+import "checkpoint.proto";
+
+// DiLoCo communication messages
+
+// Message types for DiLoCo protocol
+enum MessageType {
+    UNKNOWN = 0;
+    WORKER_REGISTER = 1;
+    WORKER_HEARTBEAT = 2;
+    GRADIENT_UPDATE = 3;
+    MODEL_SYNC = 4;
+    CHECKPOINT_SAVE = 5;
+    CHECKPOINT_LOAD = 6;
+    TRAINING_START = 7;
+    TRAINING_STOP = 8;
+    ROUND_COMPLETE = 9;
+    ERROR = 10;
+}
+
+// Base message wrapper
+message DiLoCoMessage {
+    // Message type
+    MessageType message_type = 1;
+    
+    // Unique message ID
+    string message_id = 2;
+    
+    // Sender ID
+    string sender_id = 3;
+    
+    // Timestamp
+    int64 timestamp = 4;
+    
+    // Message payload
+    oneof payload {
+        WorkerRegister worker_register = 5;
+        WorkerHeartbeat worker_heartbeat = 6;
+        GradientUpdate gradient_update = 7;
+        ModelSync model_sync = 8;
+        CheckpointRequest checkpoint_request = 9;
+        TrainingControl training_control = 10;
+        RoundComplete round_complete = 11;
+        ErrorMessage error = 12;
+    }
+}
+
+// Worker registration
+message WorkerRegister {
+    // Worker capabilities
+    WorkerCapabilities capabilities = 1;
+    
+    // Initial model version
+    string model_version = 2;
+    
+    // Worker configuration
+    map<string, string> config = 3;
+}
+
+message WorkerCapabilities {
+    // Computing power (FLOPS)
+    int64 compute_flops = 1;
+    
+    // Available memory in bytes
+    int64 memory_bytes = 2;
+    
+    // Network bandwidth in bytes/sec
+    int64 bandwidth_bps = 3;
+    
+    // Hardware info
+    HardwareInfo hardware = 4;
+}
+
+// Worker heartbeat
+message WorkerHeartbeat {
+    // Current training step
+    int64 current_step = 1;
+    
+    // Worker status
+    WorkerStatus status = 2;
+    
+    // Resource utilization
+    ResourceUtilization utilization = 3;
+}
+
+enum WorkerStatus {
+    IDLE = 0;
+    TRAINING = 1;
+    SYNCING = 2;
+    CHECKPOINTING = 3;
+    ERROR = 4;
+}
+
+message ResourceUtilization {
+    // CPU usage percentage
+    float cpu_percent = 1;
+    
+    // Memory usage percentage
+    float memory_percent = 2;
+    
+    // GPU usage percentage
+    float gpu_percent = 3;
+    
+    // Network usage in bytes/sec
+    int64 network_bps = 4;
+}
+
+// Gradient update message
+message GradientUpdate {
+    // DiLoCo round number
+    int64 round_number = 1;
+    
+    // Compressed gradients
+    GradientBatch gradient_batch = 2;
+    
+    // Local training steps completed
+    int64 local_steps = 3;
+    
+    // Local training metrics
+    TrainingMetrics metrics = 4;
+}
+
+// Model synchronization
+message ModelSync {
+    // Sync type
+    SyncType sync_type = 1;
+    
+    // Model delta or full state
+    oneof model_data {
+        ModelState full_model = 2;
+        ModelDelta model_delta = 3;
+    }
+    
+    // Target workers (empty for broadcast)
+    repeated string target_workers = 4;
+}
+
+enum SyncType {
+    FULL_SYNC = 0;
+    DELTA_SYNC = 1;
+    PARAMETER_SYNC = 2;
+}
+
+// Checkpoint operations
+message CheckpointRequest {
+    // Operation type
+    CheckpointOp operation = 1;
+    
+    // Checkpoint data
+    oneof data {
+        Checkpoint checkpoint = 2;
+        CheckpointSummary summary = 3;
+        string checkpoint_id = 4;
+    }
+}
+
+enum CheckpointOp {
+    SAVE = 0;
+    LOAD = 1;
+    DELETE = 2;
+    LIST = 3;
+}
+
+// Training control
+message TrainingControl {
+    // Control command
+    TrainingCommand command = 1;
+    
+    // Training configuration
+    TrainingConfig config = 2;
+}
+
+enum TrainingCommand {
+    START = 0;
+    STOP = 1;
+    PAUSE = 2;
+    RESUME = 3;
+    RESET = 4;
+}
+
+message TrainingConfig {
+    // Batch size
+    int32 batch_size = 1;
+    
+    // Learning rate
+    float learning_rate = 2;
+    
+    // Number of local steps per round
+    int32 local_steps = 3;
+    
+    // Gradient compression settings
+    CompressionConfig compression = 4;
+    
+    // Additional configuration
+    map<string, string> extra_config = 5;
+}
+
+message CompressionConfig {
+    // Enable compression
+    bool enabled = 1;
+    
+    // Compression algorithm
+    string algorithm = 2;
+    
+    // Compression level (algorithm-specific)
+    int32 level = 3;
+    
+    // Quantization bits (for quantization algorithms)
+    int32 quantization_bits = 4;
+}
+
+// Round completion notification
+message RoundComplete {
+    // Round number
+    int64 round_number = 1;
+    
+    // Participating workers
+    repeated string worker_ids = 2;
+    
+    // Aggregated metrics
+    TrainingMetrics aggregated_metrics = 3;
+    
+    // Next round configuration
+    TrainingConfig next_round_config = 4;
+}
+
+// Error message
+message ErrorMessage {
+    // Error code
+    int32 code = 1;
+    
+    // Error message
+    string message = 2;
+    
+    // Error details
+    map<string, string> details = 3;
+    
+    // Recoverable flag
+    bool recoverable = 4;
+}

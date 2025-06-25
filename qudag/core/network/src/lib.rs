@@ -8,6 +8,7 @@
 pub mod circuit_breaker;
 pub mod connection;
 pub mod connection_pool;
+pub mod dag_consensus;
 pub mod dark_resolver;
 pub mod discovery;
 pub mod dns;
@@ -27,6 +28,7 @@ pub mod shadow_address;
 pub mod traffic_obfuscation;
 pub mod transport;
 pub mod types;
+pub mod webrtc;
 
 pub use dark_resolver::{DarkDomainRecord, DarkResolver, DarkResolverError};
 pub use discovery::{
@@ -70,6 +72,13 @@ pub use transport::{AsyncTransport, Transport, TransportConfig, TransportError};
 pub use types::{
     ConnectionStatus, LatencyMetrics, MessagePriority, NetworkAddress, NetworkError,
     NetworkMessage, PeerId, QueueMetrics, RoutingStrategy, ThroughputMetrics,
+};
+pub use webrtc::{
+    WebRTCConfig, WebRTCTransport, TurnServerConfig, SignalingMessage, create_webrtc_transport,
+};
+pub use dag_consensus::{
+    ConsensusMessage, ConsensusNetworkConfig, ConsensusNetworkEvent, ConsensusStats,
+    DagConsensusNetwork, SerializedVertex, create_dag_consensus_network,
 };
 
 use libp2p::PeerId as LibP2PPeerId;

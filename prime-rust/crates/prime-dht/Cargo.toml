@@ -1,0 +1,30 @@
+[package]
+name = "prime-dht"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+description = "Kademlia-based DHT implementation for Prime distributed ML"
+
+[dependencies]
+prime-core = { path = "../prime-core" }
+libp2p.workspace = true
+tokio.workspace = true
+futures.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+daa-orchestrator = { workspace = true }
+uuid = { version = "1.6", features = ["v4", "serde"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util", "macros"] }
+mockall.workspace = true
+proptest.workspace = true

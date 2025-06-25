@@ -1,5 +1,4 @@
 mod qudag_stubs;
-mod qudag_stubs;
 //! # DAA Chain
 //!
 //! Blockchain integration layer for the Decentralized Autonomous Agents (DAA) system.
@@ -22,6 +21,7 @@ pub mod transaction;
 pub mod network;
 pub mod storage;
 pub mod consensus;
+pub mod qudag_consensus;
 
 #[cfg(feature = "rules-integration")]
 pub mod rules_bridge;

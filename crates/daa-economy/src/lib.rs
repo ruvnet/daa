@@ -22,11 +22,15 @@ pub mod ruv_token;
 pub mod incentives;
 pub mod accounting;
 pub mod fees;
+pub mod marketplace;
+pub mod slashing;
 
 pub use ruv_token::*;
 pub use incentives::*;
 pub use accounting::*;
 pub use fees::*;
+pub use marketplace::*;
+pub use slashing::*;
 
 /// Economic layer errors
 #[derive(Error, Debug)]
@@ -95,10 +99,12 @@ impl Default for EconomyConfig {
 pub struct EconomyManager {
     config: EconomyConfig,
     exchange: Arc<Exchange>,
-    ruv_token: RuvTokenManager,
-    incentive_engine: IncentiveEngine,
+    ruv_token: Arc<RuvTokenManager>,
+    incentive_engine: Arc<IncentiveEngine>,
     accounting: AccountingManager,
-    fee_manager: FeeManager,
+    fee_manager: Arc<FeeManager>,
+    marketplace: Arc<ComputeMarketplace>,
+    slashing_manager: Arc<SlashingManager>,
     blockchain_adapter: Arc<dyn BlockchainAdapter>,
     crypto_provider: Arc<dyn CryptoProvider>,
     balances: Arc<RwLock<HashMap<Address, Decimal>>>,
@@ -137,16 +143,35 @@ impl EconomyManager {
             circulating_supply: Decimal::ZERO,
         };
         
-        let ruv_token_manager = RuvTokenManager::new(
+        let ruv_token_manager = Arc::new(RuvTokenManager::new(
             ruv_token,
             blockchain_adapter.clone(),
             crypto_provider.clone(),
-        ).await?;
+        ).await?);
         
         // Initialize other components
-        let incentive_engine = IncentiveEngine::new(config.clone());
+        let incentive_engine = Arc::new(IncentiveEngine::new(config.clone()));
+        let fee_manager = Arc::new(FeeManager::new(config.clone()));
         let accounting = AccountingManager::new(config.clone(), crypto_provider.clone()).await?;
-        let fee_manager = FeeManager::new(config.clone());
+        
+        // Initialize marketplace
+        let marketplace = Arc::new(ComputeMarketplace::new(
+            Arc::new(exchange.clone()),
+            ruv_token_manager.clone(),
+            fee_manager.clone(),
+            blockchain_adapter.clone(),
+            crypto_provider.clone(),
+        ).await?);
+        
+        // Initialize slashing manager
+        let slashing_params = SlashingParams::default();
+        let slashing_manager = Arc::new(SlashingManager::new(
+            config.clone(),
+            slashing_params,
+            ruv_token_manager.clone(),
+            incentive_engine.clone(),
+            blockchain_adapter.clone(),
+        ).await?);
         
         Ok(EconomyManager {
             config,
@@ -155,6 +180,8 @@ impl EconomyManager {
             incentive_engine,
             accounting,
             fee_manager,
+            marketplace,
+            slashing_manager,
             blockchain_adapter,
             crypto_provider,
             balances: Arc::new(RwLock::new(HashMap::new())),
@@ -427,6 +454,26 @@ impl EconomyManager {
         
         log::info!("Applied slashing of {} rUv to validator {}", slashing_amount, validator);
         Ok(tx_hash)
+    }
+    
+    /// Get marketplace instance
+    pub fn marketplace(&self) -> &Arc<ComputeMarketplace> {
+        &self.marketplace
+    }
+    
+    /// Get slashing manager instance
+    pub fn slashing_manager(&self) -> &Arc<SlashingManager> {
+        &self.slashing_manager
+    }
+    
+    /// Get rUv token manager instance
+    pub fn ruv_token_manager(&self) -> &Arc<RuvTokenManager> {
+        &self.ruv_token
+    }
+    
+    /// Get incentive engine instance
+    pub fn incentive_engine(&self) -> &Arc<IncentiveEngine> {
+        &self.incentive_engine
     }
     
     /// Get current timestamp

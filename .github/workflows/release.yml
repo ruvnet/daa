@@ -1,0 +1,344 @@
+name: Release and Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 0.2.1)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry run (do not publish)'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  pre-release-checks:
+    name: Pre-release Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+
+    - name: Setup Rust cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Extract version
+      id: version
+      run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION=${GITHUB_REF#refs/tags/v}
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Releasing version: $VERSION"
+
+    - name: Validate version format
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        if ! [[ $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9\-]+)?$ ]]; then
+          echo "Invalid version format: $VERSION"
+          exit 1
+        fi
+
+    - name: Check version consistency
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        WORKSPACE_VERSION=$(grep '^version' Cargo.toml | head -1 | cut -d'"' -f2)
+        
+        if [ "$VERSION" != "$WORKSPACE_VERSION" ]; then
+          echo "Version mismatch: tag $VERSION != workspace $WORKSPACE_VERSION"
+          exit 1
+        fi
+
+    - name: Run full test suite
+      run: |
+        cargo fmt --all -- --check
+        cargo clippy --workspace --all-targets --all-features -- -D warnings
+        cargo test --workspace --all-features --verbose
+        cargo doc --workspace --all-features --no-deps
+
+    - name: Security audit
+      run: |
+        cargo install cargo-audit
+        cargo audit
+
+    - name: Check for uncommitted changes
+      run: |
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "Uncommitted changes detected"
+          git status --porcelain
+          exit 1
+        fi
+
+  build-artifacts:
+    name: Build Release Artifacts
+    needs: pre-release-checks
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            asset_name: daa-cli-linux-x86_64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            asset_name: daa-cli-windows-x86_64.exe
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            asset_name: daa-cli-macos-x86_64
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ matrix.target }}
+
+    - name: Setup Rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        key: ${{ matrix.target }}
+
+    - name: Build CLI binary
+      run: |
+        cargo build --release --bin daa-cli --target ${{ matrix.target }}
+
+    - name: Strip binary (Unix)
+      if: runner.os != 'Windows'
+      run: |
+        strip target/${{ matrix.target }}/release/daa-cli
+
+    - name: Create release asset
+      run: |
+        mkdir -p release-assets
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          cp target/${{ matrix.target }}/release/daa-cli.exe release-assets/${{ matrix.asset_name }}
+        else
+          cp target/${{ matrix.target }}/release/daa-cli release-assets/${{ matrix.asset_name }}
+        fi
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.asset_name }}
+        path: release-assets/${{ matrix.asset_name }}
+
+  publish-crates:
+    name: Publish to Crates.io
+    needs: [pre-release-checks, build-artifacts]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event.inputs.dry_run != 'true'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Setup Rust cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Login to crates.io
+      run: |
+        cargo login ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+    - name: Verify crates.io credentials
+      run: |
+        cargo owner --list daa-rules || echo "Package not yet published"
+
+    - name: Publish crates in dependency order
+      run: |
+        set -e
+        
+        # Function to publish a crate with retries
+        publish_crate() {
+          local crate_path=$1
+          local crate_name=$(basename $crate_path)
+          
+          echo "Publishing $crate_name..."
+          cd $crate_path
+          
+          # Check if already published
+          CURRENT_VERSION="${{ needs.pre-release-checks.outputs.version }}"
+          if cargo search $crate_name --limit 1 | grep -q "$crate_name = \"$CURRENT_VERSION\""; then
+            echo "$crate_name $CURRENT_VERSION already published, skipping"
+            cd ..
+            return 0
+          fi
+          
+          # Publish with retries
+          for i in {1..3}; do
+            if cargo publish --dry-run; then
+              if cargo publish; then
+                echo "$crate_name published successfully"
+                break
+              else
+                echo "Publish attempt $i failed for $crate_name"
+                if [ $i -eq 3 ]; then
+                  echo "Failed to publish $crate_name after 3 attempts"
+                  exit 1
+                fi
+                sleep 30
+              fi
+            else
+              echo "Dry run failed for $crate_name"
+              exit 1
+            fi
+          done
+          
+          cd ..
+          # Wait for crates.io to update
+          sleep 10
+        }
+
+        # Publish in dependency order
+        publish_crate "daa-rules"
+        publish_crate "daa-chain" 
+        publish_crate "daa-economy"
+        publish_crate "daa-ai"
+        publish_crate "daa-orchestrator"
+        publish_crate "daa-mcp"
+        publish_crate "daa-cli"
+
+    - name: Verify publications
+      run: |
+        VERSION="${{ needs.pre-release-checks.outputs.version }}"
+        for crate in daa-rules daa-chain daa-economy daa-ai daa-orchestrator daa-mcp daa-cli; do
+          echo "Checking $crate..."
+          cargo search $crate --limit 1
+          
+          # Wait for crates.io API to catch up
+          sleep 5
+          
+          # Verify the version is available
+          if ! cargo search $crate --limit 1 | grep -q "$crate = \"$VERSION\""; then
+            echo "Warning: $crate $VERSION not found in search results yet"
+          fi
+        done
+
+  create-release:
+    name: Create GitHub Release
+    needs: [pre-release-checks, build-artifacts, publish-crates]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: always() && (needs.publish-crates.result == 'success' || needs.publish-crates.result == 'skipped')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: release-assets
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        VERSION="${{ needs.pre-release-checks.outputs.version }}"
+        
+        # Generate changelog from git commits since last tag
+        PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        
+        if [ -n "$PREV_TAG" ]; then
+          echo "Changes since $PREV_TAG:" > CHANGELOG.md
+          git log --pretty=format:"- %s" $PREV_TAG..HEAD >> CHANGELOG.md
+        else
+          echo "Initial release" > CHANGELOG.md
+        fi
+        
+        # Read changelog content
+        CHANGELOG_CONTENT=$(cat CHANGELOG.md)
+        echo "changelog<<EOF" >> $GITHUB_OUTPUT
+        echo "$CHANGELOG_CONTENT" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ needs.pre-release-checks.outputs.version }}
+        name: DAA SDK v${{ needs.pre-release-checks.outputs.version }}
+        body: |
+          ## DAA SDK v${{ needs.pre-release-checks.outputs.version }}
+          
+          ${{ steps.changelog.outputs.changelog }}
+          
+          ## Installation
+          
+          ### From crates.io
+          ```bash
+          cargo install daa-cli
+          ```
+          
+          ### Download Binary
+          Download the appropriate binary for your platform from the assets below.
+          
+          ## Crates Published
+          - daa-rules v${{ needs.pre-release-checks.outputs.version }}
+          - daa-chain v${{ needs.pre-release-checks.outputs.version }}
+          - daa-economy v${{ needs.pre-release-checks.outputs.version }}
+          - daa-ai v${{ needs.pre-release-checks.outputs.version }}
+          - daa-orchestrator v${{ needs.pre-release-checks.outputs.version }}
+          - daa-mcp v${{ needs.pre-release-checks.outputs.version }}
+          - daa-cli v${{ needs.pre-release-checks.outputs.version }}
+        files: |
+          release-assets/*/daa-cli-*
+        draft: false
+        prerelease: ${{ contains(needs.pre-release-checks.outputs.version, '-') }}
+
+  post-release:
+    name: Post-release Tasks
+    needs: [pre-release-checks, create-release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: always() && needs.create-release.result == 'success'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Update documentation
+      run: |
+        # Trigger documentation rebuild
+        curl -X POST \
+          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          "https://api.github.com/repos/${{ github.repository }}/dispatches" \
+          -d '{"event_type":"docs-rebuild"}'
+
+    - name: Notify success
+      run: |
+        echo "✅ Successfully released DAA SDK v${{ needs.pre-release-checks.outputs.version }}"
+        echo "📦 All crates published to crates.io"
+        echo "🎉 GitHub release created with binaries"

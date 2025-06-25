@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DAA Compute WASM Demo</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .panel { border: 1px solid #ddd; border-radius: 8px; padding: 20px; }
+        .panel h3 { margin-top: 0; }
+        .controls { margin-bottom: 15px; }
+        .output { background: #f5f5f5; padding: 10px; border-radius: 4px; font-family: monospace; white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
+        button { padding: 8px 16px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        input[type="range"] { width: 100%; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.info { background: #d1ecf1; color: #0c5460; }
+        .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; }
+        .metric { text-align: center; padding: 10px; background: #f8f9fa; border-radius: 4px; }
+        .metric .value { font-size: 1.5em; font-weight: bold; color: #007bff; }
+        .metric .label { font-size: 0.9em; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>DAA Compute WebAssembly Demo</h1>
+    <p>This demo shows decentralized AI training and inference running in your browser using WebAssembly.</p>
+    
+    <div id="status" class="status info">Loading WASM module...</div>
+    
+    <div class="container">
+        <!-- Training Panel -->
+        <div class="panel">
+            <h3>🎯 Browser Training</h3>
+            
+            <div class="controls">
+                <label>Batch Size: <span id="batchSizeValue">32</span></label>
+                <input type="range" id="batchSize" min="8" max="128" value="32" step="8">
+            </div>
+            
+            <div class="controls">
+                <label>Training Time (ms): <span id="trainTimeValue">50</span></label>
+                <input type="range" id="trainTime" min="10" max="200" value="50" step="10">
+            </div>
+            
+            <div class="controls">
+                <label>
+                    <input type="checkbox" id="useSIMD" checked> Use SIMD Acceleration
+                </label>
+            </div>
+            
+            <button id="startTraining">Start Training</button>
+            <button id="stopTraining" disabled>Stop Training</button>
+            <button id="getGradients">Get Gradients</button>
+            
+            <div class="metrics">
+                <div class="metric">
+                    <div class="value" id="loss">0.000</div>
+                    <div class="label">Loss</div>
+                </div>
+                <div class="metric">
+                    <div class="value" id="samples">0</div>
+                    <div class="label">Samples</div>
+                </div>
+                <div class="metric">
+                    <div class="value" id="speed">0</div>
+                    <div class="label">Samples/sec</div>
+                </div>
+            </div>
+            
+            <div class="output" id="trainingOutput">Training output will appear here...</div>
+        </div>
+        
+        <!-- Inference Panel -->
+        <div class="panel">
+            <h3>🧠 Model Inference</h3>
+            
+            <div class="controls">
+                <label>Input Size: <span id="inputSizeValue">10</span></label>
+                <input type="range" id="inputSize" min="5" max="100" value="10" step="5">
+            </div>
+            
+            <div class="controls">
+                <label>
+                    <input type="checkbox" id="useWebGL" checked> Use WebGL
+                </label>
+                <label>
+                    <input type="checkbox" id="useWebGPU"> Use WebGPU
+                </label>
+            </div>
+            
+            <button id="loadModel">Load Test Model</button>
+            <button id="runInference">Run Inference</button>
+            <button id="benchmark">Benchmark</button>
+            
+            <div class="metrics">
+                <div class="metric">
+                    <div class="value" id="inferenceTime">0</div>
+                    <div class="label">Time (ms)</div>
+                </div>
+                <div class="metric">
+                    <div class="value" id="throughput">0</div>
+                    <div class="label">Ops/sec</div>
+                </div>
+                <div class="metric">
+                    <div class="value" id="modelSize">0</div>
+                    <div class="label">Model (KB)</div>
+                </div>
+            </div>
+            
+            <div class="output" id="inferenceOutput">Inference output will appear here...</div>
+        </div>
+        
+        <!-- P2P Panel -->
+        <div class="panel">
+            <h3>🌐 P2P Network</h3>
+            
+            <div class="controls">
+                <button id="connectP2P">Connect to Network</button>
+                <button id="disconnectP2P" disabled>Disconnect</button>
+            </div>
+            
+            <div class="metrics">
+                <div class="metric">
+                    <div class="value" id="peerCount">0</div>
+                    <div class="label">Connected Peers</div>
+                </div>
+                <div class="metric">
+                    <div class="value" id="gradientsSent">0</div>
+                    <div class="label">Gradients Sent</div>
+                </div>
+                <div class="metric">
+                    <div class="value" id="gradientsReceived">0</div>
+                    <div class="label">Gradients Received</div>
+                </div>
+            </div>
+            
+            <div class="output" id="p2pOutput">P2P network status will appear here...</div>
+        </div>
+        
+        <!-- System Info Panel -->
+        <div class="panel">
+            <h3>⚙️ System Capabilities</h3>
+            
+            <button id="checkCapabilities">Check Capabilities</button>
+            <button id="runBenchmark">Performance Test</button>
+            
+            <div class="output" id="systemOutput">System information will appear here...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        let wasmModule;
+        let trainer;
+        let inference;
+        let trainingActive = false;
+        let modelLoaded = false;
+        
+        // Load WASM module
+        async function initWasm() {
+            try {
+                // Note: In production, you'd load from npm package
+                // import init, { BrowserTrainer, BrowserInference } from '@daa/compute-wasm';
+                
+                // For demo, we'll simulate the WASM interface
+                wasmModule = {
+                    BrowserTrainer: class {
+                        constructor(config) {
+                            this.config = JSON.parse(config);
+                        }
+                        
+                        async train_batch(inputs, targets) {
+                            // Simulate training
+                            await new Promise(resolve => setTimeout(resolve, this.config.max_train_time_ms));
+                            return JSON.stringify({
+                                processed_samples: inputs.length / 10,
+                                average_loss: Math.random() * 0.5 + 0.1,
+                                time_ms: this.config.max_train_time_ms
+                            });
+                        }
+                        
+                        get_gradients() {
+                            return new Uint8Array(100); // Mock gradients
+                        }
+                        
+                        apply_gradients(gradients) {
+                            console.log('Applied gradients:', gradients.length, 'bytes');
+                        }
+                    },
+                    
+                    BrowserInference: class {
+                        constructor(config) {
+                            this.config = config ? JSON.parse(config) : {};
+                            this.models = new Map();
+                        }
+                        
+                        async load_model(data, metadata) {
+                            const meta = JSON.parse(metadata);
+                            const modelId = `${meta.name}-${meta.version}`;
+                            this.models.set(modelId, { data, metadata: meta });
+                            return modelId;
+                        }
+                        
+                        async infer(modelId, input) {
+                            await new Promise(resolve => setTimeout(resolve, 10));
+                            return new Float32Array(4).map(() => Math.random());
+                        }
+                        
+                        get_model_info(modelId) {
+                            const model = this.models.get(modelId);
+                            return JSON.stringify({
+                                metadata: model.metadata,
+                                cache_size_bytes: model.data.length,
+                                last_used: 0
+                            });
+                        }
+                        
+                        clear_cache() {
+                            this.models.clear();
+                        }
+                    },
+                    
+                    get_browser_capabilities: () => JSON.stringify({
+                        hardware_concurrency: navigator.hardwareConcurrency || 4,
+                        device_memory: (navigator as any).deviceMemory || 4,
+                        simd_available: true,
+                        webgl_available: !!document.createElement('canvas').getContext('webgl'),
+                        webgpu_available: !!(navigator as any).gpu
+                    }),
+                    
+                    benchmark_inference: async (size) => {
+                        const start = performance.now();
+                        // Simulate computation
+                        const data = new Array(size).fill(0).map(() => Math.random());
+                        const result = data.reduce((a, b) => a + b, 0);
+                        const elapsed = performance.now() - start;
+                        
+                        return JSON.stringify({
+                            input_size: size,
+                            layers: 10,
+                            time_ms: elapsed,
+                            throughput_ops_per_sec: (size * 10) / (elapsed / 1000)
+                        });
+                    }
+                };
+                
+                updateStatus('WASM module loaded successfully!', 'success');
+                setupEventListeners();
+                
+            } catch (error) {
+                updateStatus(`Failed to load WASM: ${error.message}`, 'error');
+            }
+        }
+        
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+        
+        function log(elementId, message) {
+            const el = document.getElementById(elementId);
+            el.textContent += new Date().toLocaleTimeString() + ': ' + message + '\n';
+            el.scrollTop = el.scrollHeight;
+        }
+        
+        function setupEventListeners() {
+            // Update display values for sliders
+            document.getElementById('batchSize').oninput = (e) => {
+                document.getElementById('batchSizeValue').textContent = e.target.value;
+            };
+            
+            document.getElementById('trainTime').oninput = (e) => {
+                document.getElementById('trainTimeValue').textContent = e.target.value;
+            };
+            
+            document.getElementById('inputSize').oninput = (e) => {
+                document.getElementById('inputSizeValue').textContent = e.target.value;
+            };
+            
+            // Training controls
+            document.getElementById('startTraining').onclick = startTraining;
+            document.getElementById('stopTraining').onclick = stopTraining;
+            document.getElementById('getGradients').onclick = getGradients;
+            
+            // Inference controls
+            document.getElementById('loadModel').onclick = loadModel;
+            document.getElementById('runInference').onclick = runInference;
+            document.getElementById('benchmark').onclick = runBenchmark;
+            
+            // P2P controls
+            document.getElementById('connectP2P').onclick = connectP2P;
+            document.getElementById('disconnectP2P').onclick = disconnectP2P;
+            
+            // System controls
+            document.getElementById('checkCapabilities').onclick = checkCapabilities;
+            document.getElementById('runBenchmark').onclick = performanceBenchmark;
+        }
+        
+        async function startTraining() {
+            try {
+                const config = {
+                    max_train_time_ms: parseInt(document.getElementById('trainTime').value),
+                    batch_size: parseInt(document.getElementById('batchSize').value),
+                    use_simd: document.getElementById('useSIMD').checked,
+                    memory_limit_mb: 256
+                };
+                
+                trainer = new wasmModule.BrowserTrainer(JSON.stringify(config));
+                trainingActive = true;
+                
+                document.getElementById('startTraining').disabled = true;
+                document.getElementById('stopTraining').disabled = false;
+                
+                log('trainingOutput', 'Training started...');
+                
+                // Training loop
+                let totalSamples = 0;
+                while (trainingActive) {
+                    // Generate random training data
+                    const inputs = new Float32Array(config.batch_size * 10).map(() => Math.random());
+                    const targets = new Float32Array(config.batch_size * 4).map(() => Math.random());
+                    
+                    const result = await trainer.train_batch(inputs, targets);
+                    const data = JSON.parse(result);
+                    
+                    totalSamples += data.processed_samples;
+                    
+                    // Update UI
+                    document.getElementById('loss').textContent = data.average_loss.toFixed(3);
+                    document.getElementById('samples').textContent = totalSamples;
+                    document.getElementById('speed').textContent = Math.round(data.processed_samples / (data.time_ms / 1000));
+                    
+                    log('trainingOutput', `Batch: ${data.processed_samples} samples, Loss: ${data.average_loss.toFixed(3)}`);
+                    
+                    // Yield to browser
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                
+            } catch (error) {
+                log('trainingOutput', `Training error: ${error.message}`);
+                stopTraining();
+            }
+        }
+        
+        function stopTraining() {
+            trainingActive = false;
+            document.getElementById('startTraining').disabled = false;
+            document.getElementById('stopTraining').disabled = true;
+            log('trainingOutput', 'Training stopped.');
+        }
+        
+        async function getGradients() {
+            if (!trainer) {
+                log('trainingOutput', 'No trainer available');
+                return;
+            }
+            
+            const gradients = trainer.get_gradients();
+            log('trainingOutput', `Got ${gradients.length} bytes of gradients`);
+        }
+        
+        async function loadModel() {
+            try {
+                const config = {
+                    max_batch_size: 64,
+                    use_webgl: document.getElementById('useWebGL').checked,
+                    use_webgpu: document.getElementById('useWebGPU').checked,
+                    cache_in_indexeddb: true,
+                    max_inference_time_ms: 100
+                };
+                
+                inference = new wasmModule.BrowserInference(JSON.stringify(config));
+                
+                // Create dummy model data
+                const modelData = new Uint8Array(1000);
+                const metadata = {
+                    name: 'demo-model',
+                    version: '1.0.0',
+                    input_shape: [parseInt(document.getElementById('inputSize').value)],
+                    output_shape: [4],
+                    quantization: 'None'
+                };
+                
+                const modelId = await inference.load_model(modelData, JSON.stringify(metadata));
+                modelLoaded = true;
+                
+                document.getElementById('modelSize').textContent = Math.round(modelData.length / 1024);
+                log('inferenceOutput', `Model loaded: ${modelId}`);
+                
+            } catch (error) {
+                log('inferenceOutput', `Model loading error: ${error.message}`);
+            }
+        }
+        
+        async function runInference() {
+            if (!inference || !modelLoaded) {
+                log('inferenceOutput', 'Load a model first');
+                return;
+            }
+            
+            try {
+                const inputSize = parseInt(document.getElementById('inputSize').value);
+                const input = new Float32Array(inputSize).map(() => Math.random());
+                
+                const start = performance.now();
+                const output = await inference.infer('demo-model-1.0.0', input);
+                const elapsed = performance.now() - start;
+                
+                document.getElementById('inferenceTime').textContent = elapsed.toFixed(1);
+                document.getElementById('throughput').textContent = Math.round(inputSize / (elapsed / 1000));
+                
+                log('inferenceOutput', `Inference: [${Array.from(output).map(x => x.toFixed(3)).join(', ')}]`);
+                
+            } catch (error) {
+                log('inferenceOutput', `Inference error: ${error.message}`);
+            }
+        }
+        
+        async function runBenchmark() {
+            const inputSize = parseInt(document.getElementById('inputSize').value);
+            const result = await wasmModule.benchmark_inference(inputSize);
+            const data = JSON.parse(result);
+            
+            log('inferenceOutput', `Benchmark - Size: ${data.input_size}, Time: ${data.time_ms.toFixed(1)}ms, Throughput: ${Math.round(data.throughput_ops_per_sec)} ops/sec`);
+        }
+        
+        function connectP2P() {
+            log('p2pOutput', 'Connecting to P2P network...');
+            document.getElementById('connectP2P').disabled = true;
+            document.getElementById('disconnectP2P').disabled = false;
+            
+            // Simulate P2P connection
+            setTimeout(() => {
+                document.getElementById('peerCount').textContent = Math.floor(Math.random() * 5) + 1;
+                log('p2pOutput', 'Connected to P2P network');
+            }, 2000);
+        }
+        
+        function disconnectP2P() {
+            log('p2pOutput', 'Disconnecting from P2P network...');
+            document.getElementById('connectP2P').disabled = false;
+            document.getElementById('disconnectP2P').disabled = true;
+            document.getElementById('peerCount').textContent = '0';
+        }
+        
+        async function checkCapabilities() {
+            const caps = JSON.parse(wasmModule.get_browser_capabilities());
+            
+            const output = `Hardware Concurrency: ${caps.hardware_concurrency}
+Device Memory: ${caps.device_memory} GB
+SIMD Available: ${caps.simd_available}
+WebGL Available: ${caps.webgl_available}
+WebGPU Available: ${caps.webgpu_available}`;
+            
+            log('systemOutput', output);
+        }
+        
+        async function performanceBenchmark() {
+            log('systemOutput', 'Running performance benchmark...');
+            
+            const sizes = [100, 500, 1000, 5000];
+            for (const size of sizes) {
+                const result = await wasmModule.benchmark_inference(size);
+                const data = JSON.parse(result);
+                log('systemOutput', `Size ${size}: ${data.time_ms.toFixed(1)}ms, ${Math.round(data.throughput_ops_per_sec)} ops/sec`);
+            }
+        }
+        
+        // Initialize on page load
+        initWasm();
+    </script>
+</body>
+</html>

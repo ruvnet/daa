@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package prime.core;
+
+// Compressed gradient representation for DiLoCo
+message CompressedGradient {
+    // Layer name or identifier
+    string layer_id = 1;
+    
+    // Original shape of the gradient tensor
+    repeated int64 shape = 2;
+    
+    // Quantized int8 gradient values
+    bytes quantized_data = 3;
+    
+    // Quantization scale factor
+    float scale = 4;
+    
+    // Zero point for quantization
+    int32 zero_point = 5;
+    
+    // Optional compression metadata
+    CompressionMetadata metadata = 6;
+}
+
+message CompressionMetadata {
+    // Compression algorithm used
+    string algorithm = 1;
+    
+    // Original size in bytes
+    int64 original_size = 2;
+    
+    // Compressed size in bytes
+    int64 compressed_size = 3;
+    
+    // Compression ratio
+    float compression_ratio = 4;
+    
+    // Timestamp of compression
+    int64 timestamp = 5;
+}
+
+// Gradient batch for multi-layer updates
+message GradientBatch {
+    // Unique batch identifier
+    string batch_id = 1;
+    
+    // Global step number
+    int64 global_step = 2;
+    
+    // List of compressed gradients
+    repeated CompressedGradient gradients = 3;
+    
+    // Worker node identifier
+    string worker_id = 4;
+    
+    // Timestamp
+    int64 timestamp = 5;
+}
