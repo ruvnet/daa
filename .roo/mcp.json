@@ -1,32 +1,35 @@
 {
   "mcpServers": {
-    "daa-mcp": {
-      "name": "DAA MCP Server",
-      "description": "Model Context Protocol interface for DAA management with 3-agent swarm coordination",
-      "transport": "http",
-      "url": "http://localhost:3001",
-      "websocketUrl": "ws://localhost:3001/ws",
+    "qudag-mcp": {
+      "name": "QuDAG MCP Server",
+      "description": "Model Context Protocol server for QuDAG - quantum-resistant DAG consensus, vault management, and P2P networking",
+      "transport": "stdio",
+      "command": "cargo",
+      "args": ["run", "--manifest-path", "/workspaces/daa/qudag/qudag-mcp/Cargo.toml", "--example", "basic_server", "--", "--no-interactive"],
       "capabilities": {
         "tools": true,
         "resources": true,
-        "prompts": true
+        "prompts": false
       },
       "features": [
-        "agent-management",
-        "swarm-coordination",
-        "task-orchestration",
-        "discovery-protocol",
-        "parallel-execution"
+        "quantum-crypto",
+        "dag-consensus",
+        "vault-management",
+        "p2p-networking",
+        "dark-addressing",
+        "exchange-operations",
+        "business-plan-management"
       ],
-      "startCommand": "./claude-flow mcp start --port 3001",
       "metadata": {
-        "version": "0.2.0",
+        "version": "1.0.0",
         "protocolVersion": "0.1.0",
-        "defaultPort": 3001,
-        "supportedTransports": ["http", "websocket", "stdio"],
-        "managementTools": 17,
-        "systemResources": 21,
-        "promptTemplates": 11
+        "supportedTransports": ["stdio"],
+        "dagTools": 12,
+        "cryptoTools": 8,
+        "vaultTools": 10,
+        "networkTools": 9,
+        "exchangeTools": 15,
+        "systemResources": 25
       }
     }
   }

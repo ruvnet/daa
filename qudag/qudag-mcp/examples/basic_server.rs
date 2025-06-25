@@ -122,22 +122,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  3. Start with an 'initialize' request");
     println!("  4. Use 'tools/list' and 'resources/list' to explore capabilities");
 
-    // Interactive mode option
-    println!("\n❓ Would you like to run the server in interactive mode? (y/n)");
-    io::stdout().flush()?;
+    // Check if running in non-interactive mode
+    let args: Vec<String> = std::env::args().collect();
+    let non_interactive = args.contains(&String::from("--no-interactive"));
 
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
-
-    if input.trim().to_lowercase() == "y" {
-        println!("\n🔄 Starting interactive server mode...");
+    if non_interactive {
+        println!("\n🔄 Starting server in non-interactive mode...");
         println!("📬 Send JSON-RPC messages to interact with the server");
-        println!("🛑 Press Ctrl+C to stop the server");
-
+        
         // Run the server
         server.run().await?;
     } else {
-        println!("👋 Exiting demo. Server not started in interactive mode.");
+        // Interactive mode option
+        println!("\n❓ Would you like to run the server in interactive mode? (y/n)");
+        io::stdout().flush()?;
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+
+        if input.trim().to_lowercase() == "y" {
+            println!("\n🔄 Starting interactive server mode...");
+            println!("📬 Send JSON-RPC messages to interact with the server");
+            println!("🛑 Press Ctrl+C to stop the server");
+
+            // Run the server
+            server.run().await?;
+        } else {
+            println!("👋 Exiting demo. Server not started in interactive mode.");
+        }
     }
 
     Ok(())
