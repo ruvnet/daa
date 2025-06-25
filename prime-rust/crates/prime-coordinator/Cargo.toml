@@ -1,5 +1,5 @@
 [package]
-name = "prime-coordinator"
+name = "daa-prime-coordinator"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,15 +8,16 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 documentation.workspace = true
+readme = "README.md"
 description = "Governance and coordination layer using DAA for Prime distributed ML"
 
 [dependencies]
-prime-core = { path = "../prime-core" }
-prime-dht = { path = "../prime-dht" }
-prime-trainer = { path = "../prime-trainer" }
+daa-prime-core = "0.2.1"
+daa-prime-dht = "0.2.1"
+daa-prime-trainer = "0.2.1"
 daa-ai = { workspace = true }
-daa-orchestrator = { workspace = true }
 daa-rules = { workspace = true }
+# daa-orchestrator = { workspace = true } # Not yet published
 tokio.workspace = true
 futures.workspace = true
 serde.workspace = true

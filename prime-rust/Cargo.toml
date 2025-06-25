@@ -9,7 +9,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.1"
 edition = "2021"
 rust-version = "1.75"
 authors = ["Prime Team"]
@@ -28,11 +28,13 @@ thiserror = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-# DAA ecosystem
-daa-ai = { path = "../daa-ai" }
-daa-chain = { path = "../daa-chain" }
-daa-orchestrator = { path = "../daa-orchestrator" }
-daa-rules = { path = "../daa-rules" }
+# DAA ecosystem - using published versions
+daa-ai = "0.2.1"
+daa-rules = "0.2.1"
+daa-economy = "0.2.1"
+# Note: daa-chain and daa-orchestrator not yet published
+# daa-chain = "0.2.1"  
+# daa-orchestrator = "0.2.1"
 
 # P2P networking
 libp2p = { version = "0.53", features = ["kad", "gossipsub", "mdns", "noise", "tcp", "yamux", "websocket"] }

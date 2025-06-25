@@ -1,5 +1,5 @@
 [package]
-name = "prime-core"
+name = "daa-prime-core"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,6 +8,8 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 documentation.workspace = true
+readme = "README.md"
+description = "Core shared structures and protocol definitions for Prime distributed ML framework"
 
 [dependencies]
 # Core dependencies
@@ -35,9 +37,13 @@ hex = "0.4"
 # Storage
 bincode = "1.3"
 
-# DAA ecosystem
+# DAA ecosystem  
 daa-ai.workspace = true
-daa-chain.workspace = true
+# daa-chain.workspace = true  # Not yet published
+
+# Additional dependencies
+rand.workspace = true
+async-trait.workspace = true
 
 [build-dependencies]
 prost-build.workspace = true

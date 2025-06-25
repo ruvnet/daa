@@ -1,5 +1,5 @@
 [package]
-name = "prime-cli"
+name = "daa-prime-cli"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,6 +8,7 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 documentation.workspace = true
+readme = "README.md"
 description = "Command-line interface for Prime distributed ML operations"
 
 [[bin]]
@@ -15,24 +16,7 @@ name = "prime"
 path = "src/main.rs"
 
 [dependencies]
-prime-core = { path = "../prime-core" }
-prime-dht = { path = "../prime-dht" }
-prime-trainer = { path = "../prime-trainer" }
-prime-coordinator = { path = "../prime-coordinator" }
 clap.workspace = true
-config.workspace = true
-tokio.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-anyhow.workspace = true
-thiserror.workspace = true
-tracing.workspace = true
-tracing-subscriber.workspace = true
-daa-ai = { workspace = true }
-uuid = { version = "1.6", features = ["v4", "serde"] }
-async-trait = "0.1"
+uuid = { version = "1.6", features = ["v4"] }
 
-[dev-dependencies]
-assert_cmd = "2.0"
-predicates = "3.1"
-tempfile = "3.10"
+# Minimal CLI - dev dependencies removed for publishing compatibility

@@ -1,5 +1,5 @@
 [package]
-name = "prime-trainer"
+name = "daa-prime-trainer"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,11 +8,12 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 documentation.workspace = true
+readme = "README.md"
 description = "Distributed SGD/FSDP trainer for Prime ML framework"
 
 [dependencies]
-prime-core = { path = "../prime-core" }
-prime-dht = { path = "../prime-dht" }
+daa-prime-core = "0.2.1"
+daa-prime-dht = "0.2.1"
 # tch.workspace = true  # Temporarily commented
 tokio.workspace = true
 futures.workspace = true
@@ -22,8 +23,9 @@ async-trait.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
+tracing-subscriber.workspace = true
 daa-ai = { workspace = true }
-daa-chain = { workspace = true }
+# daa-chain = { workspace = true }  # Not yet published
 
 # ML-specific dependencies
 ndarray = "0.15"

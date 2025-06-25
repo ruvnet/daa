@@ -1,5 +1,5 @@
 [package]
-name = "prime-dht"
+name = "daa-prime-dht"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,10 +8,11 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 documentation.workspace = true
-description = "Kademlia-based DHT implementation for Prime distributed ML"
+readme = "README.md"
+description = "Kademlia-based distributed hash table implementation for Prime distributed ML framework"
 
 [dependencies]
-prime-core = { path = "../prime-core" }
+daa-prime-core = "0.2.1"
 libp2p.workspace = true
 tokio.workspace = true
 futures.workspace = true
@@ -21,7 +22,7 @@ async-trait.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
-daa-orchestrator = { workspace = true }
+# daa-orchestrator = { workspace = true }  # Not yet published
 uuid = { version = "1.6", features = ["v4", "serde"] }
 
 [dev-dependencies]
