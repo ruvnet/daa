@@ -4,7 +4,7 @@
       "name": "QuDAG MCP Server",
       "description": "Model Context Protocol server for QuDAG - quantum-resistant DAG consensus, vault management, and P2P networking",
       "transport": "stdio",
-      "command": "/workspaces/daa/qudag-mcp-server.sh",
+      "command": "/workspaces/daa/mock-mcp-server.py",
       "args": [],
       "capabilities": {
         "tools": true,
