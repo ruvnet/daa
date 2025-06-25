@@ -4,8 +4,8 @@
       "name": "QuDAG MCP Server",
       "description": "Model Context Protocol server for QuDAG - quantum-resistant DAG consensus, vault management, and P2P networking",
       "transport": "stdio",
-      "command": "cargo",
-      "args": ["run", "--manifest-path", "/workspaces/daa/qudag/qudag-mcp/Cargo.toml", "--example", "basic_server", "--", "--no-interactive"],
+      "command": "/workspaces/daa/qudag-mcp-server.sh",
+      "args": [],
       "capabilities": {
         "tools": true,
         "resources": true,
