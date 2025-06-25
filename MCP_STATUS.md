@@ -52,7 +52,7 @@ The MCP server is configured in `.roo/mcp.json`:
       "name": "DAA MCP Server",
       "command": "/workspaces/daa/daa-mcp-server.py",
       "transport": "stdio",
-      "protocolVersion": "1.0.0"
+      "protocolVersion": "2024-11-05"
     }
   }
 }

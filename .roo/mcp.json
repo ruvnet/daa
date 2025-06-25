@@ -22,7 +22,7 @@
       ],
       "metadata": {
         "version": "0.2.0",
-        "protocolVersion": "1.0.0",
+        "protocolVersion": "2024-11-05",
         "supportedTransports": ["stdio"],
         "orchestratorTools": 4,
         "agentTools": 5,

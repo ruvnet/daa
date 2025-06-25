@@ -45,7 +45,7 @@ class DAAMCPServer:
             "jsonrpc": "2.0",
             "id": id,
             "result": {
-                "protocolVersion": "1.0.0",
+                "protocolVersion": "2024-11-05",
                 "capabilities": {
                     "tools": {"listChanged": False},
                     "resources": {"listChanged": False, "subscribe": False}
