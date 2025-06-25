@@ -16,7 +16,7 @@ use std::time::Duration;
 use libp2p::{
     Swarm, SwarmBuilder, PeerId, Multiaddr,
     kad::{Behaviour as Kademlia, Config as KademliaConfig, Event as KademliaEvent, store::MemoryStore},
-    gossipsub::{self, Behaviour as Gossipsub, Event as GossipsubEvent, MessageAuthenticity, ValidationMode},
+    gossipsub::{self, Behaviour as Gossipsub, Event as GossipsubEvent, MessageAuthenticity, ValidationMode, Config as GossipsubConfig},
     identify::{Behaviour as Identify, Config as IdentifyConfig, Event as IdentifyEvent},
     ping::{Behaviour as Ping, Event as PingEvent},
     mdns::{tokio::Behaviour as Mdns, Event as MdnsEvent},
@@ -48,7 +48,7 @@ pub struct SwarmConfig {
     /// Enable relay
     pub enable_relay: bool,
     /// Gossipsub configuration
-    pub gossipsub_config: gossipsub::GossipsubConfig,
+    pub gossipsub_config: GossipsubConfig,
     /// Kademlia configuration
     pub kademlia_config: KademliaConfig,
     /// Gradient compression level (0-9)
@@ -67,7 +67,7 @@ impl Default for SwarmConfig {
             enable_mdns: true,
             enable_nat_traversal: true,
             enable_relay: true,
-            gossipsub_config: gossipsub::GossipsubConfig::default(),
+            gossipsub_config: GossipsubConfig::default(),
             kademlia_config: KademliaConfig::default(),
             compression_level: 3,
         }
@@ -107,13 +107,12 @@ impl P2PNetwork {
         )?;
 
         // Build swarm
-        let mut swarm = SwarmBuilder::with_tokio_executor(
-            transport,
-            behavior,
-            local_peer_id,
-        )
-        .idle_connection_timeout(Duration::from_secs(60))
-        .build();
+        let mut swarm = SwarmBuilder::with_existing_identity(local_key)
+            .with_tokio()
+            .with_other_transport(|_| transport)?
+            .with_behaviour(|_| behavior)?
+            .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
+            .build();
 
         // Listen on configured addresses
         for addr in &config.listen_addresses {
@@ -180,14 +179,12 @@ impl P2PNetwork {
     }
 
     /// Handle behavior events
-    async fn handle_behavior_event(&mut self, event: ComposedEvent) -> Result<()> {
+    async fn handle_behavior_event(&mut self, event: behavior::NetworkBehaviorEvent) -> Result<()> {
         match event {
-            ComposedEvent::Kademlia(event) => self.handle_kademlia_event(event).await?,
-            ComposedEvent::Gossipsub(event) => self.handle_gossipsub_event(event).await?,
-            ComposedEvent::Identify(event) => self.handle_identify_event(event).await?,
-            ComposedEvent::Ping(event) => self.handle_ping_event(event).await?,
-            ComposedEvent::Mdns(event) => self.handle_mdns_event(event).await?,
-            _ => {}
+            behavior::NetworkBehaviorEvent::Kademlia(event) => self.handle_kademlia_event(event).await?,
+            behavior::NetworkBehaviorEvent::Gossipsub(event) => self.handle_gossipsub_event(event).await?,
+            behavior::NetworkBehaviorEvent::Identify(event) => self.handle_identify_event(event).await?,
+            behavior::NetworkBehaviorEvent::Ping(event) => self.handle_ping_event(event).await?,
         }
         Ok(())
     }
@@ -291,6 +288,6 @@ impl P2PNetwork {
 
     /// Get the current aggregated gradient
     pub async fn get_aggregated_gradient(&self) -> Result<Option<Vec<f32>>> {
-        self.gradient_manager.read().await.get_aggregated_gradient()
+        self.gradient_manager.read().await.get_aggregated_gradient().await
     }
 }

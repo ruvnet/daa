@@ -206,9 +206,9 @@ impl NetworkManager {
                         tracing::info!("Peer disconnected: {}", peer_id);
                     }
                     
-                    NetworkEvent::MessageReceived { peer_id, data } => {
+                    NetworkEvent::MessageReceived { peer_id: _, data } => {
                         // Handle incoming protocol messages
-                        if let Ok(message) = serde_json::from_slice::<DaaProtocolMessage>(&data) {
+                        if let Ok(_message) = serde_json::from_slice::<DaaProtocolMessage>(&data) {
                             // Process DAA protocol message
                         }
                     }
@@ -396,7 +396,7 @@ impl AgentDiscovery {
     /// Start agent discovery
     pub async fn start(&self) -> Result<()> {
         // Periodically broadcast capability requests
-        let network = self.network.clone();
+        let _network = self.network.clone();
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
             

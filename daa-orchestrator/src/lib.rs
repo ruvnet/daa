@@ -1,18 +1,13 @@
-mod qudag_stubs;
-mod qudag_stubs;
-mod qudag_stubs;
 //! # DAA Orchestrator
 //!
 //! Orchestration layer for the Decentralized Autonomous Agents (DAA) system.
 //! Coordinates all DAA components using QuDAG protocol Node for distributed operations.
 
-use std::collections::HashMap;
-use std::sync::Arc;
+mod qudag_stubs;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use uuid::Uuid;
-use tokio::sync::RwLock;
+use anyhow;
 use hex;
 
 // Re-export QuDAG protocol types
@@ -39,10 +34,13 @@ pub mod ai_integration;
 #[derive(Error, Debug)]
 pub enum OrchestratorError {
     #[error("Protocol error: {0}")]
-    Protocol(#[from] qudag_protocol::ProtocolError),
+    Protocol(#[from] crate::qudag_stubs::ProtocolError),
     
     #[error("Message error: {0}")]
-    Message(#[from] qudag_protocol::MessageError),
+    Message(#[from] crate::qudag_stubs::MessageError),
+    
+    #[error("Anyhow error: {0}")]
+    Anyhow(#[from] anyhow::Error),
     
     #[error("Service error: {0}")]
     Service(String),

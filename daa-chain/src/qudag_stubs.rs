@@ -4,14 +4,16 @@
 pub struct Block {
     pub height: u64,
     pub hash: Hash,
+    pub header: crate::block::BlockHeader,
     pub transactions: Vec<Transaction>,
 }
 
 impl Block {
-    pub fn new(hash: Hash, _header: crate::block::BlockHeader, transactions: Vec<Transaction>) -> Self {
+    pub fn new(hash: Hash, header: crate::block::BlockHeader, transactions: Vec<Transaction>) -> Self {
         Self {
             height: 0,
             hash,
+            header,
             transactions,
         }
     }
@@ -20,6 +22,13 @@ impl Block {
         Self {
             height: 0,
             hash: Hash::default(),
+            header: crate::block::BlockHeader {
+                parent_hash: Hash::default(),
+                merkle_root: Hash::default(),
+                timestamp: 0,
+                transaction_count: 0,
+                extra_data: Vec::new(),
+            },
             transactions: Vec::new(),
         }
     }
@@ -30,6 +39,10 @@ impl Block {
     
     pub fn transactions(&self) -> &[Transaction] {
         &self.transactions
+    }
+    
+    pub fn header(&self) -> &crate::block::BlockHeader {
+        &self.header
     }
 }
 
@@ -49,6 +62,14 @@ impl Transaction {
         }
     }
     
+    pub fn new_with_data(hash: Hash, data: Vec<u8>, signature: Vec<u8>) -> Self {
+        Self {
+            id: hash.to_string(),
+            data,
+            signature,
+        }
+    }
+    
     pub fn hash(&self) -> Hash {
         // Simple hash implementation for stub
         Hash::default()
@@ -56,6 +77,10 @@ impl Transaction {
     
     pub fn signature(&self) -> &[u8] {
         &self.signature
+    }
+    
+    pub fn data(&self) -> &[u8] {
+        &self.data
     }
 }
 

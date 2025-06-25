@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 use blake3::Hasher;
-use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+use ed25519_dalek::{Signature, Signer, Verifier, VerifyingKey};
 
 use crate::qudag_stubs::qudag_core::{Transaction, Hash};
 use crate::{Result, ChainError};
@@ -98,7 +98,7 @@ impl TransactionBuilder {
         self,
         private_key: &ed25519_dalek::SigningKey,
     ) -> Result<Transaction> {
-        let tx_type = self.transaction_type
+        let tx_type = self.transaction_type.clone()
             .ok_or_else(|| ChainError::InvalidTransaction("Missing transaction type".to_string()))?;
 
         // Create transaction data
@@ -107,7 +107,7 @@ impl TransactionBuilder {
             nonce: self.nonce,
             gas_limit: self.gas_limit,
             gas_price: self.gas_price,
-            metadata: self.metadata,
+            metadata: self.metadata.clone(),
         };
 
         // Serialize transaction data for signing

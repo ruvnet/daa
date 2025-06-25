@@ -1,6 +1,6 @@
 //! Kademlia-based DHT implementation for Prime distributed ML
 
-use prime_core::{Error, Result};
+use daa_prime_core::{Error, Result};
 use libp2p::PeerId;
 use std::collections::HashMap;
 use std::sync::Arc;

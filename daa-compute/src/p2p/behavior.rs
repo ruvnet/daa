@@ -2,17 +2,13 @@
 
 use libp2p::{
     swarm::NetworkBehaviour, PeerId,
-    kad::{Behaviour as Kademlia, Config as KademliaConfig, Event as KademliaEvent, store::MemoryStore},
-    gossipsub::{Behaviour as Gossipsub, Event as GossipsubEvent, MessageAuthenticity, ValidationMode, IdentTopic as Topic},
+    kad::{Behaviour as Kademlia, Event as KademliaEvent, store::MemoryStore},
+    gossipsub::{Behaviour as Gossipsub, Event as GossipsubEvent, MessageAuthenticity, ValidationMode, IdentTopic},
     identify::{Behaviour as Identify, Config as IdentifyConfig, Event as IdentifyEvent},
     ping::{Behaviour as Ping, Event as PingEvent},
-    mdns::{tokio::Behaviour as Mdns, Event as MdnsEvent},
-    relay,
-    autonat,
-    dcutr,
 };
 use std::time::Duration;
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 
 use super::SwarmConfig;
 
@@ -23,11 +19,6 @@ pub struct NetworkBehavior {
     pub gossipsub: Gossipsub,
     pub identify: Identify,
     pub ping: Ping,
-    pub mdns: Option<Mdns>,
-    pub relay: Option<relay::Behaviour>,
-    pub autonat: Option<autonat::Behaviour>,
-    pub upnp: Option<upnp::tokio::Behaviour>,
-    pub dcutr: Option<dcutr::Behaviour>,
 }
 
 impl NetworkBehavior {
@@ -47,18 +38,16 @@ impl NetworkBehavior {
         let gossipsub = {
             let message_authenticity = MessageAuthenticity::Signed(local_key.clone());
             let mut gossipsub_config = config.gossipsub_config.clone();
-            gossipsub_config.validation_mode = ValidationMode::Strict;
-            gossipsub_config.message_id_fn = |message| {
-                use std::hash::{Hash, Hasher};
-                let mut hasher = std::collections::hash_map::DefaultHasher::new();
-                message.data.hash(&mut hasher);
-                hasher.finish().to_string()
-            };
+            // Note: In libp2p 0.53, validation_mode and message_id are set differently
+            // For now we'll use the default config and customize after construction
             
-            let mut gossipsub = Gossipsub::new(message_authenticity, gossipsub_config)?;
+            let mut gossipsub = Gossipsub::new(message_authenticity, gossipsub_config)
+                .map_err(|e| anyhow::anyhow!("Failed to create gossipsub: {}", e))?;
             
             // Subscribe to gradient topic
-            gossipsub.subscribe(&crate::p2p::gradient::GRADIENT_TOPIC)?;
+            let topic = IdentTopic::new("gradients");
+            gossipsub.subscribe(&topic)
+                .map_err(|e| anyhow!("Failed to subscribe to topic: {}", e))?;
             
             gossipsub
         };
@@ -72,51 +61,11 @@ impl NetworkBehavior {
         // Ping
         let ping = Ping::default();
 
-        // mDNS
-        let mdns = if config.enable_mdns {
-            Some(Mdns::new(Default::default())?)
-        } else {
-            None
-        };
-
-        // Relay
-        let relay = if config.enable_relay {
-            Some(Relay::new(local_peer_id, Default::default()))
-        } else {
-            None
-        };
-
-        // AutoNAT
-        let autonat = if config.enable_nat_traversal {
-            Some(AutoNat::new(local_peer_id, Default::default()))
-        } else {
-            None
-        };
-
-        // UPnP
-        let upnp = if config.enable_nat_traversal {
-            Some(upnp::tokio::Behaviour::default())
-        } else {
-            None
-        };
-
-        // DCUTR (Direct Connection Upgrade through Relay)
-        let dcutr = if config.enable_relay && config.enable_nat_traversal {
-            Some(dcutr::Behaviour::new(local_peer_id))
-        } else {
-            None
-        };
-
         Ok(Self {
             kademlia,
             gossipsub,
             identify,
             ping,
-            mdns,
-            relay,
-            autonat,
-            upnp,
-            dcutr,
         })
     }
 }
@@ -128,11 +77,6 @@ pub enum ComposedEvent {
     Gossipsub(GossipsubEvent),
     Identify(IdentifyEvent),
     Ping(PingEvent),
-    Mdns(MdnsEvent),
-    Relay(relay::Event),
-    AutoNat(autonat::Event),
-    Upnp(upnp::Event),
-    Dcutr(dcutr::Event),
 }
 
 impl From<KademliaEvent> for ComposedEvent {
@@ -156,35 +100,5 @@ impl From<IdentifyEvent> for ComposedEvent {
 impl From<PingEvent> for ComposedEvent {
     fn from(event: PingEvent) -> Self {
         Self::Ping(event)
-    }
-}
-
-impl From<MdnsEvent> for ComposedEvent {
-    fn from(event: MdnsEvent) -> Self {
-        Self::Mdns(event)
-    }
-}
-
-impl From<relay::Event> for ComposedEvent {
-    fn from(event: relay::Event) -> Self {
-        Self::Relay(event)
-    }
-}
-
-impl From<autonat::Event> for ComposedEvent {
-    fn from(event: autonat::Event) -> Self {
-        Self::AutoNat(event)
-    }
-}
-
-impl From<upnp::Event> for ComposedEvent {
-    fn from(event: upnp::Event) -> Self {
-        Self::Upnp(event)
-    }
-}
-
-impl From<dcutr::Event> for ComposedEvent {
-    fn from(event: dcutr::Event) -> Self {
-        Self::Dcutr(event)
     }
 }

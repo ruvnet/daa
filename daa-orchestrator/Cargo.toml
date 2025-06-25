@@ -21,10 +21,10 @@ tracing = "0.1"
 async-trait = "0.1"
 futures = "0.3"
 hex = "0.4"
-daa-chain = { path = "../daa-chain", optional = true }
-daa-economy = { path = "../daa-economy", optional = true }
-daa-rules = { path = "../daa-rules", optional = true }
-daa-ai = { path = "../daa-ai", optional = true }
+# daa-chain = { version = "0.2.1", optional = true }  # Has compilation errors
+daa-economy = { version = "0.2.1", optional = true }
+daa-rules = { version = "0.2.1", optional = true }
+daa-ai = { version = "0.2.1", optional = true }
 
 # QuDAG dependencies - commented out until published
 # qudag-crypto = { version = "0.1", optional = true }
@@ -32,8 +32,8 @@ daa-ai = { path = "../daa-ai", optional = true }
 # qudag-network = { version = "0.1", optional = true }
 
 [features]
-default = ["chain-integration", "economy-integration", "rules-integration", "ai-integration"]
-chain-integration = ["daa-chain"]
+default = ["economy-integration", "rules-integration", "ai-integration"]
+# chain-integration = ["daa-chain"]  # Disabled due to compilation errors
 economy-integration = ["daa-economy"]
 rules-integration = ["daa-rules"]
 ai-integration = ["daa-ai"]

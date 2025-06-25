@@ -714,9 +714,7 @@ The DAA SDK represents a significant engineering effort with comprehensive imple
 - **Total Lines**: 416,710 (excluding build artifacts)
 - **Lines of Code**: 323,132
 - **Languages**: 18 different languages
-- **Estimated Development Cost**: $11.65M
-- **Estimated Schedule**: 35 months
-- **Estimated Team Size**: 30 developers
+
 
 ### 🚀 **Language Breakdown**
 | Language | Files | Lines of Code | Percentage |
@@ -727,29 +725,6 @@ The DAA SDK represents a significant engineering effort with comprehensive imple
 | **TypeScript** | 17 | 4,527 | 1.4% |
 | **TOML** | 87 | 4,010 | 1.2% |
 | **Other** | 197 | 48,890 | 15.3% |
-
-### 📦 **Component Breakdown**
-
-#### DAA Core Framework
-- **Lines of Code**: 44,221 Rust code
-- **Files**: 123 Rust files
-- **Components**: 6 core crates (orchestrator, rules, economy, AI, chain, compute)
-- **Documentation**: 6,336 lines of markdown
-- **Estimated Cost**: $2.05M
-
-#### Prime ML Framework  
-- **Lines of Code**: 6,680 Rust code
-- **Files**: 43 Rust files
-- **Components**: 5 ML crates (core, DHT, trainer, coordinator, CLI)
-- **Documentation**: 2,899 lines of markdown
-- **Estimated Cost**: $314K
-
-### 🔧 **Code Quality Metrics**
-- **Code Complexity**: 12,526 total complexity points
-- **Average Complexity**: 3.88 per function
-- **Test Coverage**: Comprehensive unit and integration tests
-- **Documentation**: 28,093 lines of comments
-- **Type Safety**: 100% Rust type-safe implementation
 
 *Generated using [scc](https://github.com/boyter/scc) - Sloc, Cloc and Code*
 

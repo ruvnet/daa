@@ -1,0 +1,178 @@
+# Multi-stage Dockerfile for MoE Swarm with GPU support
+# Implements quantum-resistant consensus, neuromorphic routing, and blockchain gradients
+
+# Stage 1: Builder with CUDA and Rust
+FROM nvidia/cuda:12.2.0-devel-ubuntu22.04 AS builder
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    cmake \
+    git \
+    wget \
+    ca-certificates \
+    libclang-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup default stable
+
+# Install PyTorch C++ libraries for tch-rs
+RUN wget https://download.pytorch.org/libtorch/cu121/libtorch-cxx11-abi-2.1.0%2Bcu121.zip \
+    && unzip libtorch-cxx11-abi-2.1.0+cu121.zip -d /opt \
+    && rm libtorch-cxx11-abi-2.1.0+cu121.zip
+
+ENV LIBTORCH=/opt/libtorch
+ENV LD_LIBRARY_PATH="${LIBTORCH}/lib:${LD_LIBRARY_PATH}"
+ENV TORCH_CUDA_VERSION=cu121
+
+# Create app directory
+WORKDIR /app
+
+# Copy dependency files first for caching
+COPY Cargo.toml Cargo.lock ./
+COPY crates/ ./crates/
+
+# Build dependencies only
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+RUN cargo build --release && rm -rf src
+
+# Copy source code
+COPY src/ ./src/
+COPY proto/ ./proto/
+COPY build.rs ./
+COPY deployment_config.toml ./
+
+# Build the application
+RUN cargo build --release --features "gpu quantum neuromorphic blockchain"
+
+# Stage 2: Runtime with minimal CUDA libraries
+FROM nvidia/cuda:12.2.0-runtime-ubuntu22.04
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    libgomp1 \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install specific CUDA libraries for inference
+RUN apt-get update && apt-get install -y \
+    libcublas-12-2 \
+    libcudnn8 \
+    libcurand-12-2 \
+    libcufft-12-2 \
+    libnccl2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install WireGuard for secure mesh networking
+RUN apt-get update && apt-get install -y \
+    wireguard-tools \
+    iproute2 \
+    iptables \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd -m -u 1000 -s /bin/bash swarm
+WORKDIR /home/swarm
+
+# Copy runtime files
+COPY --from=builder /app/target/release/moe-swarm /usr/local/bin/
+COPY --from=builder /app/deployment_config.toml ./
+COPY --from=builder /opt/libtorch/lib/*.so* /usr/local/lib/
+
+# Create necessary directories
+RUN mkdir -p /home/swarm/data/models \
+    /home/swarm/data/checkpoints \
+    /home/swarm/logs \
+    /home/swarm/.wireguard \
+    && chown -R swarm:swarm /home/swarm
+
+# Update library cache
+RUN ldconfig
+
+# Copy startup script
+COPY <<'EOF' /usr/local/bin/startup.sh
+#!/bin/bash
+set -e
+
+# Initialize WireGuard if configured
+if [ -n "$WIREGUARD_CONFIG" ]; then
+    echo "$WIREGUARD_CONFIG" > /home/swarm/.wireguard/wg0.conf
+    wg-quick up /home/swarm/.wireguard/wg0
+fi
+
+# Wait for GPU to be available
+nvidia-smi
+
+# Export environment variables
+export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+export RUST_LOG=${RUST_LOG:-info}
+export CONSENSUS_PEERS=${CONSENSUS_PEERS:-}
+
+# Start the MoE swarm
+exec /usr/local/bin/moe-swarm \
+    --config /home/swarm/deployment_config.toml \
+    --role ${SWARM_ROLE:-worker} \
+    --region ${FLY_REGION:-unknown} \
+    --gpu-id ${GPU_ID:-gpu-0} \
+    "$@"
+EOF
+
+RUN chmod +x /usr/local/bin/startup.sh
+
+# Health check script
+COPY <<'EOF' /usr/local/bin/health_check.sh
+#!/bin/bash
+# Check if the service is responsive
+curl -f http://localhost:8080/health || exit 1
+
+# Check GPU availability
+nvidia-smi > /dev/null 2>&1 || exit 1
+
+# Check quantum coherence (custom endpoint)
+COHERENCE=$(curl -s http://localhost:8080/metrics | grep quantum_coherence | awk '{print $2}')
+if (( $(echo "$COHERENCE < 0.3" | bc -l) )); then
+    exit 1
+fi
+
+exit 0
+EOF
+
+RUN chmod +x /usr/local/bin/health_check.sh
+
+# Switch to non-root user
+USER swarm
+
+# Expose ports
+EXPOSE 8080  # HTTP API
+EXPOSE 9090  # Prometheus metrics
+EXPOSE 50051 # gRPC
+EXPOSE 51820/udp # WireGuard
+
+# Mount points for Fly volumes
+VOLUME ["/home/swarm/data/models", "/home/swarm/data/checkpoints", "/home/swarm/logs"]
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD /usr/local/bin/health_check.sh
+
+# Entrypoint
+ENTRYPOINT ["/usr/local/bin/startup.sh"]
+
+# Default command
+CMD ["serve"]
+
+# Labels
+LABEL org.opencontainers.image.title="MoE Swarm Distributed"
+LABEL org.opencontainers.image.description="Distributed Mixture of Experts with quantum consensus and neuromorphic routing"
+LABEL org.opencontainers.image.version="1.0.0"
+LABEL org.opencontainers.image.authors="DAA Distributed Systems Team"
+LABEL fly.app="moe-swarm-distributed"
+LABEL fly.gpu.required="true"

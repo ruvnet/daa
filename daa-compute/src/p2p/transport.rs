@@ -5,7 +5,7 @@
 
 use libp2p::{
     Transport, PeerId,
-    core::{transport::Boxed, muxing::StreamMuxerBox},
+    core::{transport::Boxed, muxing::StreamMuxerBox, upgrade::Version},
     tcp, websocket, noise, yamux,
     dns,
 };
@@ -40,37 +40,40 @@ pub fn create_transport(
     local_key: &libp2p::identity::Keypair,
     config: TransportConfig,
 ) -> Result<Boxed<(PeerId, StreamMuxerBox)>> {
-    let noise_config = noise::NoiseAuthenticated::xx(local_key)?;
-    let yamux_config = yamux::YamuxConfig::default();
+    let noise_config = noise::Config::new(local_key).unwrap();
+    let yamux_config = yamux::Config::default();
 
-    let mut transport = {
+    let tcp_transport = {
         let tcp = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true));
-        let dns_tcp = dns::DnsConfig::system(tcp)?;
+        let dns_tcp = dns::tokio::Transport::system(tcp).unwrap();
         dns_tcp
-            .upgrade(libp2p::core::upgrade::Version::V1)
+            .upgrade(Version::V1)
             .authenticate(noise_config.clone())
             .multiplex(yamux_config.clone())
             .timeout(Duration::from_secs(20))
             .boxed()
     };
 
-    // Add WebSocket support
-    if config.enable_websocket {
+    // Combine transports
+    let mut transport = if config.enable_websocket {
         let ws_dns_tcp = {
             let tcp = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true));
-            let dns_tcp = dns::DnsConfig::system(tcp)?;
+            let dns_tcp = dns::tokio::Transport::system(tcp).unwrap();
             websocket::WsConfig::new(dns_tcp)
         };
         
         let ws_transport = ws_dns_tcp
-            .upgrade(libp2p::core::upgrade::Version::V1)
+            .upgrade(Version::V1)
             .authenticate(noise_config.clone())
             .multiplex(yamux_config.clone())
             .timeout(Duration::from_secs(20))
             .boxed();
             
-        transport = transport.or_transport(ws_transport).boxed();
-    }
+        tcp_transport.or_transport(ws_transport).boxed()
+    } else {
+        use libp2p::core::transport::dummy::DummyTransport;
+        tcp_transport.or_transport(DummyTransport::new()).boxed()
+    };
 
     // Add WebRTC support for browser compatibility
     #[cfg(feature = "browser")]
@@ -81,11 +84,17 @@ pub fn create_transport(
     }
 
     // Add relay transport
+    // TODO: Fix relay client API for libp2p 0.53 - Transport::new is now private
+    // Need to use SwarmBuilder integration instead
     if config.enable_relay {
-        transport = libp2p::relay::client::new(transport);
+        // Relay transport integration moved to SwarmBuilder in libp2p 0.53
+        // This will be handled in the main swarm construction
     }
 
-    Ok(transport)
+    Ok(transport.map(|either_output, _| match either_output {
+        futures::future::Either::Left((peer_id, muxer)) => (peer_id, muxer),
+        futures::future::Either::Right((peer_id, muxer)) => (peer_id, muxer),
+    }).boxed())
 }
 
 /// Create a WASM-compatible transport for browser nodes
@@ -95,12 +104,12 @@ pub fn create_wasm_transport(
 ) -> Result<Boxed<(PeerId, StreamMuxerBox)>> {
     use wasm_bindgen_futures::spawn_local;
     
-    let noise_config = noise::NoiseAuthenticated::xx(local_key)?;
-    let yamux_config = yamux::YamuxConfig::default();
+    let noise_config = noise::Config::new(local_key).unwrap();
+    let yamux_config = yamux::Config::default();
 
     // WebSocket transport for WASM
-    let ws_transport = websocket::WsConfig::new(websocket::framed::WsConfig::new())
-        .upgrade(libp2p::core::upgrade::Version::V1)
+    let ws_transport = websocket::WsConfig::new_plain_text(websocket::tokio::Transport::default())
+        .upgrade(Version::V1)
         .authenticate(noise_config.clone())
         .multiplex(yamux_config.clone())
         .boxed();
@@ -111,10 +120,10 @@ pub fn create_wasm_transport(
         let webrtc_config = webrtc::Config::new(local_key)?;
         let webrtc_transport = webrtc::Transport::new(webrtc_config);
         
-        ws_transport
+        Ok(ws_transport
             .or_transport(webrtc_transport)
             .map(|output, _| output)
-            .boxed()
+            .boxed())
     }
     
     #[cfg(not(feature = "browser"))]

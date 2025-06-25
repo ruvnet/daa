@@ -1,0 +1,155 @@
+# Fly.io configuration for MoE Swarm Distributed Deployment
+app = "moe-swarm-distributed"
+primary_region = "ord"
+kill_signal = "SIGTERM"
+kill_timeout = "30s"
+
+[experimental]
+  auto_rollback = true
+  enable_consul = true
+
+[build]
+  dockerfile = "Dockerfile.gpu"
+  
+[deploy]
+  strategy = "bluegreen"
+  max_unavailable = 0.2
+  
+[[vm]]
+  cpu_kind = "performance"
+  cpus = 8
+  memory_mb = 32768
+  size = "a100-80gb"  # GPU instance type
+
+[env]
+  SWARM_MODE = "distributed"
+  CONSENSUS_ALGORITHM = "quantum_pbft"
+  GRADIENT_COMPRESSION = "enabled"
+  QUANTUM_FEATURES = "all"
+  NEUROMORPHIC_ROUTING = "true"
+  BLOCKCHAIN_GRADIENTS = "true"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8080
+  processes = ["app"]
+  
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+    force_https = true
+    
+  [[services.http_checks]]
+    interval = "30s"
+    timeout = "10s"
+    grace_period = "60s"
+    method = "GET"
+    path = "/health"
+    
+  [services.concurrency]
+    type = "requests"
+    hard_limit = 1000
+    soft_limit = 800
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 50051
+  processes = ["app"]
+  
+  [[services.ports]]
+    port = 50051
+    handlers = ["tls"]
+    
+[[services]]
+  protocol = "tcp"
+  internal_port = 9090
+  processes = ["app"]
+  
+  [[services.ports]]
+    port = 9090
+    handlers = ["tls", "http"]
+
+# WireGuard mesh networking
+[[services]]
+  protocol = "udp"
+  internal_port = 51820
+  processes = ["app"]
+  
+  [[services.ports]]
+    port = 51820
+
+[[mounts]]
+  source = "models"
+  destination = "/home/swarm/data/models"
+  initial_size = "100gb"
+  
+[[mounts]]
+  source = "checkpoints"
+  destination = "/home/swarm/data/checkpoints"
+  initial_size = "200gb"
+  
+[[mounts]]
+  source = "logs"
+  destination = "/home/swarm/logs"
+  initial_size = "50gb"
+
+[metrics]
+  port = 9090
+  path = "/metrics"
+
+# Multi-region deployment
+[[regions]]
+  ord = { count = 4, vm.size = "a100-80gb" }  # Primary region
+  iad = { count = 3, vm.size = "a100-40gb" }
+  sjc = { count = 2, vm.size = "a100-40gb" }
+  ams = { count = 2, vm.size = "l40s" }
+  syd = { count = 1, vm.size = "a10" }
+
+# Autoscaling configuration
+[autoscaling]
+  enabled = true
+  min_machines = 4
+  max_machines = 20
+  
+  [[autoscaling.metrics]]
+    source = "prometheus"
+    name = "gpu_utilization"
+    threshold = 0.8
+    action = "scale_up"
+    
+  [[autoscaling.metrics]]
+    source = "prometheus"
+    name = "gpu_utilization"
+    threshold = 0.3
+    action = "scale_down"
+    
+  [[autoscaling.metrics]]
+    source = "prometheus"
+    name = "quantum_coherence"
+    threshold = 0.3
+    action = "alert"
+
+# Process groups
+[[processes]]
+  name = "coordinator"
+  cmd = ["serve", "--role", "coordinator"]
+  
+[[processes]]
+  name = "worker"
+  cmd = ["serve", "--role", "worker"]
+  
+[[processes]]
+  name = "router"
+  cmd = ["serve", "--role", "router"]
+
+# Statics configuration for model serving
+[[statics]]
+  guest_path = "/home/swarm/static"
+  url_prefix = "/static"
+
+# Secrets (to be set via flyctl)
+[secrets]
+  CONSENSUS_PRIVATE_KEY = "consensus_ml_dsa_private_key"
+  WIREGUARD_PRIVATE_KEY = "wireguard_private_key"
+  QUANTUM_SEED = "quantum_random_seed"
+  GRADIENT_LEDGER_KEY = "gradient_blockchain_key"

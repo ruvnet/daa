@@ -3,7 +3,7 @@
 use libp2p::PeerId;
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
-use prime_core::Result;
+use daa_prime_core::Result;
 
 /// Peer discovery strategy
 #[derive(Debug, Clone)]

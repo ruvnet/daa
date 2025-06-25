@@ -16,7 +16,7 @@ tokio = { version = "1.35", features = ["full"] }
 async-trait = "0.1"
 
 # P2P networking
-libp2p = { version = "0.53", features = ["kad", "gossipsub", "mdns", "noise", "tcp", "yamux", "websocket", "relay", "identify", "upnp", "ping", "autonat", "dcutr", "dns", "macros"] }
+libp2p = { version = "0.53", features = ["kad", "gossipsub", "mdns", "noise", "tcp", "yamux", "websocket", "relay", "identify", "upnp", "ping", "autonat", "dcutr", "dns", "macros", "tokio"] }
 libp2p-gossipsub = "0.46"
 igd-next = "0.14"
 if-addrs = "0.10"

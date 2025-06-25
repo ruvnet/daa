@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, RwLock};
@@ -20,13 +20,13 @@ pub struct ConsensusEngine {
     config: ChainConfig,
     
     /// Current consensus state
-    state: RwLock<DaaConsensusState>,
+    state: Arc<RwLock<DaaConsensusState>>,
     
     /// Event broadcaster
     event_sender: broadcast::Sender<ConsensusEvent>,
     
     /// Validator set
-    validators: RwLock<HashMap<String, ValidatorInfo>>,
+    validators: Arc<RwLock<HashMap<String, ValidatorInfo>>>,
 }
 
 /// DAA-specific consensus state
@@ -181,9 +181,9 @@ impl ConsensusEngine {
         Ok(Self {
             qudag_consensus,
             config: config.clone(),
-            state: RwLock::new(DaaConsensusState::default()),
+            state: Arc::new(RwLock::new(DaaConsensusState::default())),
             event_sender,
-            validators: RwLock::new(HashMap::new()),
+            validators: Arc::new(RwLock::new(HashMap::new())),
         })
     }
 

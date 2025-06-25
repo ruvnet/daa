@@ -3,19 +3,19 @@
 //! This module provides efficient gradient aggregation algorithms
 //! for distributed training, including compression and fault tolerance.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
 use std::sync::Arc;
-use tokio::sync::{RwLock, Mutex};
-use libp2p::{PeerId, gossipsub::Topic};
+use tokio::sync::RwLock;
+use libp2p::{PeerId, gossipsub::IdentTopic};
 use serde::{Serialize, Deserialize};
 use anyhow::{Result, anyhow};
-use tracing::{debug, info, warn};
+use tracing::info;
 
 use super::compression::CompressionMethod;
 
 lazy_static::lazy_static! {
-    pub static ref GRADIENT_TOPIC: Topic = Topic::new("gradients");
+    pub static ref GRADIENT_TOPIC: IdentTopic = IdentTopic::new("gradients");
 }
 
 /// Message containing gradient update
@@ -340,7 +340,7 @@ impl GradientManager {
 }
 
 /// Quantize float32 gradient to int8 for compression
-fn quantize_gradient(gradient: &[f32]) -> Result<Vec<u8>> {
+pub fn quantize_gradient(gradient: &[f32]) -> Result<Vec<u8>> {
     // Find min and max for quantization
     let min = gradient.iter().fold(f32::INFINITY, |a, &b| a.min(b));
     let max = gradient.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
@@ -368,7 +368,7 @@ fn quantize_gradient(gradient: &[f32]) -> Result<Vec<u8>> {
 }
 
 /// Dequantize int8 gradient back to float32
-fn dequantize_gradient(quantized: &[u8]) -> Result<Vec<f32>> {
+pub fn dequantize_gradient(quantized: &[u8]) -> Result<Vec<f32>> {
     if quantized.len() < 8 {
         return Err(anyhow!("Invalid quantized gradient"));
     }

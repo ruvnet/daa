@@ -1,0 +1,267 @@
+# MoE Swarm Distributed Deployment Configuration
+# This configuration integrates quantum computing, neuromorphic architectures,
+# and blockchain consensus for cutting-edge distributed ML on Fly.io
+
+[global]
+app_name = "moe-swarm-distributed"
+version = "1.0.0"
+environment = "production"
+log_level = "info"
+
+[consensus]
+algorithm = "quantum_resistant_pbft"
+fault_tolerance_ratio = 0.33
+view_change_timeout_ms = 5000
+ml_dsa_key_size = 3456
+merkle_tree_depth = 16
+
+# Quantum consensus parameters
+[consensus.quantum]
+bell_state_generation = true
+entanglement_fidelity_threshold = 0.9
+decoherence_timeout_ms = 300000
+quantum_key_distribution = "bb84"
+
+[gossip]
+protocol = "neuromorphic_epidemic"
+spike_threshold = 0.7
+weight_decay = 0.99
+potentiation_rate = 0.1
+depression_rate = 0.05
+refractory_period_ms = 50
+max_fanout = 8
+min_fanout = 3
+
+# Neuromorphic parameters
+[gossip.neuromorphic]
+spike_history_size = 1000
+hebbian_learning = true
+stdp_window_ms = 20
+synaptic_pruning_threshold = 0.1
+
+[hashing]
+algorithm = "quantum_consistent_hash"
+virtual_nodes_per_gpu = 150
+replication_factor = 3
+coherence_threshold = 0.7
+decoherence_threshold = 0.3
+
+# Quantum hashing parameters
+[hashing.quantum]
+superposition_enabled = true
+entanglement_distance = 1073741824  # 2^30
+bell_state_types = ["phi_plus", "phi_minus", "psi_plus", "psi_minus"]
+fibonacci_distribution = true
+
+[regions]
+primary = "ord"
+secondary = ["iad", "sjc", "ams", "syd"]
+
+# Region-specific configurations
+[regions.ord]
+gpu_types = ["a100-80gb", "a100-40gb"]
+max_gpus = 20
+coordinator = true
+
+[regions.iad]
+gpu_types = ["a100-40gb", "l40s"]
+max_gpus = 15
+coordinator = false
+
+[regions.sjc]
+gpu_types = ["a100-40gb", "a10"]
+max_gpus = 10
+coordinator = false
+
+[regions.ams]
+gpu_types = ["l40s", "a10"]
+max_gpus = 12
+coordinator = false
+
+[regions.syd]
+gpu_types = ["a10"]
+max_gpus = 8
+coordinator = false
+
+[edge_optimization]
+enabled = true
+cache_size = 1000
+cache_ttl_seconds = 300
+fly_replay_enabled = true
+latency_aware_routing = true
+
+# Edge computing parameters
+[edge_optimization.routing]
+p99_latency_threshold_ms = 100
+packet_loss_threshold = 0.02
+load_balancing_algorithm = "weighted_round_robin"
+
+[wireguard_mesh]
+enabled = true
+listen_port = 51820
+persistent_keepalive = 25
+post_quantum_crypto = true
+
+# WireGuard security
+[wireguard_mesh.security]
+ml_kem_enabled = true
+key_rotation_hours = 24
+perfect_forward_secrecy = true
+homomorphic_gradient_encryption = true
+
+[storage]
+strategy = "content_addressed_deduplication"
+chunk_size_mb = 4
+compression = "zstd"
+encryption = "homomorphic_seal"
+
+# Storage tiers
+[storage.hot]
+type = "fly_volume_ssd"
+retention_hours = 24
+max_size_gb = 100
+
+[storage.warm]
+type = "fly_volume_hdd"
+retention_days = 7
+max_size_gb = 1000
+
+[storage.cold]
+type = "ipfs_with_filecoin"
+retention = "unlimited"
+replication_factor = 5
+
+[autoscaling]
+enabled = true
+min_gpus = 4
+max_gpus = 100
+scale_up_threshold = 0.8
+scale_down_threshold = 0.3
+cooldown_seconds = 300
+prediction_algorithm = "spiking_neural_network"
+
+# Autoscaling policies by GPU type
+[autoscaling.gpu_priorities]
+a100_80gb = { priority = 1, max_instances = 10 }
+a100_40gb = { priority = 2, max_instances = 20 }
+l40s = { priority = 3, max_instances = 30 }
+a10 = { priority = 4, max_instances = 40 }
+
+[expert_hierarchy]
+architecture = "cortical"
+layers = ["sensory_cortex", "association_areas", "prefrontal_cortex"]
+hebbian_learning_rate = 0.01
+pruning_threshold = 0.1
+lateral_connections = true
+
+# Expert specializations
+[expert_hierarchy.specializations]
+visual = { count = 128, gpu_type = "a10" }
+linguistic = { count = 64, gpu_type = "l40s" }
+mathematical = { count = 32, gpu_type = "a100-40gb" }
+temporal = { count = 16, gpu_type = "a100-40gb" }
+spatial = { count = 16, gpu_type = "a100-40gb" }
+abstract = { count = 8, gpu_type = "a100-80gb" }
+
+[quantum_replication]
+coherence_threshold = 0.8
+max_entangled_pairs = 3
+superposition_threshold_load = 80.0
+compression_ratio = 0.5
+
+[gradient_compression]
+method = "swarm_consensus_svd"
+compression_ratio = 0.5
+consensus_threshold = 3
+svd_rank = 32
+
+[federated_learning]
+algorithm = "time_dilated_sgd"
+staleness_decay_rate = 0.9
+min_staleness_penalty = 0.1
+momentum_beta = 0.9
+gradient_ledger_enabled = true
+
+# Blockchain parameters
+[federated_learning.blockchain]
+difficulty = 4
+block_size = 10
+mining_enabled = true
+proof_algorithm = "proof_of_gradient"
+
+[monitoring]
+prometheus_enabled = true
+metrics_port = 9090
+scrape_interval_seconds = 15
+quantum_metrics = true
+
+# Custom metrics
+[monitoring.metrics]
+expert_coherence_time = { type = "histogram", buckets = [10, 50, 100, 500, 1000] }
+gradient_entanglement_fidelity = { type = "gauge" }
+swarm_consensus_rounds = { type = "counter" }
+quantum_decoherence_rate = { type = "gauge" }
+
+[deployment]
+strategy = "blue_green_quantum"
+canary_enabled = true
+canary_percentage = [1, 10, 50, 100]
+canary_duration_minutes = [5, 30, 120, 240]
+quantum_state_transfer = true
+
+# Rollback triggers
+[deployment.rollback]
+decoherence_rate_threshold = 0.1
+consensus_failure_rate_threshold = 0.001
+loss_increase_threshold = 0.05
+latency_increase_ms = 10
+
+[security]
+zero_knowledge_proofs = true
+homomorphic_computation = true
+secure_multiparty_computation = true
+differential_privacy_epsilon = 0.1
+
+# Post-quantum cryptography
+[security.post_quantum]
+signature_algorithm = "ml_dsa_87"
+kem_algorithm = "ml_kem_1024"
+hash_algorithm = "sha3_512"
+
+[cost_optimization]
+spot_instance_arbitrage = true
+migration_rate_limit = 0.1
+predictive_scaling = true
+gpu_utilization_target = 0.85
+
+# Regional pricing weights (lower is cheaper)
+[cost_optimization.region_costs]
+ord = 1.0
+iad = 0.95
+sjc = 1.05
+ams = 1.1
+syd = 1.2
+
+[experimental]
+photonic_gradient_propagation = false
+dna_storage_checkpoints = false
+satellite_gpu_nodes = false
+quantum_annealing_optimization = false
+neuromorphic_chip_integration = false
+
+# Feature flags
+[feature_flags]
+enable_quantum_routing = true
+enable_neuromorphic_gossip = true
+enable_blockchain_gradients = true
+enable_cortical_hierarchy = true
+enable_homomorphic_aggregation = true
+
+# Environment variables to inject
+[env_vars]
+RUST_LOG = "info,moe_swarm=debug"
+RUST_BACKTRACE = "1"
+CONSENSUS_PEERS = "${CONSENSUS_PEERS}"
+SWARM_MODE = "distributed"
+GRADIENT_COMPRESSION = "enabled"
+QUANTUM_FEATURES = "all"

@@ -99,7 +99,7 @@ impl ByzantineAggregator {
 
         // Filter out Byzantine nodes
         for (node_id, weights) in &updates {
-            if self.byzantine_nodes.contains(&node_id) {
+            if self.byzantine_nodes.contains(node_id) {
                 continue;
             }
 
@@ -112,7 +112,7 @@ impl ByzantineAggregator {
             // Check for anomalous values
             if self.is_anomalous(&weights) {
                 warn!("Anomalous weights detected from node {}", node_id);
-                self.byzantine_nodes.insert(node_id);
+                self.byzantine_nodes.insert(node_id.clone());
                 continue;
             }
 
@@ -496,13 +496,14 @@ pub struct StateSnapshot {
 }
 
 #[async_trait::async_trait]
-pub trait RecoveryStrategy: Send + Sync {
+pub trait RecoveryStrategy: Send + Sync + std::fmt::Debug {
     async fn can_recover(&self, error: &ChainError) -> bool;
     async fn recover(&self, snapshot: &StateSnapshot) -> Result<()>;
     fn name(&self) -> &str;
 }
 
 /// Simple checkpoint-based recovery strategy
+#[derive(Debug)]
 pub struct CheckpointRecovery {
     checkpoint_consensus: Arc<CheckpointConsensus>,
 }
