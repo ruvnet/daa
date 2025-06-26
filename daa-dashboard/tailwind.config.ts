@@ -20,26 +20,54 @@ export default {
 		},
 		extend: {
 			fontFamily: {
-				'mono': ['JetBrains Mono', 'Consolas', 'Monaco', 'monospace'],
+				'sans': ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+				'mono': ['JetBrains Mono', 'Consolas', 'Monaco', 'Courier New', 'monospace'],
 			},
 			colors: {
+				// CSS Variables for dynamic theming
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
 				ring: 'hsl(var(--ring))',
 				background: 'hsl(var(--background))',
 				foreground: 'hsl(var(--foreground))',
+				
+				// DAA Brand Colors
 				primary: {
-					DEFAULT: 'hsl(var(--primary))',
+					DEFAULT: '#2563eb',      // DAA Blue
+					dark: '#1d4ed8',
+					light: '#3b82f6',
 					foreground: 'hsl(var(--primary-foreground))'
 				},
 				secondary: {
-					DEFAULT: 'hsl(var(--secondary))',
+					DEFAULT: '#059669',      // Success Green
 					foreground: 'hsl(var(--secondary-foreground))'
 				},
+				
+				// Semantic Colors
 				destructive: {
-					DEFAULT: 'hsl(var(--destructive))',
+					DEFAULT: '#dc2626',      // Error Red
 					foreground: 'hsl(var(--destructive-foreground))'
 				},
+				warning: {
+					DEFAULT: '#d97706',      // Warning Orange
+					light: '#f59e0b',
+					foreground: '#ffffff'
+				},
+				success: {
+					DEFAULT: '#10b981',
+					foreground: '#ffffff'
+				},
+				info: {
+					DEFAULT: '#0891b2',      // Info Cyan
+					light: '#3b82f6',
+					foreground: '#ffffff'
+				},
+				error: {
+					DEFAULT: '#ef4444',
+					foreground: '#ffffff'
+				},
+				
+				// UI Element Colors
 				muted: {
 					DEFAULT: 'hsl(var(--muted))',
 					foreground: 'hsl(var(--muted-foreground))'
@@ -66,12 +94,17 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				// Hacker UI specific colors
-				green: {
-					400: '#10b981',
-					500: '#059669',
-				},
+				
+				// Neutral Palette
 				gray: {
+					50: '#f9fafb',
+					100: '#f3f4f6',
+					200: '#e5e7eb',
+					300: '#d1d5db',
+					400: '#9ca3af',
+					500: '#6b7280',
+					600: '#4b5563',
+					700: '#374151',
 					800: '#1f2937',
 					900: '#111827',
 				}

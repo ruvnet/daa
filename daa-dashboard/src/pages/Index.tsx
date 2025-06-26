@@ -18,6 +18,7 @@ import ActivityFeed from '@/components/ActivityFeed';
 import NetworkTopology from '@/components/NetworkTopology';
 import AlertsPanel from '@/components/AlertsPanel';
 import DashboardLayout from '@/components/DashboardLayout';
+import MetricCard from '@/components/shared/MetricCard';
 
 const Index = () => {
   // Real-time metrics simulation
@@ -44,28 +45,6 @@ const Index = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const MetricCard = ({ title, value, change, trend, icon: Icon, suffix = '', prefix = '' }) => (
-    <Card className="bg-gray-900/50 border-green-500/20 hover:border-green-500/40 transition-all duration-300">
-      <CardContent className="p-4 sm:p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex-1 min-w-0">
-            <p className="text-green-400/70 text-xs sm:text-sm font-mono uppercase tracking-wide truncate">{title}</p>
-            <p className="text-lg sm:text-2xl font-bold text-green-400 font-mono mt-1 truncate">
-              {prefix}{typeof value === 'number' ? value.toLocaleString() : value}{suffix}
-            </p>
-            {change && (
-              <div className={`flex items-center mt-1 sm:mt-2 text-xs sm:text-sm font-mono ${trend === 'up' ? 'text-green-400' : trend === 'down' ? 'text-red-400' : 'text-gray-400'}`}>
-                <span className="truncate">{change}</span>
-              </div>
-            )}
-          </div>
-          <div className="bg-green-500/10 p-2 sm:p-3 rounded-lg ml-2 flex-shrink-0">
-            <Icon className="h-5 w-5 sm:h-8 sm:w-8 text-green-400" />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
 
   return (
     <DashboardLayout>
