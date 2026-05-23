@@ -1,7 +1,7 @@
 //! Service registry
 
-use serde::{Deserialize, Serialize};
 use crate::{Result, ServiceConfig};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Service {
@@ -20,11 +20,19 @@ impl ServiceRegistry {
         Self { config }
     }
 
-    pub async fn start(&mut self) -> Result<()> { Ok(()) }
-    
-    pub async fn register(&mut self, _service: Service) -> Result<()> { Ok(()) }
-    
-    pub async fn discover(&self, _service_type: &str) -> Result<Vec<Service>> { Ok(vec![]) }
-    
-    pub async fn get_service_count(&self) -> u64 { 0 }
+    pub async fn start(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    pub async fn register(&mut self, _service: Service) -> Result<()> {
+        Ok(())
+    }
+
+    pub async fn discover(&self, _service_type: &str) -> Result<Vec<Service>> {
+        Ok(vec![])
+    }
+
+    pub async fn get_service_count(&self) -> u64 {
+        0
+    }
 }

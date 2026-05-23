@@ -6,10 +6,10 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use colored::*;
+use serde::{Deserialize, Serialize};
 use tabled::{Table, Tabled};
+use thiserror::Error;
 
 pub mod config;
 pub mod utils;
@@ -34,35 +34,35 @@ pub mod orchestrator;
 pub enum CliError {
     #[error("Configuration error: {0}")]
     Config(String),
-    
+
     #[error("Command execution error: {0}")]
     Execution(String),
-    
+
     #[error("Network error: {0}")]
     Network(String),
-    
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    
+
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
-    
+
     #[cfg(feature = "chain")]
     #[error("Chain error: {0}")]
     Chain(#[from] daa_chain::ChainError),
-    
+
     #[cfg(feature = "economy")]
     #[error("Economy error: {0}")]
     Economy(#[from] daa_economy::EconomyError),
-    
+
     #[cfg(feature = "rules")]
     #[error("Rules error: {0}")]
     Rules(#[from] daa_rules::RulesError),
-    
+
     #[cfg(feature = "ai")]
     #[error("AI error: {0}")]
     AI(#[from] daa_ai::AIError),
-    
+
     #[cfg(feature = "orchestrator")]
     #[error("Orchestrator error: {0}")]
     Orchestrator(#[from] daa_orchestrator::OrchestratorError),
@@ -95,19 +95,19 @@ pub struct DaaCli {
     /// Enable verbose output
     #[arg(short, long, global = true)]
     pub verbose: bool,
-    
+
     /// Configuration file path
     #[arg(short, long, global = true)]
     pub config: Option<PathBuf>,
-    
+
     /// Output format (json, table, yaml)
     #[arg(short, long, global = true, default_value = "table")]
     pub output: OutputFormat,
-    
+
     /// Disable colored output
     #[arg(long, global = true)]
     pub no_color: bool,
-    
+
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -122,7 +122,7 @@ pub enum OutputFormat {
 
 impl std::str::FromStr for OutputFormat {
     type Err = String;
-    
+
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "json" => Ok(OutputFormat::Json),
@@ -141,53 +141,53 @@ pub enum Commands {
         /// Force overwrite existing configuration
         #[arg(short, long)]
         force: bool,
-        
+
         /// Configuration template to use
         #[arg(short, long, default_value = "default")]
         template: String,
     },
-    
+
     /// Display system status and health
     Status {
         /// Show detailed component status
         #[arg(short, long)]
         detailed: bool,
     },
-    
+
     /// Manage configuration
     Config {
         #[command(subcommand)]
         action: ConfigAction,
     },
-    
+
     /// Chain operations
     #[cfg(feature = "chain")]
     Chain {
         #[command(subcommand)]
         action: chain::ChainAction,
     },
-    
+
     /// Economy operations
     #[cfg(feature = "economy")]
     Economy {
         #[command(subcommand)]
         action: economy::EconomyAction,
     },
-    
+
     /// Rules management
     #[cfg(feature = "rules")]
     Rules {
         #[command(subcommand)]
         action: rules::RulesAction,
     },
-    
+
     /// AI operations
     #[cfg(feature = "ai")]
     AI {
         #[command(subcommand)]
         action: ai::AIAction,
     },
-    
+
     /// Orchestration operations
     #[cfg(feature = "orchestrator")]
     Orchestrator {
@@ -201,25 +201,25 @@ pub enum Commands {
 pub enum ConfigAction {
     /// Show current configuration
     Show,
-    
+
     /// Get configuration value
     Get {
         /// Configuration key (dot notation supported)
         key: String,
     },
-    
+
     /// Set configuration value
     Set {
         /// Configuration key (dot notation supported)
         key: String,
-        
+
         /// Configuration value
         value: String,
     },
-    
+
     /// Validate configuration
     Validate,
-    
+
     /// Reset configuration to defaults
     Reset {
         /// Confirm reset without prompt
@@ -232,14 +232,15 @@ impl DaaCli {
     /// Execute the CLI command
     pub async fn execute(&self) -> Result<()> {
         // Load configuration
-        let config = config::load_config(self.config.as_ref()).await
+        let config = config::load_config(self.config.as_ref())
+            .await
             .map_err(|e| CliError::Config(e.to_string()))?;
-        
+
         // Disable colors if requested
         if self.no_color {
             colored::control::set_override(false);
         }
-        
+
         // Execute command
         match &self.command {
             Commands::Init { force, template } => {
@@ -264,24 +265,16 @@ impl DaaCli {
             }
 
             #[cfg(feature = "chain")]
-            Commands::Chain { action } => {
-                chain::execute(action, &config, &self.output).await
-            }
+            Commands::Chain { action } => chain::execute(action, &config, &self.output).await,
 
             #[cfg(feature = "economy")]
-            Commands::Economy { action } => {
-                economy::execute(action, &config, &self.output).await
-            }
+            Commands::Economy { action } => economy::execute(action, &config, &self.output).await,
 
             #[cfg(feature = "rules")]
-            Commands::Rules { action } => {
-                rules::execute(action, &config, &self.output).await
-            }
+            Commands::Rules { action } => rules::execute(action, &config, &self.output).await,
 
             #[cfg(feature = "ai")]
-            Commands::AI { action } => {
-                ai::execute(action, &config, &self.output).await
-            }
+            Commands::AI { action } => ai::execute(action, &config, &self.output).await,
 
             #[cfg(feature = "orchestrator")]
             Commands::Orchestrator { action } => {
@@ -301,19 +294,19 @@ where
             let json = serde_json::to_string_pretty(data)?;
             println!("{}", json);
         }
-        
+
         OutputFormat::Table => {
             let table = Table::new(std::slice::from_ref(data));
             println!("{}", table);
         }
-        
+
         OutputFormat::Yaml => {
             // For now, use JSON as YAML fallback
             let json = serde_json::to_string_pretty(data)?;
             println!("{}", json);
         }
     }
-    
+
     Ok(())
 }
 
@@ -350,9 +343,18 @@ mod tests {
 
     #[test]
     fn test_output_format_parsing() {
-        assert!(matches!("json".parse::<OutputFormat>().unwrap(), OutputFormat::Json));
-        assert!(matches!("table".parse::<OutputFormat>().unwrap(), OutputFormat::Table));
-        assert!(matches!("yaml".parse::<OutputFormat>().unwrap(), OutputFormat::Yaml));
+        assert!(matches!(
+            "json".parse::<OutputFormat>().unwrap(),
+            OutputFormat::Json
+        ));
+        assert!(matches!(
+            "table".parse::<OutputFormat>().unwrap(),
+            OutputFormat::Table
+        ));
+        assert!(matches!(
+            "yaml".parse::<OutputFormat>().unwrap(),
+            OutputFormat::Yaml
+        ));
         assert!("invalid".parse::<OutputFormat>().is_err());
     }
 }

@@ -1,18 +1,18 @@
 //! Execution context for rules
 
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Execution context containing variables and state for rule evaluation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutionContext {
     /// Variables available to rules
     variables: HashMap<String, String>,
-    
+
     /// Execution timestamp
     timestamp: DateTime<Utc>,
-    
+
     /// Context metadata
     metadata: HashMap<String, String>,
 }

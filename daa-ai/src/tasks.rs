@@ -31,10 +31,16 @@ pub struct TaskResult {
 pub struct TaskManager;
 
 impl TaskManager {
-    pub fn new() -> Self { Self }
-    pub async fn get_active_task_count(&self) -> u64 { 0 }
+    pub fn new() -> Self {
+        Self
+    }
+    pub async fn get_active_task_count(&self) -> u64 {
+        0
+    }
 }
 
 impl Default for TaskManager {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }

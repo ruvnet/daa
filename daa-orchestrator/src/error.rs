@@ -10,47 +10,46 @@ pub type Result<T> = std::result::Result<T, OrchestratorError>;
 pub enum OrchestratorError {
     #[error("Configuration error: {0}")]
     ConfigError(String),
-    
+
     #[error("Initialization error: {0}")]
     InitializationError(String),
-    
+
     #[error("Autonomy loop error: {0}")]
     AutonomyError(String),
-    
+
     #[error("QuDAG integration error: {0}")]
     QuDAGError(String),
-    
+
     #[error("MCP server error: {0}")]
     McpError(String),
-    
+
     #[error("API server error: {0}")]
     ApiError(String),
-    
+
     // Chain integration disabled for now - remove if daa_chain is not available
     // #[error("Chain integration error: {0}")]
     // ChainError(#[from] daa_chain::ChainError),
-    
     #[error("Economy error: {0}")]
     EconomyError(#[from] daa_economy::EconomyError),
-    
+
     #[error("Rules engine error: {0}")]
     RulesError(#[from] daa_rules::RulesError),
 
     #[error("AI error: {0}")]
     AiError(#[from] daa_ai::AIError),
-    
+
     #[error("Network error: {0}")]
     NetworkError(String),
-    
+
     #[error("Serialization error: {0}")]
     SerializationError(String),
-    
+
     #[error("Timeout error: operation timed out after {timeout_ms}ms")]
     TimeoutError { timeout_ms: u64 },
-    
+
     #[error("Resource unavailable: {0}")]
     ResourceUnavailable(String),
-    
+
     #[error("Internal error: {0}")]
     Internal(String),
 }

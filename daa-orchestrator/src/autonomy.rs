@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn, error};
+use tracing::{debug, error, info, warn};
 
 use crate::config::AutonomyConfig;
 use crate::error::{OrchestratorError, Result};
@@ -44,17 +44,21 @@ impl AutonomyLoop {
     pub async fn initialize(&mut self) -> Result<()> {
         info!("Initializing autonomy loop");
         self.set_state(AutonomyState::Initializing).await;
-        
+
         // Initialize rules engine
         if self.config.rules_config.enabled {
-            debug!("Rules engine enabled with max risk score: {}", 
-                   self.config.rules_config.max_risk_score);
+            debug!(
+                "Rules engine enabled with max risk score: {}",
+                self.config.rules_config.max_risk_score
+            );
         }
 
         // Initialize AI agents
         if self.config.ai_config.enabled {
-            debug!("AI agents enabled, max agents: {}", 
-                   self.config.ai_config.max_agents);
+            debug!(
+                "AI agents enabled, max agents: {}",
+                self.config.ai_config.max_agents
+            );
         }
 
         self.set_state(AutonomyState::Idle).await;
@@ -71,7 +75,7 @@ impl AutonomyLoop {
 
         info!("Starting autonomy loop");
         self.start_time = Some(Instant::now());
-        
+
         let config = self.config.clone();
         let state = self.state.clone();
         let shutdown_signal = self.shutdown_signal.clone();
@@ -89,10 +93,10 @@ impl AutonomyLoop {
     /// Stop the autonomy loop
     pub async fn stop(&mut self) -> Result<()> {
         info!("Stopping autonomy loop");
-        
+
         // Signal shutdown
         self.shutdown_signal.notify_one();
-        
+
         // Wait for loop to finish
         if let Some(handle) = self.loop_handle.take() {
             if let Err(e) = handle.await {
@@ -117,7 +121,7 @@ impl AutonomyLoop {
     /// Check health of the autonomy loop
     pub async fn health_check(&self) -> Result<bool> {
         let state = self.get_state().await;
-        
+
         match state {
             AutonomyState::Error(_) => Ok(false),
             AutonomyState::Stopped => Ok(false),
@@ -166,7 +170,10 @@ impl AutonomyLoop {
         let mut interval = tokio::time::interval(Duration::from_millis(config.loop_interval_ms));
         let mut iteration_count = 0u64;
 
-        info!("Autonomy loop started with interval: {}ms", config.loop_interval_ms);
+        info!(
+            "Autonomy loop started with interval: {}ms",
+            config.loop_interval_ms
+        );
 
         loop {
             tokio::select! {
@@ -174,20 +181,20 @@ impl AutonomyLoop {
                     info!("Autonomy loop received shutdown signal");
                     break;
                 }
-                
+
                 _ = interval.tick() => {
                     iteration_count += 1;
-                    
+
                     // Set processing state
                     *state.write().await = AutonomyState::Processing;
-                    
+
                     debug!("Autonomy loop iteration {}", iteration_count);
-                    
+
                     // Perform autonomous tasks
                     if let Err(e) = Self::process_iteration(&config).await {
                         error!("Error in autonomy loop iteration {}: {}", iteration_count, e);
                         *state.write().await = AutonomyState::Error(e.to_string());
-                        
+
                         // Sleep before retrying
                         tokio::time::sleep(Duration::from_secs(5)).await;
                         *state.write().await = AutonomyState::Idle;
@@ -206,10 +213,10 @@ impl AutonomyLoop {
     async fn process_iteration(config: &AutonomyConfig) -> Result<()> {
         // Mock autonomous processing
         debug!("Processing autonomous tasks...");
-        
+
         // Simulate task processing time
         tokio::time::sleep(Duration::from_millis(100)).await;
-        
+
         // Mock rule evaluation
         if config.rules_config.enabled {
             debug!("Evaluating rules...");
@@ -249,7 +256,7 @@ mod tests {
     async fn test_autonomy_loop_initialization() {
         let config = AutonomyConfig::default();
         let mut autonomy_loop = AutonomyLoop::new(config).await.unwrap();
-        
+
         autonomy_loop.initialize().await.unwrap();
         let state = autonomy_loop.get_state().await;
         assert_eq!(state, AutonomyState::Idle);
@@ -259,13 +266,13 @@ mod tests {
     async fn test_autonomy_loop_start_stop() {
         let config = AutonomyConfig::default();
         let mut autonomy_loop = AutonomyLoop::new(config).await.unwrap();
-        
+
         autonomy_loop.initialize().await.unwrap();
         autonomy_loop.start().await.unwrap();
-        
+
         // Let it run for a brief moment
         tokio::time::sleep(Duration::from_millis(50)).await;
-        
+
         autonomy_loop.stop().await.unwrap();
         let state = autonomy_loop.get_state().await;
         assert_eq!(state, AutonomyState::Stopped);
@@ -275,7 +282,7 @@ mod tests {
     async fn test_health_check() {
         let config = AutonomyConfig::default();
         let autonomy_loop = AutonomyLoop::new(config).await.unwrap();
-        
+
         let health = autonomy_loop.health_check().await.unwrap();
         assert!(health); // Should be healthy when just created
     }
@@ -284,16 +291,16 @@ mod tests {
     async fn test_uptime() {
         let config = AutonomyConfig::default();
         let mut autonomy_loop = AutonomyLoop::new(config).await.unwrap();
-        
+
         let uptime_before = autonomy_loop.get_uptime().await;
         assert_eq!(uptime_before, Duration::from_secs(0));
-        
+
         autonomy_loop.start().await.unwrap();
         tokio::time::sleep(Duration::from_millis(10)).await;
-        
+
         let uptime_after = autonomy_loop.get_uptime().await;
         assert!(uptime_after > Duration::from_secs(0));
-        
+
         autonomy_loop.stop().await.unwrap();
     }
 }

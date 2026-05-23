@@ -11,12 +11,12 @@ impl MCPClient {
             server_url: server_url.to_string(),
         })
     }
-    
+
     pub async fn connect(&self) -> Result<(), MCPError> {
         // Stub implementation
         Ok(())
     }
-    
+
     pub async fn call_tool(&self, tool_call: ToolCall) -> Result<ToolResult, MCPError> {
         // Stub implementation
         Ok(ToolResult {
@@ -52,5 +52,5 @@ pub struct ToolResult {
 }
 
 pub mod qudag_mcp {
-    pub use super::{MCPClient, MCPMessage, MCPError, Tool, ToolCall, ToolResult};
+    pub use super::{MCPClient, MCPError, MCPMessage, Tool, ToolCall, ToolResult};
 }

@@ -53,9 +53,6 @@ pub fn mlkem768_generate_keypair() -> Result<KeyPair> {
     let (dk, ek) = MlKem768::generate(&mut rng);
 
     // Convert to bytes using as_bytes() from EncodedSizeUser
-    type EncapKey = <MlKem768 as KemCore>::EncapsulationKey;
-    type DecapKey = <MlKem768 as KemCore>::DecapsulationKey;
-
     let public_key = ek.as_bytes();
     let secret_key = dk.as_bytes();
 

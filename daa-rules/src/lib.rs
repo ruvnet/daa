@@ -6,17 +6,17 @@
 use std::collections::HashMap;
 use std::fmt;
 
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
-use regex::Regex;
-use async_trait::async_trait;
 
-pub mod engine;
-pub mod conditions;
 pub mod actions;
+pub mod conditions;
 pub mod context;
+pub mod engine;
 pub mod storage;
 
 #[cfg(feature = "scripting")]
@@ -30,28 +30,28 @@ pub mod database;
 pub enum RulesError {
     #[error("Rule not found: {0}")]
     RuleNotFound(String),
-    
+
     #[error("Invalid rule definition: {0}")]
     InvalidRule(String),
-    
+
     #[error("Condition evaluation failed: {0}")]
     ConditionEvaluation(String),
-    
+
     #[error("Action execution failed: {0}")]
     ActionExecution(String),
-    
+
     #[error("Context error: {0}")]
     Context(String),
-    
+
     #[error("Storage error: {0}")]
     Storage(String),
-    
+
     #[error("Scripting error: {0}")]
     Scripting(String),
-    
+
     #[error("Validation error: {0}")]
     Validation(String),
-    
+
     #[error("Parsing error: {0}")]
     Parsing(String),
 }
@@ -63,31 +63,31 @@ pub type Result<T> = std::result::Result<T, RulesError>;
 pub struct Rule {
     /// Unique rule identifier
     pub id: String,
-    
+
     /// Human-readable rule name
     pub name: String,
-    
+
     /// Rule description
     pub description: String,
-    
+
     /// Rule conditions that must be met
     pub conditions: Vec<RuleCondition>,
-    
+
     /// Actions to execute when conditions are met
     pub actions: Vec<RuleAction>,
-    
+
     /// Rule priority (higher number = higher priority)
     pub priority: u32,
-    
+
     /// Whether the rule is enabled
     pub enabled: bool,
-    
+
     /// Rule creation timestamp
     pub created_at: DateTime<Utc>,
-    
+
     /// Rule last modified timestamp
     pub updated_at: DateTime<Utc>,
-    
+
     /// Rule metadata
     pub metadata: HashMap<String, String>,
 }
@@ -101,7 +101,7 @@ impl Rule {
         actions: Vec<RuleAction>,
     ) -> Self {
         let now = Utc::now();
-        
+
         Self {
             id,
             name,
@@ -128,19 +128,27 @@ impl Rule {
     /// Check if rule is valid
     pub fn is_valid(&self) -> Result<()> {
         if self.id.is_empty() {
-            return Err(RulesError::InvalidRule("Rule ID cannot be empty".to_string()));
+            return Err(RulesError::InvalidRule(
+                "Rule ID cannot be empty".to_string(),
+            ));
         }
 
         if self.name.is_empty() {
-            return Err(RulesError::InvalidRule("Rule name cannot be empty".to_string()));
+            return Err(RulesError::InvalidRule(
+                "Rule name cannot be empty".to_string(),
+            ));
         }
 
         if self.conditions.is_empty() {
-            return Err(RulesError::InvalidRule("Rule must have at least one condition".to_string()));
+            return Err(RulesError::InvalidRule(
+                "Rule must have at least one condition".to_string(),
+            ));
         }
 
         if self.actions.is_empty() {
-            return Err(RulesError::InvalidRule("Rule must have at least one action".to_string()));
+            return Err(RulesError::InvalidRule(
+                "Rule must have at least one action".to_string(),
+            ));
         }
 
         // Validate conditions
@@ -161,68 +169,42 @@ impl Rule {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RuleCondition {
     /// Simple equality check
-    Equals {
-        field: String,
-        value: String,
-    },
-    
+    Equals { field: String, value: String },
+
     /// Inequality check
-    NotEquals {
-        field: String,
-        value: String,
-    },
-    
+    NotEquals { field: String, value: String },
+
     /// Greater than comparison
-    GreaterThan {
-        field: String,
-        value: f64,
-    },
-    
+    GreaterThan { field: String, value: f64 },
+
     /// Less than comparison
-    LessThan {
-        field: String,
-        value: f64,
-    },
-    
+    LessThan { field: String, value: f64 },
+
     /// Pattern matching with regex
-    Matches {
-        field: String,
-        pattern: String,
-    },
-    
+    Matches { field: String, pattern: String },
+
     /// Field existence check
-    Exists {
-        field: String,
-    },
-    
+    Exists { field: String },
+
     /// Value in list check
-    In {
-        field: String,
-        values: Vec<String>,
-    },
-    
+    In { field: String, values: Vec<String> },
+
     /// Time-based condition
     TimeCondition {
         field: String,
         operator: TimeOperator,
         value: DateTime<Utc>,
     },
-    
+
     /// Complex logical condition
-    And {
-        conditions: Vec<RuleCondition>,
-    },
-    
+    And { conditions: Vec<RuleCondition> },
+
     /// Complex logical condition
-    Or {
-        conditions: Vec<RuleCondition>,
-    },
-    
+    Or { conditions: Vec<RuleCondition> },
+
     /// Negation condition
-    Not {
-        condition: Box<RuleCondition>,
-    },
-    
+    Not { condition: Box<RuleCondition> },
+
     /// Custom condition with parameters
     Custom {
         condition_type: String,
@@ -235,12 +217,15 @@ impl RuleCondition {
     pub fn validate(&self) -> Result<()> {
         match self {
             RuleCondition::Matches { pattern, .. } => {
-                Regex::new(pattern)
-                    .map_err(|e| RulesError::InvalidRule(format!("Invalid regex pattern: {}", e)))?;
+                Regex::new(pattern).map_err(|e| {
+                    RulesError::InvalidRule(format!("Invalid regex pattern: {}", e))
+                })?;
             }
             RuleCondition::And { conditions } | RuleCondition::Or { conditions } => {
                 if conditions.is_empty() {
-                    return Err(RulesError::InvalidRule("Logical conditions must have at least one sub-condition".to_string()));
+                    return Err(RulesError::InvalidRule(
+                        "Logical conditions must have at least one sub-condition".to_string(),
+                    ));
                 }
                 for condition in conditions {
                     condition.validate()?;
@@ -267,31 +252,22 @@ pub enum TimeOperator {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RuleAction {
     /// Set a field value
-    SetField {
-        field: String,
-        value: String,
-    },
-    
+    SetField { field: String, value: String },
+
     /// Log a message
-    Log {
-        level: LogLevel,
-        message: String,
-    },
-    
+    Log { level: LogLevel, message: String },
+
     /// Send notification
     Notify {
         recipient: String,
         message: String,
         channel: NotificationChannel,
     },
-    
+
     /// Execute script
     #[cfg(feature = "scripting")]
-    Script {
-        script_type: String,
-        script: String,
-    },
-    
+    Script { script_type: String, script: String },
+
     /// Trigger external webhook
     Webhook {
         url: String,
@@ -299,17 +275,15 @@ pub enum RuleAction {
         headers: HashMap<String, String>,
         body: String,
     },
-    
+
     /// Modify context
     ModifyContext {
         modifications: HashMap<String, String>,
     },
-    
+
     /// Abort execution
-    Abort {
-        reason: String,
-    },
-    
+    Abort { reason: String },
+
     /// Custom action with parameters
     Custom {
         action_type: String,
@@ -323,7 +297,9 @@ impl RuleAction {
         match self {
             RuleAction::Webhook { url, .. } => {
                 if url.is_empty() {
-                    return Err(RulesError::InvalidRule("Webhook URL cannot be empty".to_string()));
+                    return Err(RulesError::InvalidRule(
+                        "Webhook URL cannot be empty".to_string(),
+                    ));
                 }
             }
             _ => {} // Other actions are always valid
@@ -357,16 +333,16 @@ pub enum NotificationChannel {
 pub enum RuleResult {
     /// Rule conditions were met and actions executed successfully
     Allow,
-    
+
     /// Rule conditions were met but execution was denied
     Deny(String),
-    
+
     /// Rule execution resulted in modifications
     Modified(HashMap<String, String>),
-    
+
     /// Rule execution was skipped (conditions not met)
     Skipped,
-    
+
     /// Rule execution failed
     Failed(String),
 }
@@ -389,9 +365,9 @@ pub use context::ExecutionContext;
 /// Rules engine
 pub use engine::RuleEngine;
 
+pub use actions::ActionExecutor;
 /// Re-export key types for convenience
 pub use conditions::ConditionEvaluator;
-pub use actions::ActionExecutor;
 
 #[cfg(test)]
 mod tests {
@@ -471,7 +447,10 @@ mod tests {
     #[test]
     fn test_rule_result_display() {
         assert_eq!(RuleResult::Allow.to_string(), "Allow");
-        assert_eq!(RuleResult::Deny("test".to_string()).to_string(), "Deny: test");
+        assert_eq!(
+            RuleResult::Deny("test".to_string()).to_string(),
+            "Deny: test"
+        );
         assert_eq!(RuleResult::Skipped.to_string(), "Skipped");
     }
 }

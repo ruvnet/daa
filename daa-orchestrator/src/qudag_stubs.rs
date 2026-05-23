@@ -13,11 +13,11 @@ impl Node {
             node_id: vec![1, 2, 3, 4],
         })
     }
-    
+
     pub async fn start(&mut self) -> Result<()> {
         Ok(())
     }
-    
+
     pub async fn handle_message(&mut self, _message: Message) -> Result<()> {
         Ok(())
     }
@@ -52,5 +52,5 @@ pub enum MessageError {
 }
 
 pub mod qudag_protocol {
-    pub use super::{Node, NodeConfig, Message, ProtocolError, MessageError};
+    pub use super::{Message, MessageError, Node, NodeConfig, ProtocolError};
 }
