@@ -19,14 +19,18 @@ use rand::rngs::OsRng;
 /// Key pair containing public and secret keys
 #[napi(object)]
 pub struct KeyPair {
+    /// DER-encoded public key bytes
     pub public_key: Buffer,
+    /// DER-encoded secret key bytes
     pub secret_key: Buffer,
 }
 
 /// Encapsulated secret containing ciphertext and shared secret
 #[napi(object)]
 pub struct EncapsulatedSecret {
+    /// KEM ciphertext bytes
     pub ciphertext: Buffer,
+    /// Shared secret bytes derived from encapsulation
     pub shared_secret: Buffer,
 }
 
@@ -98,8 +102,8 @@ pub fn mlkem768_encapsulate(public_key: Buffer) -> Result<EncapsulatedSecret> {
         .map_err(|_| Error::from_reason("Encapsulation failed"))?;
 
     Ok(EncapsulatedSecret {
-        ciphertext: ct.as_ref().to_vec().into(),
-        shared_secret: ss.as_ref().to_vec().into(),
+        ciphertext: ct.to_vec().into(),
+        shared_secret: ss.to_vec().into(),
     })
 }
 
@@ -147,7 +151,7 @@ pub fn mlkem768_decapsulate(ciphertext: Buffer, secret_key: Buffer) -> Result<Bu
         .decapsulate(&ct)
         .map_err(|_| Error::from_reason("Decapsulation failed"))?;
 
-    Ok(ss.as_ref().to_vec().into())
+    Ok(ss.to_vec().into())
 }
 
 // ============================================================================
