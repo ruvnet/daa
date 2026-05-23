@@ -16,7 +16,20 @@ unmaintained = "warn"
 yanked = "warn"
 notice = "warn"
 ignore = [
-    # Ignore specific advisories if needed
+    # RUSTSEC-2026-0119: hickory-proto CPU exhaustion (O(n²) name compression).
+    # RUSTSEC-2026-0118: hickory-proto NSEC3 unbounded loop on cross-zone responses.
+    # Both affect hickory-proto pulled transitively via libp2p-mdns. The fix requires
+    # hickory-proto >= 0.26.1, but libp2p 0.56 (latest released) still pins
+    # hickory-proto = "0.25.2". Remove these ignores once libp2p-mdns is updated
+    # upstream to use hickory-proto >= 0.26.1.
+    "RUSTSEC-2026-0119",
+    "RUSTSEC-2026-0118",
+
+    # RUSTSEC-2023-0071: rsa Marvin Attack (timing side-channel).
+    # Affects rsa pulled via sqlx-mysql. There is no fixed version available.
+    # sqlx intentionally includes mysql support; no runtime exposure exists unless
+    # MySQL TLS client auth is active. Remove when sqlx publishes a fix.
+    "RUSTSEC-2023-0071",
 ]
 
 [licenses]
