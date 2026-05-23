@@ -98,8 +98,8 @@ pub fn mlkem768_encapsulate(public_key: Buffer) -> Result<EncapsulatedSecret> {
         .map_err(|_| Error::from_reason("Encapsulation failed"))?;
 
     Ok(EncapsulatedSecret {
-        ciphertext: (&*ct).to_vec().into(),
-        shared_secret: (&*ss).to_vec().into(),
+        ciphertext: ct.as_ref().to_vec().into(),
+        shared_secret: ss.as_ref().to_vec().into(),
     })
 }
 
@@ -147,7 +147,7 @@ pub fn mlkem768_decapsulate(ciphertext: Buffer, secret_key: Buffer) -> Result<Bu
         .decapsulate(&ct)
         .map_err(|_| Error::from_reason("Decapsulation failed"))?;
 
-    Ok((&*ss).to_vec().into())
+    Ok(ss.as_ref().to_vec().into())
 }
 
 // ============================================================================

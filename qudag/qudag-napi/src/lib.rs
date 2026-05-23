@@ -55,9 +55,13 @@ pub fn version() -> String {
 /// Get module information
 #[napi(object)]
 pub struct ModuleInfo {
+    /// Module name
     pub name: String,
+    /// Module version string
     pub version: String,
+    /// Human-readable description of the module
     pub description: String,
+    /// List of supported cryptographic features
     pub features: Vec<String>,
 }
 
@@ -67,7 +71,8 @@ pub fn get_module_info() -> ModuleInfo {
     ModuleInfo {
         name: "qudag-native".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
-        description: "Native Node.js bindings for QuDAG quantum-resistant cryptography".to_string(),
+        description: "Native Node.js bindings for QuDAG quantum-resistant cryptography"
+            .to_string(),
         features: vec![
             "ML-KEM-768".to_string(),
             "ML-DSA".to_string(),
