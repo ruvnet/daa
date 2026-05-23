@@ -1,14 +1,18 @@
 //! Network behavior composition for P2P communication
 
+use anyhow::{anyhow, Result};
 use libp2p::{
-    swarm::NetworkBehaviour, PeerId,
-    kad::{Behaviour as Kademlia, Event as KademliaEvent, store::MemoryStore},
-    gossipsub::{Behaviour as Gossipsub, Event as GossipsubEvent, MessageAuthenticity, ValidationMode, IdentTopic},
+    gossipsub::{
+        Behaviour as Gossipsub, Event as GossipsubEvent, IdentTopic, MessageAuthenticity,
+        ValidationMode,
+    },
     identify::{Behaviour as Identify, Config as IdentifyConfig, Event as IdentifyEvent},
+    kad::{store::MemoryStore, Behaviour as Kademlia, Event as KademliaEvent},
     ping::{Behaviour as Ping, Event as PingEvent},
+    swarm::NetworkBehaviour,
+    PeerId,
 };
 use std::time::Duration;
-use anyhow::{Result, anyhow};
 
 use super::SwarmConfig;
 
@@ -22,10 +26,7 @@ pub struct NetworkBehavior {
 }
 
 impl NetworkBehavior {
-    pub fn new(
-        local_key: libp2p::identity::Keypair,
-        config: &SwarmConfig,
-    ) -> Result<Self> {
+    pub fn new(local_key: libp2p::identity::Keypair, config: &SwarmConfig) -> Result<Self> {
         let local_peer_id = PeerId::from(local_key.public());
 
         // Kademlia
@@ -40,15 +41,16 @@ impl NetworkBehavior {
             let mut gossipsub_config = config.gossipsub_config.clone();
             // Note: In libp2p 0.53, validation_mode and message_id are set differently
             // For now we'll use the default config and customize after construction
-            
+
             let mut gossipsub = Gossipsub::new(message_authenticity, gossipsub_config)
                 .map_err(|e| anyhow::anyhow!("Failed to create gossipsub: {}", e))?;
-            
+
             // Subscribe to gradient topic
             let topic = IdentTopic::new("gradients");
-            gossipsub.subscribe(&topic)
+            gossipsub
+                .subscribe(&topic)
                 .map_err(|e| anyhow!("Failed to subscribe to topic: {}", e))?;
-            
+
             gossipsub
         };
 

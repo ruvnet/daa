@@ -1,10 +1,12 @@
 //! Demo scenarios showcasing DAA orchestrator capabilities
 
 use daa_orchestrator::{
-    DaaOrchestrator, OrchestratorConfig,
-    workflow::{Workflow, WorkflowStep, WorkflowStatus},
+    config::{
+        AiConfig, ApiConfig, AutonomyConfig, ExchangeConfig, McpConfig, QuDAGConfig, RulesConfig,
+    },
     services::Service,
-    config::{AutonomyConfig, QuDAGConfig, McpConfig, ApiConfig, ExchangeConfig, RulesConfig, AiConfig},
+    workflow::{Workflow, WorkflowStatus, WorkflowStep},
+    DaaOrchestrator, OrchestratorConfig,
 };
 use serde_json::json;
 use std::time::Duration;
@@ -16,7 +18,7 @@ use uuid::Uuid;
 #[tokio::test]
 async fn demo_autonomous_treasury_management() {
     println!("\n=== DEMO: Autonomous Treasury Management ===");
-    
+
     // Configure orchestrator for treasury management
     let config = OrchestratorConfig {
         name: "treasury-manager".to_string(),
@@ -52,18 +54,22 @@ async fn demo_autonomous_treasury_management() {
             exchange_config: ExchangeConfig {
                 enabled: true,
                 endpoint: "localhost:8500".to_string(),
-                trading_pairs: vec!["rUv/USD".to_string(), "rUv/BTC".to_string(), "rUv/ETH".to_string()],
+                trading_pairs: vec![
+                    "rUv/USD".to_string(),
+                    "rUv/BTC".to_string(),
+                    "rUv/ETH".to_string(),
+                ],
                 order_book_depth: 50,
             },
         },
         ..Default::default()
     };
-    
+
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
-    
+
     println!("✓ Treasury management orchestrator initialized");
-    
+
     // Register treasury-specific services
     let treasury_services = vec![
         Service {
@@ -91,12 +97,15 @@ async fn demo_autonomous_treasury_management() {
             endpoint: "localhost:9503".to_string(),
         },
     ];
-    
+
     for service in &treasury_services {
-        orchestrator.register_service(service.clone()).await.unwrap();
+        orchestrator
+            .register_service(service.clone())
+            .await
+            .unwrap();
         println!("✓ Registered service: {}", service.name);
     }
-    
+
     // Execute comprehensive treasury management workflow
     let treasury_workflow = Workflow {
         id: Uuid::new_v4().to_string(),
@@ -214,23 +223,29 @@ async fn demo_autonomous_treasury_management() {
             },
         ],
     };
-    
+
     println!("🚀 Executing autonomous treasury management workflow...");
-    let result = orchestrator.execute_workflow(treasury_workflow.clone()).await.unwrap();
-    
+    let result = orchestrator
+        .execute_workflow(treasury_workflow.clone())
+        .await
+        .unwrap();
+
     assert!(matches!(result.status, WorkflowStatus::Completed));
     println!("✅ Treasury management workflow completed successfully");
     println!("   Workflow ID: {}", result.workflow_id);
-    
+
     // Display final statistics
     let stats = orchestrator.get_statistics().await;
     println!("📊 Treasury Management Statistics:");
     println!("   Active Workflows: {}", stats.active_workflows);
     println!("   Registered Services: {}", stats.registered_services);
-    println!("   Operations Coordinated: {}", stats.coordinated_operations);
+    println!(
+        "   Operations Coordinated: {}",
+        stats.coordinated_operations
+    );
     println!("   Events Processed: {}", stats.processed_events);
     println!("   Node ID: {}", stats.node_id);
-    
+
     println!("✅ Demo: Autonomous Treasury Management completed successfully\n");
 }
 
@@ -239,7 +254,7 @@ async fn demo_autonomous_treasury_management() {
 #[tokio::test]
 async fn demo_multi_agent_defi_coordination() {
     println!("\n=== DEMO: Multi-Agent DeFi Coordination ===");
-    
+
     let config = OrchestratorConfig {
         name: "defi-coordinator".to_string(),
         autonomy: AutonomyConfig {
@@ -289,12 +304,12 @@ async fn demo_multi_agent_defi_coordination() {
         },
         ..Default::default()
     };
-    
+
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
-    
+
     println!("✓ DeFi coordination orchestrator initialized");
-    
+
     // Register specialized DeFi agents
     let defi_agents = vec![
         Service {
@@ -340,12 +355,12 @@ async fn demo_multi_agent_defi_coordination() {
             endpoint: "localhost:9606".to_string(),
         },
     ];
-    
+
     for agent in &defi_agents {
         orchestrator.register_service(agent.clone()).await.unwrap();
         println!("✓ Registered agent: {}", agent.name);
     }
-    
+
     // Execute coordinated DeFi strategy workflow
     let defi_workflow = Workflow {
         id: Uuid::new_v4().to_string(),
@@ -474,23 +489,29 @@ async fn demo_multi_agent_defi_coordination() {
             },
         ],
     };
-    
+
     println!("🤖 Executing multi-agent DeFi coordination workflow...");
-    let result = orchestrator.execute_workflow(defi_workflow.clone()).await.unwrap();
-    
+    let result = orchestrator
+        .execute_workflow(defi_workflow.clone())
+        .await
+        .unwrap();
+
     assert!(matches!(result.status, WorkflowStatus::Completed));
     println!("✅ Multi-agent DeFi coordination completed successfully");
-    
+
     // Simulate some agent coordination time
     sleep(Duration::from_millis(500)).await;
-    
+
     let stats = orchestrator.get_statistics().await;
     println!("🤖 Multi-Agent Coordination Statistics:");
     println!("   Coordinated Agents: {}", defi_agents.len());
     println!("   Workflow Executions: 1");
     println!("   Active Services: {}", stats.registered_services);
-    println!("   Coordination Operations: {}", stats.coordinated_operations);
-    
+    println!(
+        "   Coordination Operations: {}",
+        stats.coordinated_operations
+    );
+
     println!("✅ Demo: Multi-Agent DeFi Coordination completed successfully\n");
 }
 
@@ -499,7 +520,7 @@ async fn demo_multi_agent_defi_coordination() {
 #[tokio::test]
 async fn demo_rule_violation_handling() {
     println!("\n=== DEMO: Rule Violation Handling and Compliance ===");
-    
+
     let config = OrchestratorConfig {
         name: "compliance-manager".to_string(),
         autonomy: AutonomyConfig {
@@ -510,10 +531,10 @@ async fn demo_rule_violation_handling() {
             enable_learning: true,
             rules_config: RulesConfig {
                 enabled: true,
-                fail_fast: true, // Strict compliance mode
-                max_daily_spending: 25000.0, // Conservative limit
+                fail_fast: true,                // Strict compliance mode
+                max_daily_spending: 25000.0,    // Conservative limit
                 min_balance_threshold: 15000.0, // High safety threshold
-                max_risk_score: 0.5, // Low risk tolerance
+                max_risk_score: 0.5,            // Low risk tolerance
             },
             ai_config: AiConfig {
                 enabled: true,
@@ -524,12 +545,12 @@ async fn demo_rule_violation_handling() {
         },
         ..Default::default()
     };
-    
+
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
-    
+
     println!("✓ Compliance management orchestrator initialized");
-    
+
     // Register compliance-focused services
     let compliance_services = vec![
         Service {
@@ -557,24 +578,30 @@ async fn demo_rule_violation_handling() {
             endpoint: "localhost:9703".to_string(),
         },
     ];
-    
+
     for service in &compliance_services {
-        orchestrator.register_service(service.clone()).await.unwrap();
+        orchestrator
+            .register_service(service.clone())
+            .await
+            .unwrap();
         println!("✓ Registered service: {}", service.name);
     }
-    
+
     // Test various compliance scenarios
     let compliance_scenarios = vec![
         ("spending_limit_violation", "Spending Limit Violation Test"),
-        ("balance_threshold_violation", "Balance Threshold Violation Test"),
+        (
+            "balance_threshold_violation",
+            "Balance Threshold Violation Test",
+        ),
         ("risk_score_violation", "Risk Score Violation Test"),
         ("unauthorized_operation", "Unauthorized Operation Test"),
         ("compliance_recovery", "Compliance Recovery Test"),
     ];
-    
+
     for (scenario_type, scenario_name) in &compliance_scenarios {
         println!("🔍 Testing scenario: {}", scenario_name);
-        
+
         let compliance_workflow = Workflow {
             id: Uuid::new_v4().to_string(),
             name: scenario_name.to_string(),
@@ -651,12 +678,15 @@ async fn demo_rule_violation_handling() {
                 },
             ],
         };
-        
-        let result = orchestrator.execute_workflow(compliance_workflow).await.unwrap();
+
+        let result = orchestrator
+            .execute_workflow(compliance_workflow)
+            .await
+            .unwrap();
         assert!(matches!(result.status, WorkflowStatus::Completed));
         println!("  ✅ {} completed successfully", scenario_name);
     }
-    
+
     // Execute comprehensive compliance workflow
     let comprehensive_compliance = Workflow {
         id: Uuid::new_v4().to_string(),
@@ -703,18 +733,30 @@ async fn demo_rule_violation_handling() {
             },
         ],
     };
-    
+
     println!("📋 Executing comprehensive compliance management...");
-    let result = orchestrator.execute_workflow(comprehensive_compliance).await.unwrap();
+    let result = orchestrator
+        .execute_workflow(comprehensive_compliance)
+        .await
+        .unwrap();
     assert!(matches!(result.status, WorkflowStatus::Completed));
-    
+
     let stats = orchestrator.get_statistics().await;
     println!("📋 Compliance Management Statistics:");
-    println!("   Compliance Scenarios Tested: {}", compliance_scenarios.len());
-    println!("   Total Workflows Executed: {}", compliance_scenarios.len() + 1);
+    println!(
+        "   Compliance Scenarios Tested: {}",
+        compliance_scenarios.len()
+    );
+    println!(
+        "   Total Workflows Executed: {}",
+        compliance_scenarios.len() + 1
+    );
     println!("   Compliance Services: {}", compliance_services.len());
-    println!("   Operations Coordinated: {}", stats.coordinated_operations);
-    
+    println!(
+        "   Operations Coordinated: {}",
+        stats.coordinated_operations
+    );
+
     println!("✅ Demo: Rule Violation Handling and Compliance completed successfully\n");
 }
 
@@ -723,7 +765,7 @@ async fn demo_rule_violation_handling() {
 #[tokio::test]
 async fn demo_economic_operations() {
     println!("\n=== DEMO: Economic Operations and Optimization ===");
-    
+
     let config = OrchestratorConfig {
         name: "economic-optimizer".to_string(),
         autonomy: AutonomyConfig {
@@ -751,10 +793,7 @@ async fn demo_economic_operations() {
             node_endpoint: "localhost:7700".to_string(),
             network_id: "economic-ops-network".to_string(),
             node_id: "economic-optimizer-001".to_string(),
-            bootstrap_peers: vec![
-                "localhost:7701".to_string(),
-                "localhost:7702".to_string(),
-            ],
+            bootstrap_peers: vec!["localhost:7701".to_string(), "localhost:7702".to_string()],
             connection_timeout_ms: 20000,
             max_reconnection_attempts: 3,
             participate_in_consensus: true,
@@ -773,12 +812,12 @@ async fn demo_economic_operations() {
         },
         ..Default::default()
     };
-    
+
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
-    
+
     println!("✓ Economic operations orchestrator initialized");
-    
+
     // Register economic optimization services
     let economic_services = vec![
         Service {
@@ -818,12 +857,15 @@ async fn demo_economic_operations() {
             endpoint: "localhost:9805".to_string(),
         },
     ];
-    
+
     for service in &economic_services {
-        orchestrator.register_service(service.clone()).await.unwrap();
+        orchestrator
+            .register_service(service.clone())
+            .await
+            .unwrap();
         println!("✓ Registered service: {}", service.name);
     }
-    
+
     // Execute comprehensive economic operations workflow
     let economic_workflow = Workflow {
         id: Uuid::new_v4().to_string(),
@@ -976,23 +1018,26 @@ async fn demo_economic_operations() {
             },
         ],
     };
-    
+
     println!("💰 Executing advanced economic operations workflow...");
-    let result = orchestrator.execute_workflow(economic_workflow.clone()).await.unwrap();
-    
+    let result = orchestrator
+        .execute_workflow(economic_workflow.clone())
+        .await
+        .unwrap();
+
     assert!(matches!(result.status, WorkflowStatus::Completed));
     println!("✅ Economic operations workflow completed successfully");
-    
+
     // Simulate economic operations time
     sleep(Duration::from_millis(1000)).await;
-    
+
     let stats = orchestrator.get_statistics().await;
     println!("💰 Economic Operations Statistics:");
     println!("   Portfolio Optimization Steps: 9");
     println!("   Economic Services: {}", economic_services.len());
     println!("   Total Operations: {}", stats.coordinated_operations);
     println!("   Processing Node: {}", stats.node_id);
-    
+
     println!("✅ Demo: Economic Operations and Optimization completed successfully\n");
 }
 
@@ -1000,7 +1045,7 @@ async fn demo_economic_operations() {
 #[tokio::test]
 async fn demo_full_system_integration() {
     println!("\n=== DEMO: Full System Integration ===");
-    
+
     let config = OrchestratorConfig {
         name: "full-system-demo".to_string(),
         autonomy: AutonomyConfig {
@@ -1069,34 +1114,87 @@ async fn demo_full_system_integration() {
         },
         ..Default::default()
     };
-    
+
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
-    
+
     println!("✓ Full system integration orchestrator initialized");
-    
+
     // Register comprehensive service ecosystem
     let all_services = vec![
         // AI Agents
-        Service { id: "chief-ai-strategist".to_string(), name: "Chief AI Strategist".to_string(), service_type: "ai_agent".to_string(), endpoint: "localhost:9900".to_string() },
-        Service { id: "portfolio-manager".to_string(), name: "Portfolio Manager AI".to_string(), service_type: "ai_agent".to_string(), endpoint: "localhost:9901".to_string() },
-        Service { id: "risk-manager".to_string(), name: "Risk Manager AI".to_string(), service_type: "ai_agent".to_string(), endpoint: "localhost:9902".to_string() },
-        Service { id: "compliance-officer".to_string(), name: "Compliance Officer AI".to_string(), service_type: "ai_agent".to_string(), endpoint: "localhost:9903".to_string() },
-        Service { id: "market-analyst".to_string(), name: "Market Analyst AI".to_string(), service_type: "ai_agent".to_string(), endpoint: "localhost:9904".to_string() },
+        Service {
+            id: "chief-ai-strategist".to_string(),
+            name: "Chief AI Strategist".to_string(),
+            service_type: "ai_agent".to_string(),
+            endpoint: "localhost:9900".to_string(),
+        },
+        Service {
+            id: "portfolio-manager".to_string(),
+            name: "Portfolio Manager AI".to_string(),
+            service_type: "ai_agent".to_string(),
+            endpoint: "localhost:9901".to_string(),
+        },
+        Service {
+            id: "risk-manager".to_string(),
+            name: "Risk Manager AI".to_string(),
+            service_type: "ai_agent".to_string(),
+            endpoint: "localhost:9902".to_string(),
+        },
+        Service {
+            id: "compliance-officer".to_string(),
+            name: "Compliance Officer AI".to_string(),
+            service_type: "ai_agent".to_string(),
+            endpoint: "localhost:9903".to_string(),
+        },
+        Service {
+            id: "market-analyst".to_string(),
+            name: "Market Analyst AI".to_string(),
+            service_type: "ai_agent".to_string(),
+            endpoint: "localhost:9904".to_string(),
+        },
         // Rules Engines
-        Service { id: "master-rules-engine".to_string(), name: "Master Rules Engine".to_string(), service_type: "rules_engine".to_string(), endpoint: "localhost:9905".to_string() },
-        Service { id: "compliance-rules".to_string(), name: "Compliance Rules Engine".to_string(), service_type: "rules_engine".to_string(), endpoint: "localhost:9906".to_string() },
+        Service {
+            id: "master-rules-engine".to_string(),
+            name: "Master Rules Engine".to_string(),
+            service_type: "rules_engine".to_string(),
+            endpoint: "localhost:9905".to_string(),
+        },
+        Service {
+            id: "compliance-rules".to_string(),
+            name: "Compliance Rules Engine".to_string(),
+            service_type: "rules_engine".to_string(),
+            endpoint: "localhost:9906".to_string(),
+        },
         // Infrastructure
-        Service { id: "blockchain-gateway".to_string(), name: "Blockchain Gateway".to_string(), service_type: "blockchain_bridge".to_string(), endpoint: "localhost:9907".to_string() },
-        Service { id: "data-aggregator".to_string(), name: "Data Aggregation Service".to_string(), service_type: "data_provider".to_string(), endpoint: "localhost:9908".to_string() },
-        Service { id: "execution-engine".to_string(), name: "Trade Execution Engine".to_string(), service_type: "execution".to_string(), endpoint: "localhost:9909".to_string() },
+        Service {
+            id: "blockchain-gateway".to_string(),
+            name: "Blockchain Gateway".to_string(),
+            service_type: "blockchain_bridge".to_string(),
+            endpoint: "localhost:9907".to_string(),
+        },
+        Service {
+            id: "data-aggregator".to_string(),
+            name: "Data Aggregation Service".to_string(),
+            service_type: "data_provider".to_string(),
+            endpoint: "localhost:9908".to_string(),
+        },
+        Service {
+            id: "execution-engine".to_string(),
+            name: "Trade Execution Engine".to_string(),
+            service_type: "execution".to_string(),
+            endpoint: "localhost:9909".to_string(),
+        },
     ];
-    
+
     for service in &all_services {
-        orchestrator.register_service(service.clone()).await.unwrap();
+        orchestrator
+            .register_service(service.clone())
+            .await
+            .unwrap();
         println!("✓ Registered: {}", service.name);
     }
-    
+
     // Execute comprehensive integration workflow
     let integration_workflow = Workflow {
         id: Uuid::new_v4().to_string(),
@@ -1183,13 +1281,16 @@ async fn demo_full_system_integration() {
             },
         ],
     };
-    
+
     println!("🌟 Executing full system integration workflow...");
-    let result = orchestrator.execute_workflow(integration_workflow.clone()).await.unwrap();
-    
+    let result = orchestrator
+        .execute_workflow(integration_workflow.clone())
+        .await
+        .unwrap();
+
     assert!(matches!(result.status, WorkflowStatus::Completed));
     println!("✅ Full system integration workflow completed successfully");
-    
+
     let stats = orchestrator.get_statistics().await;
     println!("🌟 Full System Integration Statistics:");
     println!("   Total Services Registered: {}", all_services.len());
@@ -1197,9 +1298,9 @@ async fn demo_full_system_integration() {
     println!("   Workflow Complexity: High");
     println!("   System Health: Operational");
     println!("   Node ID: {}", stats.node_id);
-    
+
     println!("✅ Demo: Full System Integration completed successfully\n");
-    
+
     println!("🎉 ALL DEMO SCENARIOS COMPLETED SUCCESSFULLY! 🎉");
     println!("The DAA SDK has demonstrated comprehensive capabilities across:");
     println!("  ✓ Autonomous Treasury Management");

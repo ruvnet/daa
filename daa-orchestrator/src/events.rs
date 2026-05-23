@@ -1,7 +1,7 @@
 //! Event management
 
-use serde::{Deserialize, Serialize};
 use crate::Result;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Event {
@@ -14,15 +14,25 @@ pub enum Event {
 pub struct EventManager;
 
 impl EventManager {
-    pub fn new() -> Self { Self }
-    
-    pub async fn initialize(&mut self) -> Result<()> { Ok(()) }
-    
-    pub async fn publish_event(&self, _event: Event) -> Result<()> { Ok(()) }
-    
-    pub async fn get_event_count(&self) -> u64 { 0 }
+    pub fn new() -> Self {
+        Self
+    }
+
+    pub async fn initialize(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    pub async fn publish_event(&self, _event: Event) -> Result<()> {
+        Ok(())
+    }
+
+    pub async fn get_event_count(&self) -> u64 {
+        0
+    }
 }
 
 impl Default for EventManager {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }

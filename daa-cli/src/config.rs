@@ -4,20 +4,18 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-use crate::{Cli, ConfigAction};
-
 /// CLI configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CliConfig {
     /// Orchestrator configuration file path
     pub orchestrator_config: Option<PathBuf>,
-    
+
     /// Default output format
     pub default_output_format: OutputFormat,
-    
+
     /// Connection settings
     pub connection: ConnectionConfig,
-    
+
     /// Display preferences
     pub display: DisplayConfig,
 }
@@ -34,13 +32,13 @@ pub enum OutputFormat {
 pub struct ConnectionConfig {
     /// Default API endpoint
     pub api_endpoint: String,
-    
+
     /// Default MCP endpoint
     pub mcp_endpoint: String,
-    
+
     /// Connection timeout in seconds
     pub timeout_seconds: u64,
-    
+
     /// Retry attempts
     pub retry_attempts: usize,
 }
@@ -49,13 +47,13 @@ pub struct ConnectionConfig {
 pub struct DisplayConfig {
     /// Enable colored output by default
     pub colored: bool,
-    
+
     /// Default page size for lists
     pub page_size: usize,
-    
+
     /// Show timestamps in output
     pub show_timestamps: bool,
-    
+
     /// Compact output mode
     pub compact: bool,
 }
@@ -86,27 +84,26 @@ impl CliConfig {
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let content = std::fs::read_to_string(path.as_ref())
             .with_context(|| format!("Failed to read config file: {}", path.as_ref().display()))?;
-        
+
         let config: CliConfig = toml::from_str(&content)
             .with_context(|| format!("Failed to parse config file: {}", path.as_ref().display()))?;
-        
+
         Ok(config)
     }
 
     /// Save configuration to file
     pub fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        let content = toml::to_string_pretty(self)
-            .context("Failed to serialize configuration")?;
-        
+        let content = toml::to_string_pretty(self).context("Failed to serialize configuration")?;
+
         // Create parent directory if it doesn't exist
         if let Some(parent) = path.as_ref().parent() {
             std::fs::create_dir_all(parent)
                 .with_context(|| format!("Failed to create directory: {}", parent.display()))?;
         }
-        
+
         std::fs::write(path.as_ref(), content)
             .with_context(|| format!("Failed to write config file: {}", path.as_ref().display()))?;
-        
+
         Ok(())
     }
 
@@ -133,7 +130,8 @@ impl CliConfig {
     /// Get a configuration value by key (dot notation)
     pub fn get_value(&self, key: &str) -> Result<String> {
         match key {
-            "orchestrator_config" => Ok(self.orchestrator_config
+            "orchestrator_config" => Ok(self
+                .orchestrator_config
                 .as_ref()
                 .map(|p| p.display().to_string())
                 .unwrap_or_else(|| "null".to_string())),
@@ -176,27 +174,33 @@ impl CliConfig {
                 self.connection.mcp_endpoint = value.to_string();
             }
             "connection.timeout_seconds" => {
-                self.connection.timeout_seconds = value.parse()
+                self.connection.timeout_seconds = value
+                    .parse()
                     .with_context(|| format!("Invalid timeout value: {}", value))?;
             }
             "connection.retry_attempts" => {
-                self.connection.retry_attempts = value.parse()
+                self.connection.retry_attempts = value
+                    .parse()
                     .with_context(|| format!("Invalid retry attempts value: {}", value))?;
             }
             "display.colored" => {
-                self.display.colored = value.parse()
+                self.display.colored = value
+                    .parse()
                     .with_context(|| format!("Invalid boolean value: {}", value))?;
             }
             "display.page_size" => {
-                self.display.page_size = value.parse()
+                self.display.page_size = value
+                    .parse()
                     .with_context(|| format!("Invalid page size value: {}", value))?;
             }
             "display.show_timestamps" => {
-                self.display.show_timestamps = value.parse()
+                self.display.show_timestamps = value
+                    .parse()
                     .with_context(|| format!("Invalid boolean value: {}", value))?;
             }
             "display.compact" => {
-                self.display.compact = value.parse()
+                self.display.compact = value
+                    .parse()
                     .with_context(|| format!("Invalid boolean value: {}", value))?;
             }
             _ => anyhow::bail!("Unknown configuration key: {}", key),
@@ -205,98 +209,21 @@ impl CliConfig {
     }
 }
 
-/// Handle config command
-pub async fn handle_config(action: ConfigAction, config: &CliConfig, cli: &Cli) -> Result<()> {
-    match action {
-        ConfigAction::Show => {
-            if cli.json {
-                println!("{}", serde_json::to_string_pretty(config)?);
-            } else {
-                println!("DAA CLI Configuration:");
-                println!("  Orchestrator Config: {:?}", config.orchestrator_config);
-                println!("  Output Format: {:?}", config.default_output_format);
-                println!("  API Endpoint: {}", config.connection.api_endpoint);
-                println!("  MCP Endpoint: {}", config.connection.mcp_endpoint);
-                println!("  Timeout: {}s", config.connection.timeout_seconds);
-                println!("  Retry Attempts: {}", config.connection.retry_attempts);
-                println!("  Colored Output: {}", config.display.colored);
-                println!("  Page Size: {}", config.display.page_size);
-                println!("  Show Timestamps: {}", config.display.show_timestamps);
-                println!("  Compact Mode: {}", config.display.compact);
-            }
-        }
-        ConfigAction::Get { key } => {
-            let value = config.get_value(&key)?;
-            if cli.json {
-                println!("{}", serde_json::json!({ "key": key, "value": value }));
-            } else {
-                println!("{}: {}", key, value);
-            }
-        }
-        ConfigAction::Set { key, value } => {
-            let mut new_config = config.clone();
-            new_config.set_value(&key, &value)?;
-            new_config.validate()?;
-            
-            // Save to config file
-            let config_path = crate::utils::get_default_config_path()?;
-            new_config.to_file(&config_path)?;
-            
-            if cli.json {
-                println!("{}", serde_json::json!({ "key": key, "value": value, "status": "updated" }));
-            } else {
-                println!("Updated {}: {}", key, value);
-                println!("Configuration saved to: {}", config_path.display());
-            }
-        }
-        ConfigAction::Validate => {
-            match config.validate() {
-                Ok(_) => {
-                    if cli.json {
-                        println!("{}", serde_json::json!({ "status": "valid" }));
-                    } else {
-                        println!("✓ Configuration is valid");
-                    }
-                }
-                Err(e) => {
-                    if cli.json {
-                        println!("{}", serde_json::json!({ "status": "invalid", "error": e.to_string() }));
-                    } else {
-                        println!("✗ Configuration is invalid: {}", e);
-                    }
-                    std::process::exit(1);
-                }
-            }
-        }
-        ConfigAction::Reset { yes } => {
-            if !yes {
-                print!("This will reset your configuration to defaults. Are you sure? (y/N): ");
-                use std::io::{self, Write};
-                io::stdout().flush()?;
-                
-                let mut input = String::new();
-                io::stdin().read_line(&mut input)?;
-                
-                if !input.trim().to_lowercase().starts_with('y') {
-                    println!("Configuration reset cancelled");
-                    return Ok(());
-                }
-            }
-            
-            let default_config = CliConfig::default();
-            let config_path = crate::utils::get_default_config_path()?;
-            default_config.to_file(&config_path)?;
-            
-            if cli.json {
-                println!("{}", serde_json::json!({ "status": "reset" }));
-            } else {
-                println!("Configuration reset to defaults");
-                println!("Configuration saved to: {}", config_path.display());
-            }
-        }
+/// Load configuration from the given path, or use defaults if the path is None
+/// or the file does not exist.
+pub async fn load_config(config_path: Option<&std::path::PathBuf>) -> Result<CliConfig> {
+    let path = if let Some(p) = config_path {
+        p.clone()
+    } else {
+        crate::utils::get_default_config_path()?
+    };
+
+    if path.exists() {
+        CliConfig::from_file(&path)
+            .with_context(|| format!("Failed to load config from {}", path.display()))
+    } else {
+        Ok(CliConfig::default())
     }
-    
-    Ok(())
 }
 
 #[cfg(test)]
@@ -324,10 +251,10 @@ mod tests {
     fn test_config_file_operations() {
         let config = CliConfig::default();
         let temp_file = NamedTempFile::new().unwrap();
-        
+
         // Test saving
         config.to_file(temp_file.path()).unwrap();
-        
+
         // Test loading
         let loaded_config = CliConfig::from_file(temp_file.path()).unwrap();
         assert!(loaded_config.validate().is_ok());
@@ -336,15 +263,20 @@ mod tests {
     #[test]
     fn test_get_set_values() {
         let mut config = CliConfig::default();
-        
+
         // Test getting values
-        assert_eq!(config.get_value("connection.timeout_seconds").unwrap(), "30");
+        assert_eq!(
+            config.get_value("connection.timeout_seconds").unwrap(),
+            "30"
+        );
         assert_eq!(config.get_value("display.colored").unwrap(), "true");
-        
+
         // Test setting values
-        config.set_value("connection.timeout_seconds", "60").unwrap();
+        config
+            .set_value("connection.timeout_seconds", "60")
+            .unwrap();
         assert_eq!(config.connection.timeout_seconds, 60);
-        
+
         config.set_value("display.colored", "false").unwrap();
         assert!(!config.display.colored);
     }
@@ -352,13 +284,15 @@ mod tests {
     #[test]
     fn test_invalid_values() {
         let mut config = CliConfig::default();
-        
+
         // Test invalid timeout
-        assert!(config.set_value("connection.timeout_seconds", "invalid").is_err());
-        
+        assert!(config
+            .set_value("connection.timeout_seconds", "invalid")
+            .is_err());
+
         // Test invalid boolean
         assert!(config.set_value("display.colored", "maybe").is_err());
-        
+
         // Test unknown key
         assert!(config.get_value("unknown.key").is_err());
         assert!(config.set_value("unknown.key", "value").is_err());

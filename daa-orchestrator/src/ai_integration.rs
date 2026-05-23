@@ -1,7 +1,7 @@
 //! AI integration module for DAA orchestrator
 
-use anyhow::Result;
 use crate::OrchestratorError;
+use anyhow::Result;
 
 /// AI integration manager
 pub struct AIIntegration {
@@ -28,7 +28,7 @@ impl AIIntegration {
             config: AIConfig::default(),
         })
     }
-    
+
     /// Initialize AI integration
     pub async fn initialize(&mut self) -> Result<(), OrchestratorError> {
         tracing::info!("Initializing AI integration");

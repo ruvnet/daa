@@ -64,7 +64,10 @@ fn current_timestamp() -> u64 {
 /// Protocol handler trait
 #[async_trait::async_trait]
 pub trait ProtocolHandler: Send + Sync {
-    async fn handle_message(&self, message: ProtocolMessage) -> crate::Result<Option<ProtocolMessage>>;
+    async fn handle_message(
+        &self,
+        message: ProtocolMessage,
+    ) -> crate::Result<Option<ProtocolMessage>>;
     async fn validate_message(&self, message: &ProtocolMessage) -> crate::Result<()>;
 }
 
@@ -78,7 +81,7 @@ mod tests {
     fn test_protocol_message_creation() {
         let sender = NodeId::new("node1");
         let msg = ProtocolMessage::new(sender.clone(), MessageType::Ping);
-        
+
         assert_eq!(msg.version, PROTOCOL_VERSION);
         assert_eq!(msg.sender, sender);
         assert!(msg.recipient.is_none());
@@ -89,9 +92,8 @@ mod tests {
     fn test_message_with_recipient() {
         let sender = NodeId::new("node1");
         let recipient = NodeId::new("node2");
-        let msg = ProtocolMessage::new(sender, MessageType::Ping)
-            .with_recipient(recipient.clone());
-        
+        let msg = ProtocolMessage::new(sender, MessageType::Ping).with_recipient(recipient.clone());
+
         assert_eq!(msg.recipient, Some(recipient));
     }
 
@@ -99,7 +101,7 @@ mod tests {
     fn test_message_signing() {
         let sender = NodeId::new("node1");
         let mut msg = ProtocolMessage::new(sender, MessageType::Ping);
-        
+
         assert!(msg.signature.is_none());
         msg.sign(&[]);
         assert!(msg.signature.is_some());
@@ -116,7 +118,7 @@ mod tests {
                 MessageType::DhtGet { key: vec![1, 2, 3] },
             ];
             let msg_type = g.choose(&msg_types).unwrap().clone();
-            
+
             ProtocolMessage::new(sender, msg_type)
         }
     }
@@ -125,10 +127,10 @@ mod tests {
     fn test_protocol_message_roundtrip(msg: ProtocolMessage) -> bool {
         let serialized = serde_json::to_string(&msg).unwrap();
         let deserialized: ProtocolMessage = serde_json::from_str(&serialized).unwrap();
-        
-        msg.message_id == deserialized.message_id &&
-        msg.sender == deserialized.sender &&
-        msg.version == deserialized.version
+
+        msg.message_id == deserialized.message_id
+            && msg.sender == deserialized.sender
+            && msg.version == deserialized.version
     }
 
     proptest! {
@@ -137,7 +139,7 @@ mod tests {
             count in 10..100
         ) {
             let mut ids = std::collections::HashSet::new();
-            
+
             for _ in 0..count {
                 let id = generate_message_id();
                 assert!(ids.insert(id), "Duplicate message ID generated");
@@ -149,12 +151,12 @@ mod tests {
             delays in prop::collection::vec(0u64..100u64, 5..10)
         ) {
             let mut timestamps = Vec::new();
-            
+
             for delay in delays {
                 std::thread::sleep(std::time::Duration::from_millis(delay));
                 timestamps.push(current_timestamp());
             }
-            
+
             // Check timestamps are non-decreasing
             for window in timestamps.windows(2) {
                 assert!(window[0] <= window[1]);

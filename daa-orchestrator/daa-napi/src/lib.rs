@@ -35,16 +35,16 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 // Module declarations
-mod orchestrator;
-mod workflow;
-mod rules;
 mod economy;
+mod orchestrator;
+mod rules;
+mod workflow;
 
 // Re-export main types for easier access
-pub use orchestrator::*;
-pub use workflow::*;
-pub use rules::*;
 pub use economy::*;
+pub use orchestrator::*;
+pub use rules::*;
+pub use workflow::*;
 
 /// Initialize the DAA orchestrator library.
 /// This sets up logging and prepares the runtime environment.
@@ -67,7 +67,7 @@ pub fn initialize(log_level: Option<String>) -> Result<()> {
     let subscriber = tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(&level))
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(&level)),
         )
         .with_target(false)
         .with_thread_ids(false)
@@ -78,7 +78,10 @@ pub fn initialize(log_level: Option<String>) -> Result<()> {
     tracing::subscriber::set_global_default(subscriber)
         .map_err(|e| Error::from_reason(format!("Failed to initialize tracing: {}", e)))?;
 
-    tracing::info!("DAA Orchestrator NAPI initialized with log level: {}", level);
+    tracing::info!(
+        "DAA Orchestrator NAPI initialized with log level: {}",
+        level
+    );
 
     Ok(())
 }

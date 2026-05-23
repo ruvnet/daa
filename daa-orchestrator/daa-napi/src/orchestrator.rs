@@ -3,11 +3,11 @@
 //! Provides Node.js access to the DAA orchestrator's MRAP (Monitor, Reason, Act, Plan) loop
 //! and autonomy management capabilities.
 
+use daa_orchestrator::autonomy::{AutonomyLoop, AutonomyState};
+use daa_orchestrator::config::{AiConfig, AutonomyConfig, RulesConfig};
 use napi::bindgen_prelude::*;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use daa_orchestrator::autonomy::{AutonomyLoop, AutonomyState};
-use daa_orchestrator::config::{AutonomyConfig, RulesConfig, AiConfig};
 
 /// Orchestrator configuration for Node.js
 #[napi(object)]
@@ -160,9 +160,9 @@ impl Orchestrator {
         // Create autonomy loop in a blocking context
         let autonomy_loop = tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                AutonomyLoop::new(rust_config.clone())
-                    .await
-                    .map_err(|e| Error::from_reason(format!("Failed to create autonomy loop: {}", e)))
+                AutonomyLoop::new(rust_config.clone()).await.map_err(|e| {
+                    Error::from_reason(format!("Failed to create autonomy loop: {}", e))
+                })
             })
         })?;
 

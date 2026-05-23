@@ -2,12 +2,12 @@
 
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
 use blake3::Hasher;
 use ed25519_dalek::{Signature, Signer, Verifier, VerifyingKey};
+use serde::{Deserialize, Serialize};
 
-use crate::qudag_stubs::qudag_core::{Transaction, Hash};
-use crate::{Result, ChainError};
+use crate::qudag_stubs::qudag_core::{Hash, Transaction};
+use crate::{ChainError, Result};
 
 /// Transaction types supported by DAA Chain
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,28 +18,28 @@ pub enum TransactionType {
         public_key: Vec<u8>,
         capabilities: Vec<String>,
     },
-    
+
     /// Resource allocation transaction
     ResourceAllocation {
         agent_id: String,
         resource_type: String,
         amount: u64,
     },
-    
+
     /// Task assignment transaction
     TaskAssignment {
         task_id: String,
         agent_id: String,
         parameters: HashMap<String, String>,
     },
-    
+
     /// Reward distribution transaction
     RewardDistribution {
         agent_id: String,
         amount: u64,
         reason: String,
     },
-    
+
     /// Generic data transaction
     Data {
         data: Vec<u8>,
@@ -94,12 +94,10 @@ impl TransactionBuilder {
     }
 
     /// Build and sign the transaction
-    pub fn build_and_sign(
-        self,
-        private_key: &ed25519_dalek::SigningKey,
-    ) -> Result<Transaction> {
-        let tx_type = self.transaction_type.clone()
-            .ok_or_else(|| ChainError::InvalidTransaction("Missing transaction type".to_string()))?;
+    pub fn build_and_sign(self, private_key: &ed25519_dalek::SigningKey) -> Result<Transaction> {
+        let tx_type = self.transaction_type.clone().ok_or_else(|| {
+            ChainError::InvalidTransaction("Missing transaction type".to_string())
+        })?;
 
         // Create transaction data
         let tx_data = DaaTransactionData {
@@ -137,7 +135,11 @@ impl TransactionBuilder {
         hasher.update(&serialized);
         let hash = Hash::from_bytes(hasher.finalize().as_bytes());
 
-        Ok(Transaction::new_with_data(hash, serialized, daa_tx.signature))
+        Ok(Transaction::new_with_data(
+            hash,
+            serialized,
+            daa_tx.signature,
+        ))
     }
 }
 
@@ -172,8 +174,9 @@ impl TransactionValidator {
     /// Validate a QuDAG transaction as a DAA transaction
     pub fn validate_transaction(tx: &Transaction) -> Result<DaaTransaction> {
         // Deserialize transaction data
-        let daa_tx: DaaTransaction = serde_json::from_slice(tx.data())
-            .map_err(|e| ChainError::InvalidTransaction(format!("Invalid transaction format: {}", e)))?;
+        let daa_tx: DaaTransaction = serde_json::from_slice(tx.data()).map_err(|e| {
+            ChainError::InvalidTransaction(format!("Invalid transaction format: {}", e))
+        })?;
 
         // Verify signature
         Self::verify_signature(&daa_tx)?;
@@ -191,21 +194,26 @@ impl TransactionValidator {
             .map_err(|e| ChainError::InvalidTransaction(format!("Serialization failed: {}", e)))?;
 
         // Parse public key
-        let public_key_bytes: [u8; 32] = daa_tx.public_key.as_slice().try_into()
-            .map_err(|_| ChainError::InvalidTransaction("Invalid public key length".to_string()))?;
-        
+        let public_key_bytes: [u8; 32] =
+            daa_tx.public_key.as_slice().try_into().map_err(|_| {
+                ChainError::InvalidTransaction("Invalid public key length".to_string())
+            })?;
+
         let public_key = VerifyingKey::from_bytes(&public_key_bytes)
             .map_err(|e| ChainError::InvalidTransaction(format!("Invalid public key: {}", e)))?;
 
         // Parse signature
-        let signature_bytes: [u8; 64] = daa_tx.signature.as_slice().try_into()
-            .map_err(|_| ChainError::InvalidTransaction("Invalid signature length".to_string()))?;
-        
+        let signature_bytes: [u8; 64] =
+            daa_tx.signature.as_slice().try_into().map_err(|_| {
+                ChainError::InvalidTransaction("Invalid signature length".to_string())
+            })?;
+
         let signature = Signature::from_bytes(&signature_bytes);
 
         // Verify signature
-        public_key.verify(&serialized, &signature)
-            .map_err(|e| ChainError::InvalidTransaction(format!("Signature verification failed: {}", e)))?;
+        public_key.verify(&serialized, &signature).map_err(|e| {
+            ChainError::InvalidTransaction(format!("Signature verification failed: {}", e))
+        })?;
 
         Ok(())
     }
@@ -213,39 +221,57 @@ impl TransactionValidator {
     /// Validate transaction type specific rules
     fn validate_transaction_type(tx_type: &TransactionType) -> Result<()> {
         match tx_type {
-            TransactionType::AgentRegistration { agent_id, public_key, .. } => {
+            TransactionType::AgentRegistration {
+                agent_id,
+                public_key,
+                ..
+            } => {
                 if agent_id.is_empty() {
                     return Err(ChainError::InvalidTransaction("Empty agent ID".to_string()));
                 }
                 if public_key.len() != 32 {
-                    return Err(ChainError::InvalidTransaction("Invalid public key length".to_string()));
+                    return Err(ChainError::InvalidTransaction(
+                        "Invalid public key length".to_string(),
+                    ));
                 }
             }
-            
-            TransactionType::ResourceAllocation { agent_id, amount, .. } => {
+
+            TransactionType::ResourceAllocation {
+                agent_id, amount, ..
+            } => {
                 if agent_id.is_empty() {
                     return Err(ChainError::InvalidTransaction("Empty agent ID".to_string()));
                 }
                 if *amount == 0 {
-                    return Err(ChainError::InvalidTransaction("Zero allocation amount".to_string()));
+                    return Err(ChainError::InvalidTransaction(
+                        "Zero allocation amount".to_string(),
+                    ));
                 }
             }
-            
-            TransactionType::TaskAssignment { task_id, agent_id, .. } => {
+
+            TransactionType::TaskAssignment {
+                task_id, agent_id, ..
+            } => {
                 if task_id.is_empty() || agent_id.is_empty() {
-                    return Err(ChainError::InvalidTransaction("Empty task or agent ID".to_string()));
+                    return Err(ChainError::InvalidTransaction(
+                        "Empty task or agent ID".to_string(),
+                    ));
                 }
             }
-            
-            TransactionType::RewardDistribution { agent_id, amount, .. } => {
+
+            TransactionType::RewardDistribution {
+                agent_id, amount, ..
+            } => {
                 if agent_id.is_empty() {
                     return Err(ChainError::InvalidTransaction("Empty agent ID".to_string()));
                 }
                 if *amount == 0 {
-                    return Err(ChainError::InvalidTransaction("Zero reward amount".to_string()));
+                    return Err(ChainError::InvalidTransaction(
+                        "Zero reward amount".to_string(),
+                    ));
                 }
             }
-            
+
             TransactionType::Data { data, .. } => {
                 if data.is_empty() {
                     return Err(ChainError::InvalidTransaction("Empty data".to_string()));
@@ -275,7 +301,9 @@ impl TransactionPool {
     /// Add a transaction to the pool
     pub fn add_transaction(&mut self, tx: Transaction) -> Result<()> {
         if self.pending.len() >= self.max_size {
-            return Err(ChainError::InvalidTransaction("Transaction pool full".to_string()));
+            return Err(ChainError::InvalidTransaction(
+                "Transaction pool full".to_string(),
+            ));
         }
 
         let daa_tx = TransactionValidator::validate_transaction(&tx)?;
@@ -343,7 +371,7 @@ mod tests {
             .unwrap();
 
         let daa_tx = TransactionValidator::validate_transaction(&tx).unwrap();
-        
+
         match daa_tx.data.transaction_type {
             TransactionType::AgentRegistration { agent_id, .. } => {
                 assert_eq!(agent_id, "test-agent");

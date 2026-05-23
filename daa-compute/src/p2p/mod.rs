@@ -4,33 +4,36 @@
 //! gradient sharing and model synchronization.
 
 pub mod behavior;
-pub mod transport;
-pub mod gradient;
 pub mod compression;
-pub mod routing;
 pub mod discovery;
+pub mod gradient;
 pub mod nat;
+pub mod routing;
+pub mod transport;
 
+use anyhow::Result;
+use libp2p::{
+    autonat,
+    gossipsub::{
+        self, Behaviour as Gossipsub, Config as GossipsubConfig, Event as GossipsubEvent,
+        MessageAuthenticity, ValidationMode,
+    },
+    identify::{Behaviour as Identify, Config as IdentifyConfig, Event as IdentifyEvent},
+    kad::{
+        store::MemoryStore, Behaviour as Kademlia, Config as KademliaConfig, Event as KademliaEvent,
+    },
+    mdns::{tokio::Behaviour as Mdns, Event as MdnsEvent},
+    ping::{Behaviour as Ping, Event as PingEvent},
+    relay, upnp, Multiaddr, PeerId, Swarm, SwarmBuilder,
+};
 use std::sync::Arc;
 use std::time::Duration;
-use libp2p::{
-    Swarm, SwarmBuilder, PeerId, Multiaddr,
-    kad::{Behaviour as Kademlia, Config as KademliaConfig, Event as KademliaEvent, store::MemoryStore},
-    gossipsub::{self, Behaviour as Gossipsub, Event as GossipsubEvent, MessageAuthenticity, ValidationMode, Config as GossipsubConfig},
-    identify::{Behaviour as Identify, Config as IdentifyConfig, Event as IdentifyEvent},
-    ping::{Behaviour as Ping, Event as PingEvent},
-    mdns::{tokio::Behaviour as Mdns, Event as MdnsEvent},
-    relay,
-    autonat,
-    upnp,
-};
 use tokio::sync::{mpsc, RwLock};
-use anyhow::Result;
-use tracing::{info, debug, warn, error};
+use tracing::{debug, error, info, warn};
 
-pub use behavior::{NetworkBehavior, ComposedEvent};
-pub use transport::{TransportConfig, create_transport};
-pub use gradient::{GradientMessage, AllReduce};
+pub use behavior::{ComposedEvent, NetworkBehavior};
+pub use gradient::{AllReduce, GradientMessage};
+pub use transport::{create_transport, TransportConfig};
 
 /// Configuration for the P2P swarm
 #[derive(Debug, Clone)]
@@ -88,7 +91,7 @@ impl P2PNetwork {
     pub async fn new(config: SwarmConfig) -> Result<Self> {
         let local_key = libp2p::identity::Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(local_key.public());
-        
+
         info!("Local peer ID: {}", local_peer_id);
 
         // Create transport
@@ -101,10 +104,7 @@ impl P2PNetwork {
         let transport = create_transport(&local_key, transport_config)?;
 
         // Create network behavior
-        let behavior = NetworkBehavior::new(
-            local_key.clone(),
-            &config,
-        )?;
+        let behavior = NetworkBehavior::new(local_key.clone(), &config)?;
 
         // Build swarm
         let mut swarm = SwarmBuilder::with_existing_identity(local_key)
@@ -124,9 +124,10 @@ impl P2PNetwork {
         let (event_tx, event_rx) = mpsc::unbounded_channel();
 
         // Create gradient manager
-        let gradient_manager = Arc::new(RwLock::new(
-            gradient::GradientManager::new(local_peer_id, config.compression_level)
-        ));
+        let gradient_manager = Arc::new(RwLock::new(gradient::GradientManager::new(
+            local_peer_id,
+            config.compression_level,
+        )));
 
         Ok(Self {
             swarm,
@@ -141,20 +142,23 @@ impl P2PNetwork {
     pub async fn bootstrap(&mut self) -> Result<()> {
         for (peer_id, addr) in &self.config.bootstrap_nodes {
             self.swarm.dial(addr.clone())?;
-            self.swarm.behaviour_mut().kademlia.add_address(peer_id, addr.clone());
+            self.swarm
+                .behaviour_mut()
+                .kademlia
+                .add_address(peer_id, addr.clone());
             info!("Connecting to bootstrap node {} at {}", peer_id, addr);
         }
-        
+
         // Bootstrap Kademlia
         self.swarm.behaviour_mut().kademlia.bootstrap()?;
-        
+
         Ok(())
     }
 
     /// Run the network event loop
     pub async fn run(&mut self) -> Result<()> {
         use futures::StreamExt;
-        
+
         loop {
             tokio::select! {
                 event = self.swarm.select_next_some() => {
@@ -181,9 +185,15 @@ impl P2PNetwork {
     /// Handle behavior events
     async fn handle_behavior_event(&mut self, event: behavior::NetworkBehaviorEvent) -> Result<()> {
         match event {
-            behavior::NetworkBehaviorEvent::Kademlia(event) => self.handle_kademlia_event(event).await?,
-            behavior::NetworkBehaviorEvent::Gossipsub(event) => self.handle_gossipsub_event(event).await?,
-            behavior::NetworkBehaviorEvent::Identify(event) => self.handle_identify_event(event).await?,
+            behavior::NetworkBehaviorEvent::Kademlia(event) => {
+                self.handle_kademlia_event(event).await?
+            }
+            behavior::NetworkBehaviorEvent::Gossipsub(event) => {
+                self.handle_gossipsub_event(event).await?
+            }
+            behavior::NetworkBehaviorEvent::Identify(event) => {
+                self.handle_identify_event(event).await?
+            }
             behavior::NetworkBehaviorEvent::Ping(event) => self.handle_ping_event(event).await?,
         }
         Ok(())
@@ -191,8 +201,8 @@ impl P2PNetwork {
 
     /// Handle Kademlia events
     async fn handle_kademlia_event(&mut self, event: KademliaEvent) -> Result<()> {
-        use libp2p::kad::{QueryResult, GetClosestPeersOk};
-        
+        use libp2p::kad::{GetClosestPeersOk, QueryResult};
+
         match event {
             KademliaEvent::RoutingUpdated { peer, .. } => {
                 debug!("Routing updated for peer: {}", peer);
@@ -205,13 +215,24 @@ impl P2PNetwork {
     /// Handle Gossipsub events
     async fn handle_gossipsub_event(&mut self, event: GossipsubEvent) -> Result<()> {
         match event {
-            GossipsubEvent::Message { propagation_source, message_id, message } => {
-                debug!("Received message {} from {}", message_id, propagation_source);
-                
+            GossipsubEvent::Message {
+                propagation_source,
+                message_id,
+                message,
+            } => {
+                debug!(
+                    "Received message {} from {}",
+                    message_id, propagation_source
+                );
+
                 // Handle gradient messages
                 if message.topic == gradient::GRADIENT_TOPIC.hash() {
                     let gradient_msg: GradientMessage = bincode::deserialize(&message.data)?;
-                    self.gradient_manager.write().await.handle_gradient_message(gradient_msg).await?;
+                    self.gradient_manager
+                        .write()
+                        .await
+                        .handle_gradient_message(gradient_msg)
+                        .await?;
                 }
             }
             GossipsubEvent::Subscribed { peer_id, topic } => {
@@ -227,10 +248,13 @@ impl P2PNetwork {
         match event {
             IdentifyEvent::Received { peer_id, info } => {
                 debug!("Identified peer {}: {:?}", peer_id, info.protocol_version);
-                
+
                 // Add addresses to Kademlia
                 for addr in info.listen_addrs {
-                    self.swarm.behaviour_mut().kademlia.add_address(&peer_id, addr);
+                    self.swarm
+                        .behaviour_mut()
+                        .kademlia
+                        .add_address(&peer_id, addr);
                 }
             }
             _ => {}
@@ -257,7 +281,10 @@ impl P2PNetwork {
             MdnsEvent::Discovered(peers) => {
                 for (peer_id, addr) in peers {
                     info!("Discovered peer {} at {} via mDNS", peer_id, addr);
-                    self.swarm.behaviour_mut().kademlia.add_address(&peer_id, addr.clone());
+                    self.swarm
+                        .behaviour_mut()
+                        .kademlia
+                        .add_address(&peer_id, addr.clone());
                     self.swarm.dial(addr)?;
                 }
             }
@@ -272,22 +299,33 @@ impl P2PNetwork {
 
     /// Broadcast a gradient update
     pub async fn broadcast_gradient(&mut self, gradient: Vec<f32>) -> Result<()> {
-        let compressed = self.gradient_manager.read().await.compress_gradient(&gradient)?;
+        let compressed = self
+            .gradient_manager
+            .read()
+            .await
+            .compress_gradient(&gradient)?;
         let message = GradientMessage {
             peer_id: self.swarm.local_peer_id().clone(),
             round: self.gradient_manager.read().await.current_round(),
             compressed_gradient: compressed,
             timestamp: std::time::SystemTime::now(),
         };
-        
+
         let data = bincode::serialize(&message)?;
-        self.swarm.behaviour_mut().gossipsub.publish(gradient::GRADIENT_TOPIC.clone(), data)?;
-        
+        self.swarm
+            .behaviour_mut()
+            .gossipsub
+            .publish(gradient::GRADIENT_TOPIC.clone(), data)?;
+
         Ok(())
     }
 
     /// Get the current aggregated gradient
     pub async fn get_aggregated_gradient(&self) -> Result<Option<Vec<f32>>> {
-        self.gradient_manager.read().await.get_aggregated_gradient().await
+        self.gradient_manager
+            .read()
+            .await
+            .get_aggregated_gradient()
+            .await
     }
 }

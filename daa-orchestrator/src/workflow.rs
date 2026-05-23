@@ -1,7 +1,7 @@
 //! Workflow management
 
-use serde::{Deserialize, Serialize};
 use crate::{Result, WorkflowConfig};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Workflow {
@@ -47,8 +47,10 @@ impl WorkflowEngine {
         Self { config }
     }
 
-    pub async fn start(&mut self) -> Result<()> { Ok(()) }
-    
+    pub async fn start(&mut self) -> Result<()> {
+        Ok(())
+    }
+
     pub async fn execute(&self, workflow: Workflow) -> Result<WorkflowResult> {
         Ok(WorkflowResult {
             workflow_id: workflow.id,
@@ -56,6 +58,8 @@ impl WorkflowEngine {
             results: vec![],
         })
     }
-    
-    pub async fn get_active_count(&self) -> u64 { 0 }
+
+    pub async fn get_active_count(&self) -> u64 {
+        0
+    }
 }

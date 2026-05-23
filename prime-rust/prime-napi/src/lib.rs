@@ -51,7 +51,7 @@ pub fn version() -> String {
 }
 
 // Re-export main types
-pub use buffer::{TensorBuffer, create_tensor_buffer, tensor_from_buffer};
+pub use buffer::{create_tensor_buffer, tensor_from_buffer, TensorBuffer};
 pub use coordinator::{Coordinator, CoordinatorConfig, CoordinatorStatusJs};
-pub use trainer::{TrainingNode, TrainingConfigJs, TrainingMetricsJs, GradientUpdateJs};
-pub use types::{NodeInfoJs, OptimizerTypeJs, AggregationStrategyJs};
+pub use trainer::{GradientUpdateJs, TrainingConfigJs, TrainingMetricsJs, TrainingNode};
+pub use types::{AggregationStrategyJs, NodeInfoJs, OptimizerTypeJs};

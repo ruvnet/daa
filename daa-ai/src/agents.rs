@@ -1,9 +1,9 @@
 //! Agent management for DAA AI
 
-use std::collections::HashMap;
+use crate::{AIError, AgentConfig, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use uuid::Uuid;
-use crate::{Result, AIError, AgentConfig};
 
 /// Agent types
 #[derive(Debug, Clone, Serialize, Deserialize)]

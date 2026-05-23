@@ -1,24 +1,26 @@
 //! # DAA AI
 //!
 //! AI integration layer for the Decentralized Autonomous Agents (DAA) system.
-//! Provides Claude AI integration via QuDAG MCP (Model Context Protocol) for 
+//! Provides Claude AI integration via QuDAG MCP (Model Context Protocol) for
 //! intelligent decision making and task automation.
 
 mod qudag_stubs;
 
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use thiserror::Error;
 use uuid::Uuid;
 
 // Re-export QuDAG MCP types
-pub use crate::qudag_stubs::qudag_mcp::{MCPClient, MCPMessage, MCPError, Tool, ToolCall, ToolResult};
+pub use crate::qudag_stubs::qudag_mcp::{
+    MCPClient, MCPError, MCPMessage, Tool, ToolCall, ToolResult,
+};
 
-pub mod claude;
 pub mod agents;
-pub mod tools;
-pub mod tasks;
+pub mod claude;
 pub mod memory;
+pub mod tasks;
+pub mod tools;
 
 #[cfg(feature = "rules-integration")]
 pub mod rules_integration;
@@ -31,28 +33,28 @@ pub mod database;
 pub enum AIError {
     #[error("MCP error: {0}")]
     MCP(#[from] MCPError),
-    
+
     #[error("Claude API error: {0}")]
     Claude(String),
-    
+
     #[error("Agent not found: {0}")]
     AgentNotFound(String),
-    
+
     #[error("Task execution error: {0}")]
     TaskExecution(String),
-    
+
     #[error("Tool error: {0}")]
     Tool(String),
-    
+
     #[error("Memory error: {0}")]
     Memory(String),
-    
+
     #[error("Configuration error: {0}")]
     Configuration(String),
-    
+
     #[error("Network error: {0}")]
     Network(#[from] reqwest::Error),
-    
+
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
 }
@@ -64,16 +66,16 @@ pub type Result<T> = std::result::Result<T, AIError>;
 pub struct AIConfig {
     /// Claude API configuration
     pub claude: claude::ClaudeConfig,
-    
+
     /// MCP client configuration
     pub mcp: MCPClientConfig,
-    
+
     /// Agent configuration
     pub agents: AgentConfig,
-    
+
     /// Memory configuration
     pub memory: MemoryConfig,
-    
+
     /// Database configuration
     #[cfg(feature = "database")]
     pub database_url: Option<String>,
@@ -97,16 +99,16 @@ impl Default for AIConfig {
 pub struct MCPClientConfig {
     /// MCP server endpoint
     pub server_url: String,
-    
+
     /// Connection timeout in seconds
     pub timeout: u64,
-    
+
     /// Maximum concurrent connections
     pub max_connections: usize,
-    
+
     /// Retry configuration
     pub retry_attempts: u32,
-    
+
     /// Tool registry
     pub available_tools: Vec<String>,
 }
@@ -133,10 +135,10 @@ impl Default for MCPClientConfig {
 pub struct AgentConfig {
     /// Maximum number of agents
     pub max_agents: usize,
-    
+
     /// Default agent capabilities
     pub default_capabilities: Vec<String>,
-    
+
     /// Agent spawn configuration
     pub spawn_config: SpawnConfig,
 }
@@ -161,13 +163,13 @@ impl Default for AgentConfig {
 pub struct SpawnConfig {
     /// Default model to use for new agents
     pub default_model: String,
-    
+
     /// Default system prompt
     pub default_system_prompt: String,
-    
+
     /// Default temperature for responses
     pub default_temperature: f32,
-    
+
     /// Maximum tokens per response
     pub max_tokens: u32,
 }
@@ -188,10 +190,10 @@ impl Default for SpawnConfig {
 pub struct MemoryConfig {
     /// Maximum memory entries per agent
     pub max_entries_per_agent: usize,
-    
+
     /// Memory retention period in hours
     pub retention_hours: u64,
-    
+
     /// Enable persistent memory
     pub persistent: bool,
 }
@@ -210,25 +212,25 @@ impl Default for MemoryConfig {
 pub struct AISystem {
     /// System configuration
     config: AIConfig,
-    
+
     /// MCP client for Claude integration
     mcp_client: MCPClient,
-    
+
     /// Claude API client
     claude_client: claude::ClaudeClient,
-    
+
     /// Agent manager
     agent_manager: agents::AgentManager,
-    
+
     /// Task manager
     task_manager: tasks::TaskManager,
-    
+
     /// Tool registry
     tool_registry: tools::ToolRegistry,
-    
+
     /// Memory system
     memory: memory::MemorySystem,
-    
+
     /// Database connection
     #[cfg(feature = "database")]
     database: Option<database::DatabaseManager>,
@@ -238,18 +240,19 @@ impl AISystem {
     /// Create a new AI system
     pub async fn new(config: AIConfig) -> Result<Self> {
         // Initialize MCP client
-        let mcp_client = MCPClient::new(&config.mcp.server_url).await
+        let mcp_client = MCPClient::new(&config.mcp.server_url)
+            .await
             .map_err(AIError::MCP)?;
-        
+
         // Initialize Claude client
         let claude_client = claude::ClaudeClient::new(config.claude.clone()).await?;
-        
+
         // Initialize managers
         let agent_manager = agents::AgentManager::new(config.agents.clone());
         let task_manager = tasks::TaskManager::new();
         let tool_registry = tools::ToolRegistry::new();
         let memory = memory::MemorySystem::new(config.memory.clone());
-        
+
         // Initialize database if enabled
         #[cfg(feature = "database")]
         let database = if let Some(db_url) = &config.database_url {
@@ -274,22 +277,22 @@ impl AISystem {
     /// Initialize the AI system
     pub async fn initialize(&mut self) -> Result<()> {
         tracing::info!("Initializing DAA AI System");
-        
+
         // Initialize MCP connection
         self.mcp_client.connect().await.map_err(AIError::MCP)?;
-        
+
         // Register default tools
         self.register_default_tools().await?;
-        
+
         // Initialize memory system
         self.memory.initialize().await?;
-        
+
         // Initialize database if enabled
         #[cfg(feature = "database")]
         if let Some(db) = &mut self.database {
             db.initialize().await?;
         }
-        
+
         tracing::info!("DAA AI System initialized successfully");
         Ok(())
     }
@@ -301,15 +304,18 @@ impl AISystem {
         capabilities: Option<Vec<String>>,
         custom_config: Option<HashMap<String, String>>,
     ) -> Result<String> {
-        let agent = self.agent_manager.spawn_agent(
-            agent_type,
-            capabilities.unwrap_or_else(|| self.config.agents.default_capabilities.clone()),
-            custom_config,
-        ).await?;
-        
+        let agent = self
+            .agent_manager
+            .spawn_agent(
+                agent_type,
+                capabilities.unwrap_or_else(|| self.config.agents.default_capabilities.clone()),
+                custom_config,
+            )
+            .await?;
+
         // Store agent in memory
         self.memory.store_agent_metadata(&agent.id, &agent).await?;
-        
+
         tracing::info!("Spawned new agent: {} ({})", agent.id, agent.agent_type);
         Ok(agent.id)
     }
@@ -322,19 +328,21 @@ impl AISystem {
     ) -> Result<tasks::TaskResult> {
         // Get agent
         let agent = self.agent_manager.get_agent(agent_id).await?;
-        
+
         // Execute task through Claude
         let result = self.claude_client.execute_task(&agent, &task).await?;
-        
+
         // Store task result in memory
-        self.memory.store_task_result(agent_id, &task.id, &result).await?;
-        
+        self.memory
+            .store_task_result(agent_id, &task.id, &result)
+            .await?;
+
         // Record in database if enabled
         #[cfg(feature = "database")]
         if let Some(db) = &mut self.database {
             db.record_task_execution(agent_id, &task, &result).await?;
         }
-        
+
         tracing::info!("Task {} executed by agent {}", task.id, agent_id);
         Ok(result)
     }
@@ -352,14 +360,19 @@ impl AISystem {
             name: tool_name.to_string(),
             parameters,
         };
-        
+
         // Execute via MCP
-        let result = self.mcp_client.call_tool(tool_call).await
+        let result = self
+            .mcp_client
+            .call_tool(tool_call)
+            .await
             .map_err(AIError::MCP)?;
-        
+
         // Store in memory
-        self.memory.store_tool_usage(agent_id, tool_name, &result).await?;
-        
+        self.memory
+            .store_tool_usage(agent_id, tool_name, &result)
+            .await?;
+
         tracing::info!("Tool {} used by agent {}", tool_name, agent_id);
         Ok(result)
     }
@@ -398,7 +411,7 @@ impl AISystem {
             let tool = tools::create_default_tool(tool_name)?;
             self.tool_registry.register_tool(tool).await?;
         }
-        
+
         Ok(())
     }
 }
@@ -408,16 +421,16 @@ impl AISystem {
 pub struct AIStatistics {
     /// Total number of spawned agents
     pub total_agents: u64,
-    
+
     /// Number of active tasks
     pub active_tasks: u64,
-    
+
     /// Total available tools
     pub total_tools: u64,
-    
+
     /// Memory entries count
     pub memory_entries: u64,
-    
+
     /// System uptime in seconds
     pub uptime_seconds: u64,
 }
@@ -466,7 +479,7 @@ mod tests {
             memory_entries: 100,
             uptime_seconds: 3600,
         };
-        
+
         let display = stats.to_string();
         assert!(display.contains("Agents=5"));
         assert!(display.contains("Active Tasks=3"));

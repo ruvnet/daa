@@ -10,19 +10,19 @@ pub type Result<T> = std::result::Result<T, EconomyError>;
 pub enum EconomyError {
     #[error("Market data error: {0}")]
     MarketDataError(String),
-    
+
     #[error("Resource allocation error: {0}")]
     ResourceAllocationError(String),
-    
+
     #[error("Risk assessment error: {0}")]
     RiskAssessmentError(String),
-    
+
     #[error("Trading error: {0}")]
     TradingError(String),
-    
+
     #[error("Optimization error: {0}")]
     OptimizationError(String),
-    
+
     #[error("Insufficient funds: required {required}, available {available}")]
     InsufficientFunds { required: u128, available: u128 },
 
@@ -31,19 +31,19 @@ pub enum EconomyError {
 
     #[error("Resource not available: {0}")]
     ResourceNotAvailable(String),
-    
+
     #[error("Invalid price: {0}")]
     InvalidPrice(String),
-    
+
     #[error("Configuration error: {0}")]
     ConfigError(String),
-    
+
     #[error("Network error: {0}")]
     NetworkError(String),
-    
+
     #[error("Serialization error: {0}")]
     SerializationError(String),
-    
+
     #[error("Internal error: {0}")]
     Internal(String),
 }

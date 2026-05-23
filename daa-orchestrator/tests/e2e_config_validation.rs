@@ -1,11 +1,11 @@
 //! Configuration validation and serialization tests
 
 use daa_orchestrator::{
-    OrchestratorConfig,
     config::{
-        AutonomyConfig, QuDAGConfig, McpConfig, ApiConfig, LoggingConfig, 
-        HealthCheckConfig, RulesConfig, AiConfig, ExchangeConfig
+        AiConfig, ApiConfig, AutonomyConfig, ExchangeConfig, HealthCheckConfig, LoggingConfig,
+        McpConfig, QuDAGConfig, RulesConfig,
     },
+    OrchestratorConfig,
 };
 use std::fs;
 use tempfile::NamedTempFile;
@@ -14,10 +14,13 @@ use tempfile::NamedTempFile;
 #[tokio::test]
 async fn test_default_config_validation() {
     let config = OrchestratorConfig::default();
-    
+
     // Default config should be valid
-    assert!(config.validate().is_ok(), "Default configuration should be valid");
-    
+    assert!(
+        config.validate().is_ok(),
+        "Default configuration should be valid"
+    );
+
     // Check default values
     assert_eq!(config.name, "daa-orchestrator");
     assert!(config.autonomy.enabled);
@@ -33,25 +36,28 @@ async fn test_default_config_validation() {
 #[tokio::test]
 async fn test_config_toml_serialization() {
     let config = OrchestratorConfig::default();
-    
+
     // Create temporary file
     let temp_file = NamedTempFile::new().unwrap();
     let temp_path = temp_file.path().to_str().unwrap();
-    
+
     // Save to file
     let save_result = config.to_file(temp_path);
     assert!(save_result.is_ok(), "Should save config to TOML file");
-    
+
     // Load from file
     let loaded_config = OrchestratorConfig::from_file(temp_path);
     assert!(loaded_config.is_ok(), "Should load config from TOML file");
-    
+
     let loaded_config = loaded_config.unwrap();
-    
+
     // Verify loaded config matches original
     assert_eq!(config.name, loaded_config.name);
     assert_eq!(config.autonomy.enabled, loaded_config.autonomy.enabled);
-    assert_eq!(config.autonomy.loop_interval_ms, loaded_config.autonomy.loop_interval_ms);
+    assert_eq!(
+        config.autonomy.loop_interval_ms,
+        loaded_config.autonomy.loop_interval_ms
+    );
     assert_eq!(config.qudag.enabled, loaded_config.qudag.enabled);
     assert_eq!(config.mcp.port, loaded_config.mcp.port);
     assert_eq!(config.api.port, loaded_config.api.port);
@@ -64,38 +70,50 @@ async fn test_invalid_configurations() {
     let mut config = OrchestratorConfig::default();
     config.mcp.port = 0;
     assert!(config.validate().is_err(), "Should reject zero MCP port");
-    
+
     // Test invalid API port
     config.mcp.port = 3001; // Fix MCP
     config.api.port = 0;
     assert!(config.validate().is_err(), "Should reject zero API port");
-    
+
     // Test invalid task timeout
     config.api.port = 3000; // Fix API
     config.autonomy.task_timeout_ms = 0;
-    assert!(config.validate().is_err(), "Should reject zero task timeout");
-    
+    assert!(
+        config.validate().is_err(),
+        "Should reject zero task timeout"
+    );
+
     // Test invalid QuDAG connection timeout
     config.autonomy.task_timeout_ms = 30000; // Fix task timeout
     config.qudag.connection_timeout_ms = 0;
-    assert!(config.validate().is_err(), "Should reject zero connection timeout");
-    
+    assert!(
+        config.validate().is_err(),
+        "Should reject zero connection timeout"
+    );
+
     // Test empty node ID when QuDAG enabled
     config.qudag.connection_timeout_ms = 10000; // Fix connection timeout
     config.qudag.node_id = String::new();
-    assert!(config.validate().is_err(), "Should reject empty node ID when QuDAG enabled");
-    
+    assert!(
+        config.validate().is_err(),
+        "Should reject empty node ID when QuDAG enabled"
+    );
+
     // Test invalid max tasks per iteration
     config.qudag.node_id = "test-node".to_string(); // Fix node ID
     config.autonomy.max_tasks_per_iteration = 0;
-    assert!(config.validate().is_err(), "Should reject zero max tasks per iteration");
+    assert!(
+        config.validate().is_err(),
+        "Should reject zero max tasks per iteration"
+    );
 }
 
 /// Test configuration edge cases
 #[tokio::test]
 async fn test_config_edge_cases() {
     let mut config = OrchestratorConfig::default();
-    
+
     // Test extremely high values
     config.autonomy.loop_interval_ms = u64::MAX;
     config.autonomy.max_tasks_per_iteration = usize::MAX;
@@ -104,10 +122,10 @@ async fn test_config_edge_cases() {
     config.qudag.max_reconnection_attempts = usize::MAX;
     config.mcp.max_connections = usize::MAX;
     config.api.max_connections = usize::MAX;
-    
+
     // Should still be valid (just extreme)
     assert!(config.validate().is_ok(), "Extreme values should be valid");
-    
+
     // Test minimum valid values
     config.autonomy.loop_interval_ms = 1;
     config.autonomy.max_tasks_per_iteration = 1;
@@ -118,8 +136,11 @@ async fn test_config_edge_cases() {
     config.api.max_connections = 1;
     config.mcp.port = 1;
     config.api.port = 1;
-    
-    assert!(config.validate().is_ok(), "Minimum valid values should be accepted");
+
+    assert!(
+        config.validate().is_ok(),
+        "Minimum valid values should be accepted"
+    );
 }
 
 /// Test configuration with all features disabled
@@ -194,15 +215,21 @@ async fn test_all_features_disabled() {
             max_restart_attempts: 0,
         },
     };
-    
+
     // Should still be valid even with everything disabled
-    assert!(config.validate().is_ok(), "Disabled configuration should be valid");
-    
+    assert!(
+        config.validate().is_ok(),
+        "Disabled configuration should be valid"
+    );
+
     // Test serialization of disabled config
     let temp_file = NamedTempFile::new().unwrap();
     let temp_path = temp_file.path().to_str().unwrap();
-    
-    assert!(config.to_file(temp_path).is_ok(), "Should serialize disabled config");
+
+    assert!(
+        config.to_file(temp_path).is_ok(),
+        "Should serialize disabled config"
+    );
     let loaded = OrchestratorConfig::from_file(temp_path).unwrap();
     assert_eq!(config.autonomy.enabled, loaded.autonomy.enabled);
     assert_eq!(config.qudag.enabled, loaded.qudag.enabled);
@@ -227,12 +254,15 @@ async fn test_duration_conversions() {
         },
         ..Default::default()
     };
-    
+
     use std::time::Duration;
-    
+
     assert_eq!(config.autonomy_loop_interval(), Duration::from_millis(2500));
     assert_eq!(config.task_timeout(), Duration::from_millis(45000));
-    assert_eq!(config.qudag_connection_timeout(), Duration::from_millis(15000));
+    assert_eq!(
+        config.qudag_connection_timeout(),
+        Duration::from_millis(15000)
+    );
     assert_eq!(config.health_check_interval(), Duration::from_secs(120));
 }
 
@@ -321,26 +351,50 @@ async fn test_complex_configurations() {
             max_restart_attempts: 5,
         },
     };
-    
+
     // Complex configuration should be valid
-    assert!(complex_config.validate().is_ok(), "Complex configuration should be valid");
-    
+    assert!(
+        complex_config.validate().is_ok(),
+        "Complex configuration should be valid"
+    );
+
     // Test serialization round-trip
     let temp_file = NamedTempFile::new().unwrap();
     let temp_path = temp_file.path().to_str().unwrap();
-    
-    assert!(complex_config.to_file(temp_path).is_ok(), "Should serialize complex config");
+
+    assert!(
+        complex_config.to_file(temp_path).is_ok(),
+        "Should serialize complex config"
+    );
     let loaded_complex = OrchestratorConfig::from_file(temp_path).unwrap();
-    
+
     // Verify complex config preserved through serialization
     assert_eq!(complex_config.name, loaded_complex.name);
-    assert_eq!(complex_config.autonomy.loop_interval_ms, loaded_complex.autonomy.loop_interval_ms);
-    assert_eq!(complex_config.autonomy.rules_config.max_daily_spending, loaded_complex.autonomy.rules_config.max_daily_spending);
-    assert_eq!(complex_config.qudag.bootstrap_peers, loaded_complex.qudag.bootstrap_peers);
-    assert_eq!(complex_config.qudag.exchange_config.trading_pairs, loaded_complex.qudag.exchange_config.trading_pairs);
+    assert_eq!(
+        complex_config.autonomy.loop_interval_ms,
+        loaded_complex.autonomy.loop_interval_ms
+    );
+    assert_eq!(
+        complex_config.autonomy.rules_config.max_daily_spending,
+        loaded_complex.autonomy.rules_config.max_daily_spending
+    );
+    assert_eq!(
+        complex_config.qudag.bootstrap_peers,
+        loaded_complex.qudag.bootstrap_peers
+    );
+    assert_eq!(
+        complex_config.qudag.exchange_config.trading_pairs,
+        loaded_complex.qudag.exchange_config.trading_pairs
+    );
     assert_eq!(complex_config.mcp.api_key, loaded_complex.mcp.api_key);
-    assert_eq!(complex_config.api.cors_origins, loaded_complex.api.cors_origins);
-    assert_eq!(complex_config.logging.file_path, loaded_complex.logging.file_path);
+    assert_eq!(
+        complex_config.api.cors_origins,
+        loaded_complex.api.cors_origins
+    );
+    assert_eq!(
+        complex_config.logging.file_path,
+        loaded_complex.logging.file_path
+    );
 }
 
 /// Test configuration file error handling
@@ -348,31 +402,38 @@ async fn test_complex_configurations() {
 async fn test_config_file_errors() {
     // Test loading non-existent file
     let load_result = OrchestratorConfig::from_file("/nonexistent/path/config.toml");
-    assert!(load_result.is_err(), "Should fail to load non-existent file");
-    
+    assert!(
+        load_result.is_err(),
+        "Should fail to load non-existent file"
+    );
+
     // Test saving to invalid path
     let config = OrchestratorConfig::default();
     let save_result = config.to_file("/invalid/path/config.toml");
     assert!(save_result.is_err(), "Should fail to save to invalid path");
-    
+
     // Test loading invalid TOML content
     let temp_file = NamedTempFile::new().unwrap();
     let temp_path = temp_file.path().to_str().unwrap();
-    
+
     // Write invalid TOML
     fs::write(temp_path, "invalid toml content [ unclosed").unwrap();
-    
+
     let load_result = OrchestratorConfig::from_file(temp_path);
     assert!(load_result.is_err(), "Should fail to load invalid TOML");
-    
+
     // Test loading incomplete TOML (missing required fields)
-    fs::write(temp_path, r#"
+    fs::write(
+        temp_path,
+        r#"
 name = "incomplete"
 [autonomy]
 enabled = true
 # Missing many required fields
-"#).unwrap();
-    
+"#,
+    )
+    .unwrap();
+
     let load_result = OrchestratorConfig::from_file(temp_path);
     // This might succeed with defaults, but let's verify it at least doesn't crash
     // The specific behavior depends on serde's handling of missing fields

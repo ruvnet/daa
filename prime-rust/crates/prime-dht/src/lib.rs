@@ -6,9 +6,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+pub mod discovery;
 pub mod routing;
 pub mod storage;
-pub mod discovery;
 
 /// DHT configuration
 #[derive(Debug, Clone)]
@@ -46,21 +46,28 @@ impl Dht {
             peer_id,
             config: config.clone(),
             storage: Arc::new(RwLock::new(storage::Storage::new())),
-            routing_table: Arc::new(RwLock::new(routing::RoutingTable::new(peer_id, config.k_bucket_size))),
+            routing_table: Arc::new(RwLock::new(routing::RoutingTable::new(
+                peer_id,
+                config.k_bucket_size,
+            ))),
         }
     }
 
     pub async fn put(&self, key: Vec<u8>, value: Vec<u8>) -> Result<()> {
         // Store locally
         self.storage.write().await.put(key.clone(), value.clone());
-        
+
         // Find k closest nodes
         let target = self.key_to_peer_id(&key);
-        let closest = self.routing_table.read().await.find_closest(&target, self.config.replication_factor);
-        
+        let closest = self
+            .routing_table
+            .read()
+            .await
+            .find_closest(&target, self.config.replication_factor);
+
         // Replicate to closest nodes
         // TODO: Implement actual replication
-        
+
         Ok(())
     }
 
@@ -69,13 +76,17 @@ impl Dht {
         if let Some(value) = self.storage.read().await.get(&key) {
             return Ok(Some(value));
         }
-        
+
         // Query network
         let target = self.key_to_peer_id(&key);
-        let closest = self.routing_table.read().await.find_closest(&target, self.config.alpha);
-        
+        let closest = self
+            .routing_table
+            .read()
+            .await
+            .find_closest(&target, self.config.alpha);
+
         // TODO: Implement actual network query
-        
+
         Ok(None)
     }
 
@@ -99,7 +110,7 @@ mod tests {
         let peer_id = PeerId::random();
         let config = DhtConfig::default();
         let dht = Dht::new(peer_id, config);
-        
+
         assert_eq!(dht.peer_id, peer_id);
         assert_eq!(dht.config.k_bucket_size, 20);
     }
@@ -108,13 +119,13 @@ mod tests {
     async fn test_basic_put_get() {
         let peer_id = PeerId::random();
         let dht = Dht::new(peer_id, DhtConfig::default());
-        
+
         let key = b"test_key".to_vec();
         let value = b"test_value".to_vec();
-        
+
         dht.put(key.clone(), value.clone()).await.unwrap();
         let retrieved = dht.get(key).await.unwrap();
-        
+
         assert_eq!(retrieved, Some(value));
     }
 
@@ -122,17 +133,17 @@ mod tests {
     async fn test_multiple_entries() {
         let peer_id = PeerId::random();
         let dht = Dht::new(peer_id, DhtConfig::default());
-        
+
         let entries = vec![
             (b"key1".to_vec(), b"value1".to_vec()),
             (b"key2".to_vec(), b"value2".to_vec()),
             (b"key3".to_vec(), b"value3".to_vec()),
         ];
-        
+
         for (key, value) in &entries {
             dht.put(key.clone(), value.clone()).await.unwrap();
         }
-        
+
         for (key, expected_value) in &entries {
             let retrieved = dht.get(key.clone()).await.unwrap();
             assert_eq!(retrieved, Some(expected_value.clone()));
@@ -153,7 +164,7 @@ mod tests {
                 refresh_interval: std::time::Duration::from_secs(3600),
                 ttl: std::time::Duration::from_secs(86400),
             };
-            
+
             assert!(config.k_bucket_size >= 5);
             assert!(config.alpha >= 1);
             assert!(config.replication_factor >= 1);
@@ -168,7 +179,9 @@ mod tests {
                 k_bucket_size: *g.choose(&[10, 20, 30]).unwrap(),
                 alpha: *g.choose(&[3, 5, 7]).unwrap(),
                 replication_factor: *g.choose(&[1, 3, 5]).unwrap(),
-                refresh_interval: std::time::Duration::from_secs(*g.choose(&[1800, 3600, 7200]).unwrap()),
+                refresh_interval: std::time::Duration::from_secs(
+                    *g.choose(&[1800, 3600, 7200]).unwrap(),
+                ),
                 ttl: std::time::Duration::from_secs(*g.choose(&[3600, 86400, 604800]).unwrap()),
             }
         }
@@ -179,10 +192,10 @@ mod tests {
         if key.is_empty() || value.is_empty() {
             return true; // Skip empty inputs
         }
-        
+
         let peer_id = PeerId::random();
         let dht = Dht::new(peer_id, DhtConfig::default());
-        
+
         // Put should succeed
         dht.put(key.clone(), value.clone()).await.is_ok() &&
         // Get should return the same value

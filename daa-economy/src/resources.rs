@@ -43,7 +43,12 @@ pub struct Resource {
 }
 
 impl Resource {
-    pub fn new(resource_type: ResourceType, quantity: Decimal, unit: String, cost_per_unit: Decimal) -> Self {
+    pub fn new(
+        resource_type: ResourceType,
+        quantity: Decimal,
+        unit: String,
+        cost_per_unit: Decimal,
+    ) -> Self {
         Self {
             resource_type,
             quantity,
@@ -67,13 +72,18 @@ impl Resource {
         if self.available_quantity() < amount {
             return Err(EconomyError::ResourceNotAvailable(format!(
                 "Insufficient {} available: requested {}, available {}",
-                self.resource_type, amount, self.available_quantity()
+                self.resource_type,
+                amount,
+                self.available_quantity()
             )));
         }
 
         self.reserved += amount;
         self.last_updated = Utc::now();
-        debug!("Reserved {} {} of {}", amount, self.unit, self.resource_type);
+        debug!(
+            "Reserved {} {} of {}",
+            amount, self.unit, self.resource_type
+        );
         Ok(())
     }
 
@@ -87,7 +97,10 @@ impl Resource {
 
         self.reserved -= amount;
         self.last_updated = Utc::now();
-        debug!("Released {} {} of {}", amount, self.unit, self.resource_type);
+        debug!(
+            "Released {} {} of {}",
+            amount, self.unit, self.resource_type
+        );
         Ok(())
     }
 
@@ -95,13 +108,18 @@ impl Resource {
         if self.available_quantity() < amount {
             return Err(EconomyError::ResourceNotAvailable(format!(
                 "Insufficient {} to consume: requested {}, available {}",
-                self.resource_type, amount, self.available_quantity()
+                self.resource_type,
+                amount,
+                self.available_quantity()
             )));
         }
 
         self.quantity -= amount;
         self.last_updated = Utc::now();
-        debug!("Consumed {} {} of {}", amount, self.unit, self.resource_type);
+        debug!(
+            "Consumed {} {} of {}",
+            amount, self.unit, self.resource_type
+        );
         Ok(())
     }
 
@@ -203,9 +221,12 @@ impl ResourceManager {
 
     /// Add a new resource
     pub fn add_resource(&mut self, resource: Resource) {
-        info!("Adding resource: {} with quantity {}", 
-              resource.resource_type, resource.quantity);
-        self.resources.insert(resource.resource_type.clone(), resource);
+        info!(
+            "Adding resource: {} with quantity {}",
+            resource.resource_type, resource.quantity
+        );
+        self.resources
+            .insert(resource.resource_type.clone(), resource);
     }
 
     /// Get resource by type
@@ -231,8 +252,9 @@ impl ResourceManager {
         requesting_entity: String,
         purpose: String,
     ) -> Result<String> {
-        let resource = self.resources.get_mut(&resource_type)
-            .ok_or_else(|| EconomyError::ResourceNotAvailable(format!("Resource type {} not found", resource_type)))?;
+        let resource = self.resources.get_mut(&resource_type).ok_or_else(|| {
+            EconomyError::ResourceNotAvailable(format!("Resource type {} not found", resource_type))
+        })?;
 
         resource.reserve(amount)?;
 
@@ -251,22 +273,33 @@ impl ResourceManager {
 
         let requesting_entity_clone = allocation.requesting_entity.clone();
         self.allocations.insert(allocation_id.clone(), allocation);
-        info!("Allocated {} {} to {}", amount, resource.unit, requesting_entity_clone);
-        
+        info!(
+            "Allocated {} {} to {}",
+            amount, resource.unit, requesting_entity_clone
+        );
+
         Ok(allocation_id)
     }
 
     /// Release allocated resources
     pub fn release_allocation(&mut self, allocation_id: &str) -> Result<()> {
-        let allocation = self.allocations.get_mut(allocation_id)
-            .ok_or_else(|| EconomyError::ResourceAllocationError(format!("Allocation {} not found", allocation_id)))?;
+        let allocation = self.allocations.get_mut(allocation_id).ok_or_else(|| {
+            EconomyError::ResourceAllocationError(format!("Allocation {} not found", allocation_id))
+        })?;
 
         if !allocation.is_active() {
-            return Err(EconomyError::ResourceAllocationError(format!("Allocation {} is not active", allocation_id)));
+            return Err(EconomyError::ResourceAllocationError(format!(
+                "Allocation {} is not active",
+                allocation_id
+            )));
         }
 
-        let resource = self.resources.get_mut(&allocation.resource_type)
-            .ok_or_else(|| EconomyError::ResourceAllocationError("Resource not found".to_string()))?;
+        let resource = self
+            .resources
+            .get_mut(&allocation.resource_type)
+            .ok_or_else(|| {
+                EconomyError::ResourceAllocationError("Resource not found".to_string())
+            })?;
 
         resource.release(allocation.allocated_amount)?;
         allocation.complete();
@@ -277,15 +310,23 @@ impl ResourceManager {
 
     /// Cancel allocation
     pub fn cancel_allocation(&mut self, allocation_id: &str) -> Result<()> {
-        let allocation = self.allocations.get_mut(allocation_id)
-            .ok_or_else(|| EconomyError::ResourceAllocationError(format!("Allocation {} not found", allocation_id)))?;
+        let allocation = self.allocations.get_mut(allocation_id).ok_or_else(|| {
+            EconomyError::ResourceAllocationError(format!("Allocation {} not found", allocation_id))
+        })?;
 
         if !allocation.is_active() {
-            return Err(EconomyError::ResourceAllocationError(format!("Allocation {} is not active", allocation_id)));
+            return Err(EconomyError::ResourceAllocationError(format!(
+                "Allocation {} is not active",
+                allocation_id
+            )));
         }
 
-        let resource = self.resources.get_mut(&allocation.resource_type)
-            .ok_or_else(|| EconomyError::ResourceAllocationError("Resource not found".to_string()))?;
+        let resource = self
+            .resources
+            .get_mut(&allocation.resource_type)
+            .ok_or_else(|| {
+                EconomyError::ResourceAllocationError("Resource not found".to_string())
+            })?;
 
         resource.release(allocation.allocated_amount)?;
         allocation.cancel();
@@ -329,8 +370,9 @@ impl ResourceManager {
 
     /// Get resource utilization rate
     pub fn get_utilization_rate(&self, resource_type: &ResourceType) -> Result<Decimal> {
-        let resource = self.get_resource(resource_type)
-            .ok_or_else(|| EconomyError::ResourceNotAvailable(format!("Resource {} not found", resource_type)))?;
+        let resource = self.get_resource(resource_type).ok_or_else(|| {
+            EconomyError::ResourceNotAvailable(format!("Resource {} not found", resource_type))
+        })?;
 
         if resource.quantity.is_zero() {
             return Ok(Decimal::ZERO);
@@ -345,10 +387,13 @@ impl ResourceManager {
         let cutoff_time = Utc::now() - chrono::Duration::hours(max_age_hours);
         let mut cleaned_count = 0;
 
-        let expired_ids: Vec<String> = self.allocations
+        let expired_ids: Vec<String> = self
+            .allocations
             .iter()
             .filter_map(|(id, alloc)| {
-                if alloc.status == AllocationStatus::Completed || alloc.status == AllocationStatus::Cancelled {
+                if alloc.status == AllocationStatus::Completed
+                    || alloc.status == AllocationStatus::Cancelled
+                {
                     if let Some(end_time) = alloc.end_time {
                         if end_time < cutoff_time {
                             return Some(id.clone());
@@ -424,12 +469,14 @@ mod tests {
         manager.add_resource(resource);
         assert_eq!(manager.available_resources().len(), 1);
 
-        let allocation_id = manager.allocate_resource(
-            ResourceType::Computational,
-            dec!(10.0),
-            "test_entity".to_string(),
-            "testing".to_string(),
-        ).unwrap();
+        let allocation_id = manager
+            .allocate_resource(
+                ResourceType::Computational,
+                dec!(10.0),
+                "test_entity".to_string(),
+                "testing".to_string(),
+            )
+            .unwrap();
 
         assert!(!allocation_id.is_empty());
         assert_eq!(manager.get_active_allocations().len(), 1);
@@ -449,15 +496,19 @@ mod tests {
         );
 
         manager.add_resource(resource);
-        
-        manager.allocate_resource(
-            ResourceType::Network,
-            dec!(25.0),
-            "test".to_string(),
-            "test".to_string(),
-        ).unwrap();
 
-        let utilization = manager.get_utilization_rate(&ResourceType::Network).unwrap();
+        manager
+            .allocate_resource(
+                ResourceType::Network,
+                dec!(25.0),
+                "test".to_string(),
+                "test".to_string(),
+            )
+            .unwrap();
+
+        let utilization = manager
+            .get_utilization_rate(&ResourceType::Network)
+            .unwrap();
         assert_eq!(utilization, dec!(25.0));
     }
 

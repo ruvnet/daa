@@ -1,7 +1,7 @@
 //! Rules integration module for DAA orchestrator
 
-use anyhow::Result;
 use crate::OrchestratorError;
+use anyhow::Result;
 
 /// Rules integration manager
 pub struct RulesIntegration {
@@ -28,7 +28,7 @@ impl RulesIntegration {
             config: RulesConfig::default(),
         })
     }
-    
+
     /// Initialize rules integration
     pub async fn initialize(&mut self) -> Result<(), OrchestratorError> {
         tracing::info!("Initializing rules integration");

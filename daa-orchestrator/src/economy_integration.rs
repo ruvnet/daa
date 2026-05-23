@@ -1,7 +1,7 @@
 //! Economy integration module for DAA orchestrator
 
-use anyhow::Result;
 use crate::OrchestratorError;
+use anyhow::Result;
 
 /// Economy integration manager
 pub struct EconomyIntegration {
@@ -28,7 +28,7 @@ impl EconomyIntegration {
             config: EconomyConfig::default(),
         })
     }
-    
+
     /// Initialize economy integration
     pub async fn initialize(&mut self) -> Result<(), OrchestratorError> {
         tracing::info!("Initializing economy integration");

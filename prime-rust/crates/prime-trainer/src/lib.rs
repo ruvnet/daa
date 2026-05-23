@@ -1,7 +1,7 @@
 //! Prime Trainer library - Distributed training node implementation
-//! 
+//!
 //! This crate provides the core training logic for Prime distributed ML system.
-//! 
+//!
 //! # Features
 //! - Distributed gradient computation
 //! - DAA ecosystem integration
@@ -50,12 +50,12 @@ impl TrainerNode {
             current_epoch: 0,
             config: TrainingConfig::default(),
         };
-        
+
         Ok(Self {
             context: Arc::new(RwLock::new(context)),
         })
     }
-    
+
     /// Start training process
     pub async fn start_training(&self) -> Result<()> {
         let context = self.context.read().await;
@@ -63,7 +63,7 @@ impl TrainerNode {
         // TODO: Implement actual training logic
         Ok(())
     }
-    
+
     /// Get current training status
     pub async fn get_status(&self) -> Result<TrainingStatus> {
         let context = self.context.read().await;

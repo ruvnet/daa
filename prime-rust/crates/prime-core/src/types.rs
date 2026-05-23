@@ -36,9 +36,18 @@ pub struct TrainingConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum OptimizerType {
-    Sgd { momentum: f32 },
-    Adam { beta1: f32, beta2: f32 },
-    AdamW { beta1: f32, beta2: f32, weight_decay: f32 },
+    Sgd {
+        momentum: f32,
+    },
+    Adam {
+        beta1: f32,
+        beta2: f32,
+    },
+    AdamW {
+        beta1: f32,
+        beta2: f32,
+        weight_decay: f32,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,24 +82,48 @@ pub struct TrainingMetrics {
 pub enum MessageType {
     // Training messages
     GradientUpdate(GradientUpdate),
-    ModelSync { version: u64, parameters: Vec<u8> },
+    ModelSync {
+        version: u64,
+        parameters: Vec<u8>,
+    },
     TrainingRequest(TrainingConfig),
-    
+
     // Consensus messages
-    ConsensusProposal { round: u64, value: Vec<u8> },
-    ConsensusVote { round: u64, accept: bool },
-    ConsensusCommit { round: u64, value: Vec<u8> },
-    
+    ConsensusProposal {
+        round: u64,
+        value: Vec<u8>,
+    },
+    ConsensusVote {
+        round: u64,
+        accept: bool,
+    },
+    ConsensusCommit {
+        round: u64,
+        value: Vec<u8>,
+    },
+
     // DHT messages
-    DhtPut { key: Vec<u8>, value: Vec<u8> },
-    DhtGet { key: Vec<u8> },
-    DhtResponse { key: Vec<u8>, value: Option<Vec<u8>> },
-    
+    DhtPut {
+        key: Vec<u8>,
+        value: Vec<u8>,
+    },
+    DhtGet {
+        key: Vec<u8>,
+    },
+    DhtResponse {
+        key: Vec<u8>,
+        value: Option<Vec<u8>>,
+    },
+
     // Control messages
     Ping,
     Pong,
-    JoinRequest { capabilities: Vec<String> },
-    JoinResponse { accepted: bool },
+    JoinRequest {
+        capabilities: Vec<String>,
+    },
+    JoinResponse {
+        accepted: bool,
+    },
 }
 
 #[cfg(test)]
@@ -113,10 +146,13 @@ mod tests {
             batch_size,
             learning_rate: lr,
             epochs,
-            optimizer: OptimizerType::Adam { beta1: 0.9, beta2: 0.999 },
+            optimizer: OptimizerType::Adam {
+                beta1: 0.9,
+                beta2: 0.999,
+            },
             aggregation_strategy: AggregationStrategy::FederatedAveraging,
         };
-        
+
         assert_eq!(config.batch_size, batch_size);
         assert_eq!(config.learning_rate, lr);
         assert_eq!(config.epochs, epochs);
@@ -147,7 +183,7 @@ mod tests {
 
             let serialized = serde_json::to_string(&update).unwrap();
             let deserialized: GradientUpdate = serde_json::from_str(&serialized).unwrap();
-            
+
             assert_eq!(update.node_id, deserialized.node_id);
             assert_eq!(update.model_version, deserialized.model_version);
             assert_eq!(update.round, deserialized.round);
@@ -170,7 +206,7 @@ mod tests {
 
             let serialized = serde_json::to_string(&message).unwrap();
             let deserialized: MessageType = serde_json::from_str(&serialized).unwrap();
-            
+
             // Basic check that serialization works
             assert!(!serialized.is_empty());
         }

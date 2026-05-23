@@ -2,11 +2,11 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use serde::{Deserialize, Serialize};
 use blake3::Hasher;
+use serde::{Deserialize, Serialize};
 
-use crate::qudag_stubs::qudag_core::{Block, Transaction, Hash};
-use crate::{Result, ChainError};
+use crate::qudag_stubs::qudag_core::{Block, Hash, Transaction};
+use crate::{ChainError, Result};
 
 /// Block builder for constructing valid blocks
 pub struct Builder {
@@ -106,16 +106,16 @@ impl Default for Builder {
 pub struct BlockHeader {
     /// Hash of the parent block
     pub parent_hash: Hash,
-    
+
     /// Merkle root of all transactions
     pub merkle_root: Hash,
-    
+
     /// Block timestamp
     pub timestamp: u64,
-    
+
     /// Number of transactions in block
     pub transaction_count: u32,
-    
+
     /// Additional data
     pub extra_data: Vec<u8>,
 }
@@ -125,10 +125,10 @@ impl BlockHeader {
     pub fn hash(&self) -> Result<Hash> {
         let serialized = serde_json::to_vec(self)
             .map_err(|e| ChainError::BlockValidation(format!("Serialization failed: {}", e)))?;
-        
+
         let mut hasher = Hasher::new();
         hasher.update(&serialized);
-        
+
         Ok(Hash::from_bytes(hasher.finalize().as_bytes()))
     }
 }
@@ -157,7 +157,7 @@ impl Validator {
     fn validate_transaction(tx: &Transaction) -> Result<()> {
         if tx.signature().is_empty() {
             return Err(ChainError::InvalidTransaction(
-                "Transaction missing signature".to_string()
+                "Transaction missing signature".to_string(),
             ));
         }
 
@@ -169,10 +169,10 @@ impl Validator {
     fn validate_merkle_root(block: &Block) -> Result<()> {
         let builder = Builder::new();
         let calculated_root = builder.calculate_merkle_root(block.transactions())?;
-        
+
         if calculated_root != block.header().merkle_root {
             return Err(ChainError::BlockValidation(
-                "Invalid merkle root".to_string()
+                "Invalid merkle root".to_string(),
             ));
         }
 
@@ -187,9 +187,10 @@ impl Validator {
             .as_secs();
 
         // Block timestamp should not be too far in the future
-        if block.header().timestamp > now + 300 { // 5 minutes tolerance
+        if block.header().timestamp > now + 300 {
+            // 5 minutes tolerance
             return Err(ChainError::BlockValidation(
-                "Block timestamp too far in future".to_string()
+                "Block timestamp too far in future".to_string(),
             ));
         }
 
@@ -203,10 +204,7 @@ mod tests {
 
     #[test]
     fn test_block_builder() {
-        let block = Builder::new()
-            .with_timestamp(1234567890)
-            .build()
-            .unwrap();
+        let block = Builder::new().with_timestamp(1234567890).build().unwrap();
 
         assert_eq!(block.header().timestamp, 1234567890);
         assert_eq!(block.transactions().len(), 0);

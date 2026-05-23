@@ -1,5 +1,5 @@
 //! MCP Resources for DAA management
-//! 
+//!
 //! This module defines all the available resources that can be accessed through
 //! the MCP interface to get information about DAA agents, tasks, logs, and metrics.
 
@@ -49,7 +49,6 @@ pub async fn get_available_resources() -> Vec<ResourceInfo> {
             mime_type: Some("application/json".to_string()),
             annotations: None,
         },
-
         // Task Resources
         ResourceInfo {
             uri: "daa://tasks".to_string(),
@@ -86,7 +85,6 @@ pub async fn get_available_resources() -> Vec<ResourceInfo> {
             mime_type: Some("application/json".to_string()),
             annotations: None,
         },
-
         // Swarm Resources
         ResourceInfo {
             uri: "daa://swarm/status".to_string(),
@@ -109,7 +107,6 @@ pub async fn get_available_resources() -> Vec<ResourceInfo> {
             mime_type: Some("application/json".to_string()),
             annotations: None,
         },
-
         // System Resources
         ResourceInfo {
             uri: "daa://system/metrics".to_string(),
@@ -139,7 +136,6 @@ pub async fn get_available_resources() -> Vec<ResourceInfo> {
             mime_type: Some("application/json".to_string()),
             annotations: None,
         },
-
         // Discovery Resources
         ResourceInfo {
             uri: "daa://discovery/agents".to_string(),
@@ -155,7 +151,6 @@ pub async fn get_available_resources() -> Vec<ResourceInfo> {
             mime_type: Some("application/json".to_string()),
             annotations: None,
         },
-
         // Analytics Resources
         ResourceInfo {
             uri: "daa://analytics/performance".to_string(),
@@ -231,7 +226,10 @@ pub async fn read_resource(state: Arc<McpServerState>, uri: &str) -> Result<Vec<
         "daa://analytics/usage" => read_usage_analytics(state).await?,
 
         _ => {
-            return Err(DaaMcpError::ResourceNotAvailable(format!("Unknown resource: {}", uri)));
+            return Err(DaaMcpError::ResourceNotAvailable(format!(
+                "Unknown resource: {}",
+                uri
+            )));
         }
     };
 
@@ -245,7 +243,9 @@ fn extract_agent_id_from_uri(uri: &str) -> Result<String> {
     if parts.len() >= 3 {
         Ok(parts[2].to_string())
     } else {
-        Err(DaaMcpError::Protocol("Invalid agent URI format".to_string()))
+        Err(DaaMcpError::Protocol(
+            "Invalid agent URI format".to_string(),
+        ))
     }
 }
 
@@ -282,7 +282,8 @@ fn extract_task_id_from_results_uri(uri: &str) -> Result<String> {
 
 async fn read_agents_list(state: Arc<McpServerState>) -> Result<Vec<Content>> {
     let agents = state.agents.read().await;
-    let agent_list: Vec<Value> = agents.values()
+    let agent_list: Vec<Value> = agents
+        .values()
         .map(|agent| serde_json::to_value(agent).unwrap())
         .collect();
 
@@ -298,7 +299,7 @@ async fn read_agents_list(state: Arc<McpServerState>) -> Result<Vec<Content>> {
 
 async fn read_agent_details(state: Arc<McpServerState>, agent_id: &str) -> Result<Vec<Content>> {
     let agents = state.agents.read().await;
-    
+
     if let Some(agent) = agents.get(agent_id) {
         Ok(vec![Content {
             content_type: "application/json".to_string(),
@@ -311,7 +312,7 @@ async fn read_agent_details(state: Arc<McpServerState>, agent_id: &str) -> Resul
 
 async fn read_agent_logs(state: Arc<McpServerState>, agent_id: &str) -> Result<Vec<Content>> {
     let agents = state.agents.read().await;
-    
+
     if agents.contains_key(agent_id) {
         // In a real implementation, this would read actual log files
         let mock_logs = format!(
@@ -335,7 +336,7 @@ async fn read_agent_logs(state: Arc<McpServerState>, agent_id: &str) -> Result<V
 
 async fn read_agent_metrics(state: Arc<McpServerState>, agent_id: &str) -> Result<Vec<Content>> {
     let agents = state.agents.read().await;
-    
+
     if let Some(agent) = agents.get(agent_id) {
         let metrics = json!({
             "agent_id": agent_id,
@@ -368,7 +369,7 @@ async fn read_agent_metrics(state: Arc<McpServerState>, agent_id: &str) -> Resul
 
 async fn read_agent_config(state: Arc<McpServerState>, agent_id: &str) -> Result<Vec<Content>> {
     let agents = state.agents.read().await;
-    
+
     if let Some(agent) = agents.get(agent_id) {
         let config = json!({
             "agent_id": agent_id,
@@ -400,7 +401,8 @@ async fn read_tasks_list(state: Arc<McpServerState>) -> Result<Vec<Content>> {
     let tasks = state.tasks.read().await;
     let results = state.task_results.read().await;
 
-    let task_list: Vec<Value> = tasks.iter()
+    let task_list: Vec<Value> = tasks
+        .iter()
         .map(|(id, task)| {
             let result = results.get(id);
             json!({
@@ -424,10 +426,10 @@ async fn read_tasks_list(state: Arc<McpServerState>) -> Result<Vec<Content>> {
 async fn read_task_details(state: Arc<McpServerState>, task_id: &str) -> Result<Vec<Content>> {
     let tasks = state.tasks.read().await;
     let results = state.task_results.read().await;
-    
+
     if let Some(task) = tasks.get(task_id) {
         let result = results.get(task_id);
-        
+
         let details = json!({
             "task": task,
             "result": result,
@@ -440,13 +442,16 @@ async fn read_task_details(state: Arc<McpServerState>, task_id: &str) -> Result<
             text: serde_json::to_string_pretty(&details)?,
         }])
     } else {
-        Err(DaaMcpError::Protocol(format!("Task not found: {}", task_id)))
+        Err(DaaMcpError::Protocol(format!(
+            "Task not found: {}",
+            task_id
+        )))
     }
 }
 
 async fn read_task_results(state: Arc<McpServerState>, task_id: &str) -> Result<Vec<Content>> {
     let results = state.task_results.read().await;
-    
+
     if let Some(result) = results.get(task_id) {
         Ok(vec![Content {
             content_type: "application/json".to_string(),
@@ -464,7 +469,8 @@ async fn read_pending_tasks(state: Arc<McpServerState>) -> Result<Vec<Content>> 
     let tasks = state.tasks.read().await;
     let results = state.task_results.read().await;
 
-    let pending_tasks: Vec<Value> = tasks.iter()
+    let pending_tasks: Vec<Value> = tasks
+        .iter()
         .filter(|(id, _)| !results.contains_key(*id))
         .map(|(_, task)| serde_json::to_value(task).unwrap())
         .collect();
@@ -482,7 +488,8 @@ async fn read_pending_tasks(state: Arc<McpServerState>) -> Result<Vec<Content>> 
 async fn read_running_tasks(state: Arc<McpServerState>) -> Result<Vec<Content>> {
     let results = state.task_results.read().await;
 
-    let running_tasks: Vec<Value> = results.values()
+    let running_tasks: Vec<Value> = results
+        .values()
         .filter(|result| matches!(result.status, crate::TaskStatus::Running))
         .map(|result| serde_json::to_value(result).unwrap())
         .collect();
@@ -527,9 +534,10 @@ async fn read_swarm_status(state: Arc<McpServerState>) -> Result<Vec<Content>> {
 
 async fn read_swarm_messages(state: Arc<McpServerState>) -> Result<Vec<Content>> {
     let messages = state.swarm_messages.read().await;
-    
+
     // Get recent messages (last 100)
-    let recent_messages: Vec<Value> = messages.iter()
+    let recent_messages: Vec<Value> = messages
+        .iter()
         .rev()
         .take(100)
         .map(|msg| serde_json::to_value(msg).unwrap())
@@ -549,18 +557,26 @@ async fn read_swarm_messages(state: Arc<McpServerState>) -> Result<Vec<Content>>
 async fn read_swarm_topology(state: Arc<McpServerState>) -> Result<Vec<Content>> {
     let agents = state.agents.read().await;
 
-    let nodes: Vec<_> = agents.values().map(|agent| json!({
-        "id": agent.id,
-        "name": agent.name,
-        "type": agent.agent_type,
-        "status": agent.status,
-        "endpoint": agent.endpoint,
-        "capabilities": agent.capabilities
-    })).collect();
+    let nodes: Vec<_> = agents
+        .values()
+        .map(|agent| {
+            json!({
+                "id": agent.id,
+                "name": agent.name,
+                "type": agent.agent_type,
+                "status": agent.status,
+                "endpoint": agent.endpoint,
+                "capabilities": agent.capabilities
+            })
+        })
+        .collect();
 
     let mut clusters_map = std::collections::HashMap::new();
     for agent in agents.values() {
-        clusters_map.entry(&agent.agent_type).or_insert_with(Vec::new).push(&agent.id);
+        clusters_map
+            .entry(&agent.agent_type)
+            .or_insert_with(Vec::new)
+            .push(&agent.id);
     }
 
     let topology = json!({
@@ -615,7 +631,7 @@ async fn read_system_metrics(state: Arc<McpServerState>) -> Result<Vec<Content>>
 
 async fn read_system_logs(state: Arc<McpServerState>) -> Result<Vec<Content>> {
     let _state = state; // Keep for future use
-    
+
     // Mock system logs
     let logs = format!(
         "[{}] INFO DAA MCP Server started\n[{}] INFO Loaded {} agents\n[{}] DEBUG Heartbeat monitor active\n[{}] INFO System health check passed\n",
@@ -663,10 +679,13 @@ async fn read_system_config(state: Arc<McpServerState>) -> Result<Vec<Content>> 
 
 async fn read_system_health(state: Arc<McpServerState>) -> Result<Vec<Content>> {
     let agents = state.agents.read().await;
-    
-    let error_count = agents.values().filter(|a| matches!(a.status, crate::AgentStatus::Error)).count();
+
+    let error_count = agents
+        .values()
+        .filter(|a| matches!(a.status, crate::AgentStatus::Error))
+        .count();
     let total_agents = agents.len();
-    
+
     let overall_health = if error_count == 0 {
         "healthy"
     } else if error_count < total_agents / 2 {
@@ -705,22 +724,25 @@ async fn read_system_health(state: Arc<McpServerState>) -> Result<Vec<Content>> 
 
 async fn read_discovery_agents(state: Arc<McpServerState>) -> Result<Vec<Content>> {
     let agents = state.agents.read().await;
-    
-    let discoverable_agents: Vec<Value> = agents.values()
+
+    let discoverable_agents: Vec<Value> = agents
+        .values()
         .filter(|agent| matches!(agent.status, crate::AgentStatus::Running))
-        .map(|agent| json!({
-            "id": agent.id,
-            "name": agent.name,
-            "type": agent.agent_type,
-            "capabilities": agent.capabilities,
-            "endpoint": agent.endpoint,
-            "last_seen": agent.last_seen,
-            "discovery_metadata": {
-                "availability": "online",
-                "load": "normal",
-                "response_time": "fast"
-            }
-        }))
+        .map(|agent| {
+            json!({
+                "id": agent.id,
+                "name": agent.name,
+                "type": agent.agent_type,
+                "capabilities": agent.capabilities,
+                "endpoint": agent.endpoint,
+                "last_seen": agent.last_seen,
+                "discovery_metadata": {
+                    "availability": "online",
+                    "load": "normal",
+                    "response_time": "fast"
+                }
+            })
+        })
         .collect();
 
     Ok(vec![Content {
@@ -735,7 +757,7 @@ async fn read_discovery_agents(state: Arc<McpServerState>) -> Result<Vec<Content
 
 async fn read_discovery_services(state: Arc<McpServerState>) -> Result<Vec<Content>> {
     let _state = state; // Keep for future use
-    
+
     let services = json!({
         "mcp_services": [
             {
@@ -854,7 +876,7 @@ async fn read_usage_analytics(state: Arc<McpServerState>) -> Result<Vec<Content>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{DaaMcpConfig, DaaAgentInfo, AgentStatus};
+    use crate::{AgentStatus, DaaAgentInfo, DaaMcpConfig};
 
     #[tokio::test]
     async fn test_read_agents_list() {
@@ -874,7 +896,11 @@ mod tests {
             metadata: std::collections::HashMap::new(),
         };
 
-        state.agents.write().await.insert("test-agent".to_string(), agent);
+        state
+            .agents
+            .write()
+            .await
+            .insert("test-agent".to_string(), agent);
 
         let content = read_agents_list(state).await.unwrap();
         assert_eq!(content.len(), 1);
@@ -889,7 +915,7 @@ mod tests {
         let content = read_system_health(state).await.unwrap();
         assert_eq!(content.len(), 1);
         assert_eq!(content[0].content_type, "application/json");
-        
+
         // Parse the JSON to verify structure
         let health: serde_json::Value = serde_json::from_str(&content[0].text).unwrap();
         assert!(health.get("overall_status").is_some());

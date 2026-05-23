@@ -30,6 +30,10 @@ pub mod transport;
 pub mod types;
 pub mod webrtc;
 
+pub use dag_consensus::{
+    create_dag_consensus_network, ConsensusMessage, ConsensusNetworkConfig, ConsensusNetworkEvent,
+    ConsensusStats, DagConsensusNetwork, SerializedVertex,
+};
 pub use dark_resolver::{DarkDomainRecord, DarkResolver, DarkResolverError};
 pub use discovery::{
     DiscoveredPeer, DiscoveryConfig, DiscoveryEvent, DiscoveryMethod, DiscoveryStats,
@@ -74,11 +78,7 @@ pub use types::{
     NetworkMessage, PeerId, QueueMetrics, RoutingStrategy, ThroughputMetrics,
 };
 pub use webrtc::{
-    WebRTCConfig, WebRTCTransport, TurnServerConfig, SignalingMessage, create_webrtc_transport,
-};
-pub use dag_consensus::{
-    ConsensusMessage, ConsensusNetworkConfig, ConsensusNetworkEvent, ConsensusStats,
-    DagConsensusNetwork, SerializedVertex, create_dag_consensus_network,
+    create_webrtc_transport, SignalingMessage, TurnServerConfig, WebRTCConfig, WebRTCTransport,
 };
 
 use libp2p::PeerId as LibP2PPeerId;

@@ -1,7 +1,7 @@
 //! Action execution for rules
 
-use crate::{RuleAction, Result, RulesError, LogLevel};
 use crate::context::ExecutionContext;
+use crate::{LogLevel, Result, RuleAction, RulesError};
 
 /// Action executor
 pub struct ActionExecutor;
@@ -13,13 +13,17 @@ impl ActionExecutor {
     }
 
     /// Execute an action
-    pub async fn execute_action(&self, action: &RuleAction, context: &mut ExecutionContext) -> Result<()> {
+    pub async fn execute_action(
+        &self,
+        action: &RuleAction,
+        context: &mut ExecutionContext,
+    ) -> Result<()> {
         match action {
             RuleAction::SetField { field, value } => {
                 context.set_variable(field.clone(), value.clone());
                 Ok(())
             }
-            
+
             RuleAction::Log { level, message } => {
                 match level {
                     LogLevel::Trace => tracing::trace!("{}", message),
@@ -30,18 +34,19 @@ impl ActionExecutor {
                 }
                 Ok(())
             }
-            
+
             RuleAction::ModifyContext { modifications } => {
                 for (key, value) in modifications {
                     context.set_variable(key.clone(), value.clone());
                 }
                 Ok(())
             }
-            
-            RuleAction::Abort { reason } => {
-                Err(RulesError::ActionExecution(format!("Execution aborted: {}", reason)))
-            }
-            
+
+            RuleAction::Abort { reason } => Err(RulesError::ActionExecution(format!(
+                "Execution aborted: {}",
+                reason
+            ))),
+
             _ => {
                 // For other action types, log a warning
                 tracing::warn!("Unhandled action type: {:?}", action);

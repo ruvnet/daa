@@ -1,22 +1,25 @@
 //! Initialize command implementation
 
-use anyhow::Result;
-use colorful::Colorful;
+use anyhow::{Context, Result};
+use colored::Colorize;
 use std::path::PathBuf;
 
-use crate::Cli;
+use crate::CliContext;
 
 /// Handle the init command
 pub async fn handle_init(
     directory: Option<PathBuf>,
     template: String,
     force: bool,
-    cli: &Cli,
+    cli: &CliContext,
 ) -> Result<()> {
     let target_dir = directory.unwrap_or_else(|| std::env::current_dir().unwrap());
-    
+
     if cli.verbose {
-        println!("Initializing DAA configuration in: {}", target_dir.display());
+        println!(
+            "Initializing DAA configuration in: {}",
+            target_dir.display()
+        );
         println!("Template: {}", template);
         println!("Force: {}", force);
     }
@@ -32,7 +35,9 @@ pub async fn handle_init(
     // Create default orchestrator configuration
     let orchestrator_config = daa_orchestrator::OrchestratorConfig::default();
     let orchestrator_config_path = config_dir.join("orchestrator.toml");
-    orchestrator_config.to_file(&orchestrator_config_path)?;
+    let orchestrator_toml = toml::to_string_pretty(&orchestrator_config)
+        .context("Failed to serialize orchestrator config")?;
+    std::fs::write(&orchestrator_config_path, orchestrator_toml)?;
 
     // Create CLI configuration
     let cli_config = crate::config::CliConfig::default();
@@ -49,16 +54,19 @@ tmp/
     std::fs::write(config_dir.join(".gitignore"), gitignore_content)?;
 
     if cli.json {
-        println!("{}", serde_json::json!({
-            "status": "success",
-            "directory": target_dir,
-            "template": template,
-            "files_created": [
-                orchestrator_config_path.display().to_string(),
-                cli_config_path.display().to_string(),
-                config_dir.join(".gitignore").display().to_string()
-            ]
-        }));
+        println!(
+            "{}",
+            serde_json::json!({
+                "status": "success",
+                "directory": target_dir,
+                "template": template,
+                "files_created": [
+                    orchestrator_config_path.display().to_string(),
+                    cli_config_path.display().to_string(),
+                    config_dir.join(".gitignore").display().to_string()
+                ]
+            })
+        );
     } else {
         println!("{}", "✓ DAA configuration initialized successfully".green());
         println!("  Directory: {}", target_dir.display());

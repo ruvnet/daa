@@ -1,8 +1,8 @@
 //! End-to-end tests for DAA orchestrator initialization
 
 use daa_orchestrator::{
-    DaaOrchestrator, OrchestratorConfig, AutonomyConfig, QuDAGConfig, McpConfig, 
-    ApiConfig, LoggingConfig, HealthCheckConfig, RulesConfig, AiConfig, ExchangeConfig
+    AiConfig, ApiConfig, AutonomyConfig, DaaOrchestrator, ExchangeConfig, HealthCheckConfig,
+    LoggingConfig, McpConfig, OrchestratorConfig, QuDAGConfig, RulesConfig,
 };
 use std::time::Duration;
 use tokio::time::timeout;
@@ -11,16 +11,24 @@ use tokio::time::timeout;
 #[tokio::test]
 async fn test_orchestrator_basic_initialization() {
     let config = OrchestratorConfig::default();
-    
+
     // Test orchestrator creation
     let orchestrator = DaaOrchestrator::new(config).await;
-    assert!(orchestrator.is_ok(), "Failed to create orchestrator: {:?}", orchestrator.err());
-    
+    assert!(
+        orchestrator.is_ok(),
+        "Failed to create orchestrator: {:?}",
+        orchestrator.err()
+    );
+
     let mut orchestrator = orchestrator.unwrap();
-    
+
     // Test initialization
     let result = orchestrator.initialize().await;
-    assert!(result.is_ok(), "Failed to initialize orchestrator: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Failed to initialize orchestrator: {:?}",
+        result.err()
+    );
 }
 
 /// Test orchestrator initialization with custom configuration
@@ -95,19 +103,25 @@ async fn test_orchestrator_custom_config_initialization() {
             max_restart_attempts: 2,
         },
     };
-    
+
     // Validate configuration
     assert!(config.validate().is_ok(), "Custom configuration is invalid");
-    
+
     // Test orchestrator creation with custom config
     let orchestrator = DaaOrchestrator::new(config).await;
-    assert!(orchestrator.is_ok(), "Failed to create orchestrator with custom config");
-    
+    assert!(
+        orchestrator.is_ok(),
+        "Failed to create orchestrator with custom config"
+    );
+
     let mut orchestrator = orchestrator.unwrap();
-    
+
     // Test initialization
     let result = orchestrator.initialize().await;
-    assert!(result.is_ok(), "Failed to initialize orchestrator with custom config");
+    assert!(
+        result.is_ok(),
+        "Failed to initialize orchestrator with custom config"
+    );
 }
 
 /// Test orchestrator initialization with timeout
@@ -115,7 +129,7 @@ async fn test_orchestrator_custom_config_initialization() {
 async fn test_orchestrator_initialization_timeout() {
     let config = OrchestratorConfig::default();
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
-    
+
     // Test initialization with timeout
     let result = timeout(Duration::from_secs(10), orchestrator.initialize()).await;
     assert!(result.is_ok(), "Initialization timed out");
@@ -128,17 +142,17 @@ async fn test_orchestrator_statistics() {
     let config = OrchestratorConfig::default();
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
-    
+
     // Get statistics
     let stats = orchestrator.get_statistics().await;
-    
+
     // Verify statistics structure
     assert_eq!(stats.active_workflows, 0);
     assert_eq!(stats.registered_services, 0);
     assert_eq!(stats.coordinated_operations, 0);
     assert_eq!(stats.processed_events, 0);
     assert!(!stats.node_id.is_empty());
-    
+
     // Verify statistics display
     let stats_string = stats.to_string();
     assert!(stats_string.contains("Workflows=0"));
@@ -152,21 +166,24 @@ async fn test_orchestrator_statistics() {
 async fn test_component_initialization_order() {
     let config = OrchestratorConfig::default();
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
-    
+
     // Initialize and verify no errors
     let result = orchestrator.initialize().await;
     assert!(result.is_ok(), "Component initialization failed");
-    
+
     // Verify statistics after initialization
     let stats = orchestrator.get_statistics().await;
-    assert!(!stats.node_id.is_empty(), "Node ID should be set after initialization");
+    assert!(
+        !stats.node_id.is_empty(),
+        "Node ID should be set after initialization"
+    );
 }
 
 /// Test orchestrator with disabled integrations
 #[tokio::test]
 async fn test_orchestrator_disabled_integrations() {
     let mut config = OrchestratorConfig::default();
-    
+
     // Disable all integrations
     config.autonomy.enabled = false;
     config.qudag.enabled = false;
@@ -175,13 +192,16 @@ async fn test_orchestrator_disabled_integrations() {
     config.autonomy.rules_config.enabled = false;
     config.autonomy.ai_config.enabled = false;
     config.qudag.exchange_config.enabled = false;
-    
+
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
-    
+
     // Should still initialize successfully
     let result = orchestrator.initialize().await;
-    assert!(result.is_ok(), "Failed to initialize with disabled integrations");
-    
+    assert!(
+        result.is_ok(),
+        "Failed to initialize with disabled integrations"
+    );
+
     // Statistics should still work
     let stats = orchestrator.get_statistics().await;
     assert!(!stats.node_id.is_empty());
@@ -207,7 +227,7 @@ async fn test_multiple_orchestrator_instances() {
         },
         ..Default::default()
     };
-    
+
     let config2 = OrchestratorConfig {
         name: "orchestrator-2".to_string(),
         mcp: McpConfig {
@@ -225,45 +245,48 @@ async fn test_multiple_orchestrator_instances() {
         },
         ..Default::default()
     };
-    
+
     // Create both orchestrators
     let mut orchestrator1 = DaaOrchestrator::new(config1).await.unwrap();
     let mut orchestrator2 = DaaOrchestrator::new(config2).await.unwrap();
-    
+
     // Initialize both
     let result1 = orchestrator1.initialize().await;
     let result2 = orchestrator2.initialize().await;
-    
+
     assert!(result1.is_ok(), "Failed to initialize first orchestrator");
     assert!(result2.is_ok(), "Failed to initialize second orchestrator");
-    
+
     // Verify different node IDs
     let stats1 = orchestrator1.get_statistics().await;
     let stats2 = orchestrator2.get_statistics().await;
-    
-    assert_ne!(stats1.node_id, stats2.node_id, "Orchestrators should have different node IDs");
+
+    assert_ne!(
+        stats1.node_id, stats2.node_id,
+        "Orchestrators should have different node IDs"
+    );
 }
 
 /// Integration test for orchestrator lifecycle
 #[tokio::test]
 async fn test_orchestrator_full_lifecycle() {
     let config = OrchestratorConfig::default();
-    
+
     // Create orchestrator
     let orchestrator_result = DaaOrchestrator::new(config).await;
     assert!(orchestrator_result.is_ok(), "Failed to create orchestrator");
-    
+
     let mut orchestrator = orchestrator_result.unwrap();
-    
+
     // Initialize orchestrator
     let init_result = orchestrator.initialize().await;
     assert!(init_result.is_ok(), "Failed to initialize orchestrator");
-    
+
     // Get initial statistics
     let initial_stats = orchestrator.get_statistics().await;
     assert_eq!(initial_stats.active_workflows, 0);
     assert_eq!(initial_stats.registered_services, 0);
-    
+
     // Test service registration
     let service = daa_orchestrator::services::Service {
         id: "test-service-1".to_string(),
@@ -271,18 +294,18 @@ async fn test_orchestrator_full_lifecycle() {
         service_type: "ai_agent".to_string(),
         endpoint: "localhost:9000".to_string(),
     };
-    
+
     let register_result = orchestrator.register_service(service).await;
     assert!(register_result.is_ok(), "Failed to register service");
-    
+
     // Test service discovery
     let discovery_result = orchestrator.discover_services("ai_agent").await;
     assert!(discovery_result.is_ok(), "Failed to discover services");
-    
+
     // Final statistics check
     let final_stats = orchestrator.get_statistics().await;
     assert!(!final_stats.node_id.is_empty(), "Node ID should be present");
-    
+
     println!("Orchestrator lifecycle test completed successfully");
     println!("Final statistics: {}", final_stats);
 }

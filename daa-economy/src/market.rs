@@ -1,7 +1,7 @@
 //! Market operations for DAA Economy
 
-use serde::{Deserialize, Serialize};
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -78,7 +78,7 @@ impl MarketData {
     pub fn calculate_volatility(&self) -> Option<Decimal> {
         Some(Decimal::from_str("0.1").unwrap())
     }
-    
+
     pub fn get_price_trend(&self, _window: u32) -> Result<PriceTrend> {
         Ok(PriceTrend::Neutral)
     }

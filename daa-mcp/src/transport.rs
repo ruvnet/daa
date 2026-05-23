@@ -1,5 +1,5 @@
 //! Transport layer implementations for MCP communication
-//! 
+//!
 //! This module provides different transport mechanisms for MCP communication
 //! including HTTP, WebSocket, and STDIO transports.
 
@@ -12,22 +12,23 @@ use tokio::sync::{broadcast, RwLock};
 use tracing::{debug, error, info, warn};
 
 use crate::{DaaMcpError, McpMessage, Result};
+use futures::{SinkExt, StreamExt};
 
 /// Transport trait for MCP communication
 #[async_trait]
 pub trait McpTransport: Send + Sync {
     /// Send a message through the transport
     async fn send_message(&self, message: McpMessage) -> Result<()>;
-    
+
     /// Receive a message from the transport
     async fn receive_message(&self) -> Result<Option<McpMessage>>;
-    
+
     /// Check if the transport is connected
     fn is_connected(&self) -> bool;
-    
+
     /// Close the transport connection
     async fn close(&self) -> Result<()>;
-    
+
     /// Get transport type identifier
     fn transport_type(&self) -> &'static str;
 }
@@ -56,7 +57,7 @@ impl HttpTransport {
     pub async fn connect(&mut self) -> Result<()> {
         // Test connection with a simple request
         let health_check = reqwest::get(&format!("{}/health", self.endpoint)).await;
-        
+
         match health_check {
             Ok(response) if response.status().is_success() => {
                 self.connected = true;
@@ -92,7 +93,8 @@ impl McpTransport for HttpTransport {
         }
 
         let url = format!("{}/mcp", self.endpoint);
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("Content-Type", "application/json")
             .json(&message)
@@ -135,18 +137,18 @@ impl McpTransport for HttpTransport {
 pub struct WebSocketTransport {
     endpoint: String,
     sender: Option<broadcast::Sender<McpMessage>>,
-    receiver: Option<broadcast::Receiver<McpMessage>>,
+    receiver: Arc<tokio::sync::Mutex<Option<broadcast::Receiver<McpMessage>>>>,
     connected: Arc<RwLock<bool>>,
 }
 
 impl WebSocketTransport {
     pub fn new(endpoint: String) -> Self {
         let (sender, receiver) = broadcast::channel(100);
-        
+
         Self {
             endpoint,
             sender: Some(sender),
-            receiver: Some(receiver),
+            receiver: Arc::new(tokio::sync::Mutex::new(Some(receiver))),
             connected: Arc::new(RwLock::new(false)),
         }
     }
@@ -163,16 +165,16 @@ impl WebSocketTransport {
         };
 
         let url = format!("{}/mcp/ws", ws_url);
-        
+
         match connect_async(&url).await {
             Ok((ws_stream, _)) => {
                 let (ws_sender, mut ws_receiver) = ws_stream.split();
                 let sender = self.sender.take().unwrap();
                 let connected = self.connected.clone();
-                
+
                 // Set connected status
                 *connected.write().await = true;
-                
+
                 // Spawn receiver task
                 let receiver_connected = connected.clone();
                 tokio::spawn(async move {
@@ -229,7 +231,7 @@ impl McpTransport for WebSocketTransport {
     }
 
     async fn receive_message(&self) -> Result<Option<McpMessage>> {
-        if let Some(ref mut receiver) = self.receiver.as_ref() {
+        if let Some(ref mut receiver) = self.receiver.lock().await.as_mut() {
             match receiver.try_recv() {
                 Ok(message) => Ok(Some(message)),
                 Err(broadcast::error::TryRecvError::Empty) => Ok(None),
@@ -251,7 +253,10 @@ impl McpTransport for WebSocketTransport {
 
     fn is_connected(&self) -> bool {
         // Use try_read to avoid blocking
-        self.connected.try_read().map(|guard| *guard).unwrap_or(false)
+        self.connected
+            .try_read()
+            .map(|guard| *guard)
+            .unwrap_or(false)
     }
 
     async fn close(&self) -> Result<()> {
@@ -338,7 +343,10 @@ impl TransportFactory {
         } else if endpoint == "stdio" {
             Ok(Box::new(StdioTransport::new()))
         } else {
-            Err(DaaMcpError::Protocol(format!("Unsupported transport: {}", endpoint)))
+            Err(DaaMcpError::Protocol(format!(
+                "Unsupported transport: {}",
+                endpoint
+            )))
         }
     }
 
@@ -399,7 +407,10 @@ impl TransportManager {
         if let Some(transport) = self.transports.get(transport_name) {
             transport.send_message(message).await
         } else {
-            Err(DaaMcpError::Protocol(format!("Transport not found: {}", transport_name)))
+            Err(DaaMcpError::Protocol(format!(
+                "Transport not found: {}",
+                transport_name
+            )))
         }
     }
 
@@ -408,19 +419,25 @@ impl TransportManager {
         if let Some(ref name) = self.default_transport {
             self.send_message(name, message).await
         } else {
-            Err(DaaMcpError::Protocol("No default transport configured".to_string()))
+            Err(DaaMcpError::Protocol(
+                "No default transport configured".to_string(),
+            ))
         }
     }
 
     /// Get status of all transports
     pub fn get_transport_status(&self) -> HashMap<String, TransportStatus> {
-        self.transports.iter()
+        self.transports
+            .iter()
             .map(|(name, transport)| {
-                (name.clone(), TransportStatus {
-                    name: name.clone(),
-                    transport_type: transport.transport_type().to_string(),
-                    connected: transport.is_connected(),
-                })
+                (
+                    name.clone(),
+                    TransportStatus {
+                        name: name.clone(),
+                        transport_type: transport.transport_type().to_string(),
+                        connected: transport.is_connected(),
+                    },
+                )
             })
             .collect()
     }
@@ -505,7 +522,7 @@ mod tests {
     #[tokio::test]
     async fn test_transport_manager() {
         let mut manager = TransportManager::new();
-        
+
         let http_transport = TransportFactory::create_http("http://localhost:3001".to_string());
         manager.add_transport("http".to_string(), Box::new(http_transport));
 

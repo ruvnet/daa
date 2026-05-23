@@ -1,20 +1,20 @@
 //! Claude AI integration
 
+use crate::{AIError, Result};
 use serde::{Deserialize, Serialize};
-use crate::{Result, AIError};
 
 /// Claude API configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClaudeConfig {
     /// API key for Claude
     pub api_key: String,
-    
+
     /// Default model to use
     pub model: String,
-    
+
     /// API endpoint
     pub endpoint: String,
-    
+
     /// Request timeout in seconds
     pub timeout: u64,
 }

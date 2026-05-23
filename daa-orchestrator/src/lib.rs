@@ -5,21 +5,21 @@
 
 mod qudag_stubs;
 
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use anyhow;
 use hex;
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 // Re-export QuDAG protocol types
-pub use crate::qudag_stubs::qudag_protocol::{Node, NodeConfig, Message};
+pub use crate::qudag_stubs::qudag_protocol::{Message, Node, NodeConfig};
 
-pub mod coordinator;
-pub mod workflow;
-pub mod services;
-pub mod events;
 pub mod autonomy;
 pub mod config;
+pub mod coordinator;
 pub mod error;
+pub mod events;
+pub mod services;
+pub mod workflow;
 
 #[cfg(feature = "chain-integration")]
 pub mod chain_integration;
@@ -38,28 +38,28 @@ pub mod ai_integration;
 pub enum OrchestratorError {
     #[error("Protocol error: {0}")]
     Protocol(#[from] crate::qudag_stubs::ProtocolError),
-    
+
     #[error("Message error: {0}")]
     Message(#[from] crate::qudag_stubs::MessageError),
-    
+
     #[error("Anyhow error: {0}")]
     Anyhow(#[from] anyhow::Error),
-    
+
     #[error("Service error: {0}")]
     Service(String),
-    
+
     #[error("Workflow error: {0}")]
     Workflow(String),
-    
+
     #[error("Coordination error: {0}")]
     Coordination(String),
-    
+
     #[error("Integration error: {0}")]
     Integration(String),
-    
+
     #[error("Configuration error: {0}")]
     Configuration(String),
-    
+
     #[error("Node not found: {0}")]
     NodeNotFound(String),
 }
@@ -71,16 +71,16 @@ pub type Result<T> = std::result::Result<T, OrchestratorError>;
 pub struct OrchestratorConfig {
     /// Node configuration for QuDAG protocol
     pub node: NodeConfig,
-    
+
     /// Coordination settings
     pub coordination: CoordinationConfig,
-    
+
     /// Service registry configuration
     pub services: ServiceConfig,
-    
+
     /// Workflow engine configuration
     pub workflows: WorkflowConfig,
-    
+
     /// Integration configurations
     pub integrations: IntegrationConfig,
 }
@@ -102,13 +102,13 @@ impl Default for OrchestratorConfig {
 pub struct CoordinationConfig {
     /// Maximum number of concurrent operations
     pub max_concurrent_operations: usize,
-    
+
     /// Operation timeout in seconds
     pub operation_timeout: u64,
-    
+
     /// Retry configuration
     pub retry_attempts: u32,
-    
+
     /// Leader election timeout
     pub leader_election_timeout: u64,
 }
@@ -129,10 +129,10 @@ impl Default for CoordinationConfig {
 pub struct ServiceConfig {
     /// Auto-discovery enabled
     pub auto_discovery: bool,
-    
+
     /// Service health check interval
     pub health_check_interval: u64,
-    
+
     /// Service registration TTL
     pub registration_ttl: u64,
 }
@@ -142,7 +142,7 @@ impl Default for ServiceConfig {
         Self {
             auto_discovery: true,
             health_check_interval: 30, // 30 seconds
-            registration_ttl: 300, // 5 minutes
+            registration_ttl: 300,     // 5 minutes
         }
     }
 }
@@ -152,10 +152,10 @@ impl Default for ServiceConfig {
 pub struct WorkflowConfig {
     /// Maximum workflow execution time
     pub max_execution_time: u64,
-    
+
     /// Maximum steps per workflow
     pub max_steps: usize,
-    
+
     /// Parallel execution enabled
     pub parallel_execution: bool,
 }
@@ -175,13 +175,13 @@ impl Default for WorkflowConfig {
 pub struct IntegrationConfig {
     /// Enable chain integration
     pub enable_chain: bool,
-    
+
     /// Enable economy integration
     pub enable_economy: bool,
-    
+
     /// Enable rules integration
     pub enable_rules: bool,
-    
+
     /// Enable AI integration
     pub enable_ai: bool,
 }
@@ -201,32 +201,32 @@ impl Default for IntegrationConfig {
 pub struct DaaOrchestrator {
     /// System configuration
     config: OrchestratorConfig,
-    
+
     /// QuDAG protocol node
     node: Node,
-    
+
     /// Coordination manager
     coordinator: coordinator::Coordinator,
-    
+
     /// Workflow engine
     workflow_engine: workflow::WorkflowEngine,
-    
+
     /// Service registry
     service_registry: services::ServiceRegistry,
-    
+
     /// Event manager
     event_manager: events::EventManager,
-    
+
     /// Integration managers
     #[cfg(feature = "chain-integration")]
     chain_integration: Option<chain_integration::ChainIntegration>,
-    
+
     #[cfg(feature = "economy-integration")]
     economy_integration: Option<economy_integration::EconomyIntegration>,
-    
+
     #[cfg(feature = "rules-integration")]
     rules_integration: Option<rules_integration::RulesIntegration>,
-    
+
     #[cfg(feature = "ai-integration")]
     ai_integration: Option<ai_integration::AIIntegration>,
 }
@@ -236,13 +236,13 @@ impl DaaOrchestrator {
     pub async fn new(config: OrchestratorConfig) -> Result<Self> {
         // Initialize QuDAG node
         let node = Node::new(config.node.clone()).await?;
-        
+
         // Initialize managers
         let coordinator = coordinator::Coordinator::new(config.coordination.clone());
         let workflow_engine = workflow::WorkflowEngine::new(config.workflows.clone());
         let service_registry = services::ServiceRegistry::new(config.services.clone());
         let event_manager = events::EventManager::new();
-        
+
         // Initialize integrations
         #[cfg(feature = "chain-integration")]
         let chain_integration = if config.integrations.enable_chain {
@@ -250,21 +250,21 @@ impl DaaOrchestrator {
         } else {
             None
         };
-        
+
         #[cfg(feature = "economy-integration")]
         let economy_integration = if config.integrations.enable_economy {
             Some(economy_integration::EconomyIntegration::new().await?)
         } else {
             None
         };
-        
+
         #[cfg(feature = "rules-integration")]
         let rules_integration = if config.integrations.enable_rules {
             Some(rules_integration::RulesIntegration::new().await?)
         } else {
             None
         };
-        
+
         #[cfg(feature = "ai-integration")]
         let ai_integration = if config.integrations.enable_ai {
             Some(ai_integration::AIIntegration::new().await?)
@@ -293,43 +293,43 @@ impl DaaOrchestrator {
     /// Initialize the orchestrator
     pub async fn initialize(&mut self) -> Result<()> {
         tracing::info!("Initializing DAA Orchestrator");
-        
+
         // Start QuDAG node
         self.node.start().await?;
-        
+
         // Initialize coordinator
         self.coordinator.initialize().await?;
-        
+
         // Start workflow engine
         self.workflow_engine.start().await?;
-        
+
         // Start service registry
         self.service_registry.start().await?;
-        
+
         // Initialize event manager
         self.event_manager.initialize().await?;
-        
+
         // Initialize integrations
         #[cfg(feature = "chain-integration")]
         if let Some(ref mut integration) = self.chain_integration {
             integration.initialize().await?;
         }
-        
+
         #[cfg(feature = "economy-integration")]
         if let Some(ref mut integration) = self.economy_integration {
             integration.initialize().await?;
         }
-        
+
         #[cfg(feature = "rules-integration")]
         if let Some(ref mut integration) = self.rules_integration {
             integration.initialize().await?;
         }
-        
+
         #[cfg(feature = "ai-integration")]
         if let Some(ref mut integration) = self.ai_integration {
             integration.initialize().await?;
         }
-        
+
         tracing::info!("DAA Orchestrator initialized successfully");
         Ok(())
     }
@@ -340,19 +340,21 @@ impl DaaOrchestrator {
         workflow: workflow::Workflow,
     ) -> Result<workflow::WorkflowResult> {
         tracing::info!("Executing workflow: {}", workflow.id);
-        
+
         // Coordinate workflow execution
         let execution_id = self.coordinator.coordinate_workflow(&workflow).await?;
-        
+
         // Execute through workflow engine
         let result = self.workflow_engine.execute(workflow).await?;
-        
+
         // Publish completion event
-        self.event_manager.publish_event(events::Event::WorkflowCompleted {
-            execution_id,
-            result: result.clone(),
-        }).await?;
-        
+        self.event_manager
+            .publish_event(events::Event::WorkflowCompleted {
+                execution_id,
+                result: result.clone(),
+            })
+            .await?;
+
         Ok(result)
     }
 
@@ -389,16 +391,16 @@ impl DaaOrchestrator {
 pub struct OrchestratorStatistics {
     /// Number of active workflows
     pub active_workflows: u64,
-    
+
     /// Number of registered services
     pub registered_services: u64,
-    
+
     /// Number of coordinated operations
     pub coordinated_operations: u64,
-    
+
     /// Number of processed events
     pub processed_events: u64,
-    
+
     /// Node identifier
     pub node_id: String,
 }
@@ -439,7 +441,7 @@ mod tests {
             processed_events: 500,
             node_id: "test-node".to_string(),
         };
-        
+
         let display = stats.to_string();
         assert!(display.contains("Workflows=5"));
         assert!(display.contains("Services=10"));

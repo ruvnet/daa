@@ -1,5 +1,5 @@
 //! QuDAG Consensus Implementation for Model Updates
-//! 
+//!
 //! This module provides consensus mechanisms using QuDAG's QR-Avalanche algorithm
 //! for distributed model updates, Byzantine fault-tolerant aggregation, and
 //! checkpoint management in the DAA ecosystem.
@@ -133,15 +133,16 @@ impl ByzantineAggregator {
                 .iter()
                 .map(|(_, weights)| weights[i])
                 .collect();
-            
+
             feature_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
-            
+
             // Use trimmed mean (exclude top and bottom 10%)
             let trim_count = valid_updates.len() / 10;
             let trimmed_values = &feature_values[trim_count..feature_values.len() - trim_count];
-            
+
             if !trimmed_values.is_empty() {
-                aggregated_weights[i] = trimmed_values.iter().sum::<f32>() / trimmed_values.len() as f32;
+                aggregated_weights[i] =
+                    trimmed_values.iter().sum::<f32>() / trimmed_values.len() as f32;
             }
         }
 
@@ -165,7 +166,8 @@ impl ByzantineAggregator {
         if self.update_history.len() > 10 {
             // Implement statistical anomaly detection here
             // For now, use simple threshold
-            let mean_magnitude: f32 = weights.iter().map(|w| w.abs()).sum::<f32>() / weights.len() as f32;
+            let mean_magnitude: f32 =
+                weights.iter().map(|w| w.abs()).sum::<f32>() / weights.len() as f32;
             if mean_magnitude > 10.0 * self.max_deviation as f32 {
                 return true;
             }
@@ -253,7 +255,7 @@ pub enum ValidationEvent {
 impl ValidatorNetwork {
     pub fn new(minimum_validators: usize, stake_threshold: u64) -> Self {
         let (event_sender, _) = broadcast::channel(1000);
-        
+
         Self {
             validators: Arc::new(RwLock::new(HashMap::new())),
             minimum_validators,
@@ -271,16 +273,21 @@ impl ValidatorNetwork {
         }
 
         let validator_id = validator.id.clone();
-        self.validators.write().await.insert(validator_id.clone(), validator);
-        
-        let _ = self.event_sender.send(ValidationEvent::ValidatorJoined(validator_id));
+        self.validators
+            .write()
+            .await
+            .insert(validator_id.clone(), validator);
+
+        let _ = self
+            .event_sender
+            .send(ValidationEvent::ValidatorJoined(validator_id));
         Ok(())
     }
 
     /// Select validators for a round based on stake and reputation
     pub async fn select_validators(&self, count: usize) -> Result<Vec<ValidatorNode>> {
         let validators = self.validators.read().await;
-        
+
         let active_validators: Vec<_> = validators
             .values()
             .filter(|v| v.is_active())
@@ -314,17 +321,19 @@ impl ValidatorNetwork {
             // Simulate validation (in real implementation, this would involve
             // cryptographic verification and model testing)
             let is_valid = self.perform_validation(&validator, update).await?;
-            
+
             if is_valid {
                 positive_votes += validator.stake;
             }
             total_stake += validator.stake;
 
-            let _ = self.event_sender.send(ValidationEvent::ValidationCompleted {
-                update_id: format!("{:?}", update),
-                validator_id: validator.id.clone(),
-                result: is_valid,
-            });
+            let _ = self
+                .event_sender
+                .send(ValidationEvent::ValidationCompleted {
+                    update_id: format!("{:?}", update),
+                    validator_id: validator.id.clone(),
+                    result: is_valid,
+                });
         }
 
         // Require 2/3 stake majority
@@ -332,7 +341,11 @@ impl ValidatorNetwork {
     }
 
     /// Perform actual validation (placeholder for real implementation)
-    async fn perform_validation(&self, _validator: &ValidatorNode, update: &ModelUpdate) -> Result<bool> {
+    async fn perform_validation(
+        &self,
+        _validator: &ValidatorNode,
+        update: &ModelUpdate,
+    ) -> Result<bool> {
         // In a real implementation, this would:
         // 1. Verify cryptographic signatures
         // 2. Test model update impact
@@ -346,8 +359,7 @@ impl ValidatorNetwork {
             }
             ModelUpdate::Checkpoint { metrics, .. } => {
                 // Validate metrics are reasonable
-                Ok(metrics.accuracy >= 0.0 && metrics.accuracy <= 1.0 &&
-                   metrics.loss >= 0.0)
+                Ok(metrics.accuracy >= 0.0 && metrics.accuracy <= 1.0 && metrics.loss >= 0.0)
             }
             _ => Ok(true), // Simplified for other types
         }
@@ -395,7 +407,7 @@ impl CheckpointConsensus {
         validators: Vec<String>,
     ) -> Result<Option<ModelCheckpoint>> {
         let mut last_checkpoint = self.last_checkpoint.write().await;
-        
+
         let should_checkpoint = match *last_checkpoint {
             None => true,
             Some(last) => last.elapsed() >= self.checkpoint_interval,
@@ -412,14 +424,23 @@ impl CheckpointConsensus {
             state_hash,
             metrics,
             validators,
-            timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
             parent_checkpoint: self.get_latest_checkpoint_id(model_id).await,
         };
 
-        self.checkpoints.write().await.insert(checkpoint.id.clone(), checkpoint.clone());
+        self.checkpoints
+            .write()
+            .await
+            .insert(checkpoint.id.clone(), checkpoint.clone());
         *last_checkpoint = Some(Instant::now());
 
-        info!("Created checkpoint {} at height {}", checkpoint.id, block_height);
+        info!(
+            "Created checkpoint {} at height {}",
+            checkpoint.id, block_height
+        );
         Ok(Some(checkpoint))
     }
 
@@ -440,7 +461,8 @@ impl CheckpointConsensus {
         validator_votes: HashMap<String, bool>,
     ) -> Result<bool> {
         let checkpoints = self.checkpoints.read().await;
-        let _checkpoint = checkpoints.get(checkpoint_id)
+        let _checkpoint = checkpoints
+            .get(checkpoint_id)
             .ok_or_else(|| ChainError::Consensus("Checkpoint not found".to_string()))?;
 
         let positive_votes = validator_votes.values().filter(|&&v| v).count();
@@ -551,21 +573,27 @@ impl RollbackRecovery {
             model_id: model_id.to_string(),
             block_height,
             state_data,
-            timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
             validated: false,
         };
 
         let snapshot_id = snapshot.id.clone();
         let mut snapshots = self.snapshots.write().await;
-        
+
         snapshots.insert(snapshot_id.clone(), snapshot);
 
         // Cleanup old snapshots if needed
         if snapshots.len() > self.max_snapshots {
             let mut sorted_ids: Vec<_> = snapshots.keys().cloned().collect();
             sorted_ids.sort();
-            
-            for id in sorted_ids.into_iter().take(snapshots.len() - self.max_snapshots) {
+
+            for id in sorted_ids
+                .into_iter()
+                .take(snapshots.len() - self.max_snapshots)
+            {
                 snapshots.remove(&id);
             }
         }
@@ -576,14 +604,21 @@ impl RollbackRecovery {
     /// Rollback to a specific snapshot
     pub async fn rollback_to_snapshot(&self, snapshot_id: &str) -> Result<()> {
         let snapshots = self.snapshots.read().await;
-        let snapshot = snapshots.get(snapshot_id)
+        let snapshot = snapshots
+            .get(snapshot_id)
             .ok_or_else(|| ChainError::Consensus("Snapshot not found".to_string()))?;
 
-        info!("Rolling back to snapshot {} at height {}", snapshot_id, snapshot.block_height);
+        info!(
+            "Rolling back to snapshot {} at height {}",
+            snapshot_id, snapshot.block_height
+        );
 
         // Find appropriate recovery strategy
         for strategy in &self.recovery_strategies {
-            if strategy.can_recover(&ChainError::Consensus("Rollback required".to_string())).await {
+            if strategy
+                .can_recover(&ChainError::Consensus("Rollback required".to_string()))
+                .await
+            {
                 strategy.recover(snapshot).await?;
                 break;
             }
@@ -661,7 +696,7 @@ impl QuDAGModelConsensus {
         let validator_network = Arc::new(ValidatorNetwork::new(5, 1000));
         let checkpoint_consensus = Arc::new(CheckpointConsensus::new(
             Duration::from_secs(300), // 5 minute checkpoints
-            0.8, // 80% finality threshold
+            0.8,                      // 80% finality threshold
         ));
         let rollback_recovery = Arc::new(Mutex::new(RollbackRecovery::new(10)));
 
@@ -678,7 +713,7 @@ impl QuDAGModelConsensus {
     pub async fn process_model_update(&self, update: ModelUpdate) -> Result<bool> {
         // Step 1: Validate update through validator network
         let is_valid = self.validator_network.validate_update(&update).await?;
-        
+
         if !is_valid {
             warn!("Model update failed validation");
             return Ok(false);
@@ -697,11 +732,18 @@ impl QuDAGModelConsensus {
         }
 
         // Step 3: Create checkpoint if needed
-        if let ModelUpdate::Checkpoint { model_id, state_hash, metrics, .. } = &update {
+        if let ModelUpdate::Checkpoint {
+            model_id,
+            state_hash,
+            metrics,
+            ..
+        } = &update
+        {
             let validators = self.validator_network.select_validators(5).await?;
             let validator_ids: Vec<String> = validators.iter().map(|v| v.id.clone()).collect();
-            
-            let _ = self.checkpoint_consensus
+
+            let _ = self
+                .checkpoint_consensus
                 .maybe_create_checkpoint(
                     model_id,
                     0, // Block height would come from chain
@@ -720,12 +762,14 @@ impl QuDAGModelConsensus {
         // Get available snapshots
         let recovery = self.rollback_recovery.lock().await;
         let snapshots = recovery.get_snapshots(model_id).await;
-        
+
         if let Some(latest_snapshot) = snapshots.last() {
             info!("Recovering from snapshot {}", latest_snapshot.id);
             recovery.rollback_to_snapshot(&latest_snapshot.id).await?;
         } else {
-            return Err(ChainError::Consensus("No snapshots available for recovery".to_string()));
+            return Err(ChainError::Consensus(
+                "No snapshots available for recovery".to_string(),
+            ));
         }
 
         Ok(())
@@ -737,7 +781,14 @@ impl QuDAGModelConsensus {
             total_validators: self.validator_network.validators.read().await.len(),
             byzantine_nodes: self.aggregator.lock().await.get_byzantine_nodes().len(),
             checkpoints_created: self.checkpoint_consensus.checkpoints.read().await.len(),
-            snapshots_available: self.rollback_recovery.lock().await.snapshots.read().await.len(),
+            snapshots_available: self
+                .rollback_recovery
+                .lock()
+                .await
+                .snapshots
+                .read()
+                .await
+                .len(),
         }
     }
 }
@@ -757,7 +808,7 @@ mod tests {
     #[tokio::test]
     async fn test_byzantine_aggregation() {
         let mut aggregator = ByzantineAggregator::new(0.66, 2.0);
-        
+
         let updates = vec![
             ("node1".to_string(), vec![1.0, 2.0, 3.0]),
             ("node2".to_string(), vec![1.1, 2.1, 3.1]),
@@ -767,7 +818,7 @@ mod tests {
 
         let result = aggregator.aggregate_weight_updates(updates).await;
         assert!(result.is_ok());
-        
+
         let weights = result.unwrap();
         assert!(weights[0] > 0.9 && weights[0] < 1.3); // Should be around 1.1
     }
@@ -775,15 +826,15 @@ mod tests {
     #[tokio::test]
     async fn test_validator_network() {
         let network = ValidatorNetwork::new(3, 100);
-        
+
         let validator1 = ValidatorNode::new("val1".to_string(), vec![1, 2, 3], 1000);
         let validator2 = ValidatorNode::new("val2".to_string(), vec![4, 5, 6], 2000);
         let validator3 = ValidatorNode::new("val3".to_string(), vec![7, 8, 9], 1500);
-        
+
         network.register_validator(validator1).await.unwrap();
         network.register_validator(validator2).await.unwrap();
         network.register_validator(validator3).await.unwrap();
-        
+
         let selected = network.select_validators(2).await.unwrap();
         assert_eq!(selected.len(), 2);
         assert_eq!(selected[0].id, "val2"); // Highest stake
@@ -792,14 +843,14 @@ mod tests {
     #[tokio::test]
     async fn test_checkpoint_creation() {
         let consensus = CheckpointConsensus::new(Duration::from_secs(0), 0.8);
-        
+
         let metrics = ModelMetrics {
             accuracy: 0.95,
             loss: 0.05,
             validation_score: 0.93,
             timestamp: 0,
         };
-        
+
         let checkpoint = consensus
             .maybe_create_checkpoint(
                 "model1",
@@ -810,7 +861,7 @@ mod tests {
             )
             .await
             .unwrap();
-        
+
         assert!(checkpoint.is_some());
         assert_eq!(checkpoint.unwrap().model_id, "model1");
     }
@@ -818,14 +869,14 @@ mod tests {
     #[tokio::test]
     async fn test_rollback_recovery() {
         let recovery = RollbackRecovery::new(5);
-        
+
         let snapshot_id = recovery
             .create_snapshot("model1", 100, vec![1, 2, 3, 4])
             .await
             .unwrap();
-        
+
         assert!(snapshot_id.contains("snap_model1_100"));
-        
+
         let snapshots = recovery.get_snapshots("model1").await;
         assert_eq!(snapshots.len(), 1);
         assert_eq!(snapshots[0].model_id, "model1");

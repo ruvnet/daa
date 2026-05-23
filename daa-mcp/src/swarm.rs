@@ -1,5 +1,5 @@
 //! Swarm Coordination System for DAA MCP
-//! 
+//!
 //! This module implements a distributed swarm coordination system that manages
 //! multiple agents working together on complex tasks through parallel execution.
 
@@ -8,14 +8,15 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
-use tokio::sync::{broadcast, RwLock, Mutex};
+use tokio::sync::{broadcast, Mutex, RwLock};
 use tokio::time::{interval, timeout};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::{
     discovery::{AgentDiscoveryInfo, DiscoveryFilter, DiscoveryProtocol, DiscoveryUtils},
-    DaaMcpError, DaaTask, McpServerState, Result, SwarmMessage, SwarmMessageType, TaskPriority, TaskResult, TaskStatus,
+    DaaMcpError, DaaTask, McpServerState, Result, SwarmMessage, SwarmMessageType, TaskPriority,
+    TaskResult, TaskStatus,
 };
 
 /// Swarm coordination strategies
@@ -175,10 +176,12 @@ impl SwarmCoordinator {
         self.shutdown_tx = Some(shutdown_tx.clone());
 
         // Start coordination loop
-        self.start_coordination_loop(shutdown_tx.subscribe()).await?;
+        self.start_coordination_loop(shutdown_tx.subscribe())
+            .await?;
 
         // Start message processing
-        self.start_message_processor(shutdown_tx.subscribe()).await?;
+        self.start_message_processor(shutdown_tx.subscribe())
+            .await?;
 
         // Start task scheduler
         self.start_task_scheduler(shutdown_tx.subscribe()).await?;
@@ -213,16 +216,23 @@ impl SwarmCoordinator {
         required_agent_types: Vec<String>,
     ) -> Result<String> {
         let swarm_id = config.id.clone();
-        
-        info!("Creating swarm {} with {} required agent types", swarm_id, required_agent_types.len());
+
+        info!(
+            "Creating swarm {} with {} required agent types",
+            swarm_id,
+            required_agent_types.len()
+        );
 
         // Discover suitable agents
-        let agents = self.discover_swarm_agents(&required_agent_types, config.max_agents).await?;
-        
+        let agents = self
+            .discover_swarm_agents(&required_agent_types, config.max_agents)
+            .await?;
+
         if agents.len() < config.min_agents {
             return Err(DaaMcpError::Protocol(format!(
                 "Insufficient agents found. Required: {}, Found: {}",
-                config.min_agents, agents.len()
+                config.min_agents,
+                agents.len()
             )));
         }
 
@@ -253,9 +263,13 @@ impl SwarmCoordinator {
         self.initialize_swarm_agents(&swarm_id).await?;
 
         // Mark swarm as active
-        self.update_swarm_status(&swarm_id, SwarmStatus::Active).await?;
+        self.update_swarm_status(&swarm_id, SwarmStatus::Active)
+            .await?;
 
-        info!("Swarm {} created successfully with {} agents", swarm_id, config.max_agents);
+        info!(
+            "Swarm {} created successfully with {} agents",
+            swarm_id, config.max_agents
+        );
         Ok(swarm_id)
     }
 
@@ -267,26 +281,31 @@ impl SwarmCoordinator {
     /// Add a task to a swarm for execution
     pub async fn add_swarm_task(&self, swarm_id: &str, task: DaaTask) -> Result<()> {
         let mut swarms = self.swarms.write().await;
-        
+
         if let Some(swarm) = swarms.get_mut(swarm_id) {
             swarm.pending_tasks.push_back(task.clone());
-            
+
             // Notify task scheduler
+            let task_id = task.id.clone();
             let mut scheduler = self.task_scheduler.lock().await;
             scheduler.schedule_task(swarm_id, task).await?;
-            
-            info!("Task {} added to swarm {}", task.id, swarm_id);
+
+            info!("Task {} added to swarm {}", task_id, swarm_id);
             Ok(())
         } else {
-            Err(DaaMcpError::Protocol(format!("Swarm not found: {}", swarm_id)))
+            Err(DaaMcpError::Protocol(format!(
+                "Swarm not found: {}",
+                swarm_id
+            )))
         }
     }
 
     /// Get swarm status
     pub async fn get_swarm_status(&self, swarm_id: &str) -> Result<SwarmState> {
         let swarms = self.swarms.read().await;
-        
-        swarms.get(swarm_id)
+
+        swarms
+            .get(swarm_id)
             .cloned()
             .ok_or_else(|| DaaMcpError::Protocol(format!("Swarm not found: {}", swarm_id)))
     }
@@ -351,17 +370,20 @@ impl SwarmCoordinator {
             all_agents.extend(agents);
         }
 
-        // Remove duplicates and sort by suitability
-        let mut unique_agents: Vec<_> = all_agents.into_iter()
-            .collect::<HashSet<_>>()
+        // Remove duplicates by agent id and sort by suitability
+        let mut seen_ids = std::collections::HashSet::new();
+        let mut unique_agents: Vec<_> = all_agents
             .into_iter()
+            .filter(|a| seen_ids.insert(a.id.clone()))
             .collect();
 
         // Sort by suitability (availability, load, response time)
         unique_agents.sort_by(|a, b| {
             let score_a = Self::calculate_agent_score(a);
             let score_b = Self::calculate_agent_score(b);
-            score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+            score_b
+                .partial_cmp(&score_a)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         unique_agents.truncate(max_agents);
@@ -390,7 +412,7 @@ impl SwarmCoordinator {
         agents: Vec<AgentDiscoveryInfo>,
     ) -> Result<()> {
         let total_agents = agents.len();
-        
+
         for (index, agent_info) in agents.into_iter().enumerate() {
             let role = match swarm_state.config.strategy {
                 SwarmStrategy::Centralized => {
@@ -413,7 +435,10 @@ impl SwarmCoordinator {
                 }
                 _ => {
                     // For distributed/mesh strategies, assign roles based on capabilities
-                    if agent_info.capabilities.contains(&"coordination".to_string()) {
+                    if agent_info
+                        .capabilities
+                        .contains(&"coordination".to_string())
+                    {
                         SwarmRole::Coordinator
                     } else if agent_info.capabilities.contains(&"monitoring".to_string()) {
                         SwarmRole::Monitor
@@ -434,7 +459,9 @@ impl SwarmCoordinator {
                 last_heartbeat: SystemTime::now(),
             };
 
-            swarm_state.agents.insert(swarm_agent.id.clone(), swarm_agent);
+            swarm_state
+                .agents
+                .insert(swarm_agent.id.clone(), swarm_agent);
         }
 
         Ok(())
@@ -443,7 +470,7 @@ impl SwarmCoordinator {
     /// Initialize agents in the swarm
     async fn initialize_swarm_agents(&self, swarm_id: &str) -> Result<()> {
         let swarms = self.swarms.read().await;
-        
+
         if let Some(swarm) = swarms.get(swarm_id) {
             for agent in swarm.agents.values() {
                 let init_message = serde_json::json!({
@@ -465,7 +492,7 @@ impl SwarmCoordinator {
     /// Update swarm status
     async fn update_swarm_status(&self, swarm_id: &str, status: SwarmStatus) -> Result<()> {
         let mut swarms = self.swarms.write().await;
-        
+
         if let Some(swarm) = swarms.get_mut(swarm_id) {
             swarm.status = status;
             swarm.last_coordination = SystemTime::now();
@@ -477,7 +504,8 @@ impl SwarmCoordinator {
     /// Internal method to terminate a swarm
     async fn terminate_swarm_internal(&self, swarm_id: &str) -> Result<()> {
         // Update status to terminating
-        self.update_swarm_status(swarm_id, SwarmStatus::Terminating).await?;
+        self.update_swarm_status(swarm_id, SwarmStatus::Terminating)
+            .await?;
 
         // Send termination messages to agents
         self.send_swarm_message(
@@ -485,7 +513,8 @@ impl SwarmCoordinator {
             SwarmMessageType::Coordination,
             serde_json::json!({"action": "terminate"}),
             None,
-        ).await?;
+        )
+        .await?;
 
         // Remove swarm from state
         {
@@ -498,7 +527,10 @@ impl SwarmCoordinator {
     }
 
     /// Start the coordination loop
-    async fn start_coordination_loop(&self, mut shutdown_rx: broadcast::Receiver<()>) -> Result<()> {
+    async fn start_coordination_loop(
+        &self,
+        mut shutdown_rx: broadcast::Receiver<()>,
+    ) -> Result<()> {
         let swarms = self.swarms.clone();
         let discovery = self.discovery.clone();
 
@@ -513,7 +545,7 @@ impl SwarmCoordinator {
                     }
                     _ = interval.tick() => {
                         let swarms_guard = swarms.read().await;
-                        
+
                         for (swarm_id, swarm) in swarms_guard.iter() {
                             // Check agent health and availability
                             Self::check_swarm_health(swarm_id, swarm, &discovery).await;
@@ -538,7 +570,8 @@ impl SwarmCoordinator {
         for agent in swarm.agents.values() {
             // Check if agent has sent recent heartbeat
             if let Ok(duration) = now.duration_since(agent.last_heartbeat) {
-                if duration > Duration::from_secs(120) { // 2 minutes timeout
+                if duration > Duration::from_secs(120) {
+                    // 2 minutes timeout
                     unhealthy_agents += 1;
                     warn!("Agent {} in swarm {} appears unhealthy", agent.id, swarm_id);
                 }
@@ -548,13 +581,20 @@ impl SwarmCoordinator {
         // Check if swarm needs scaling or replacement agents
         let healthy_ratio = 1.0 - (unhealthy_agents as f32 / swarm.agents.len() as f32);
         if healthy_ratio < swarm.config.failure_tolerance {
-            warn!("Swarm {} is degraded: {:.1}% healthy agents", swarm_id, healthy_ratio * 100.0);
+            warn!(
+                "Swarm {} is degraded: {:.1}% healthy agents",
+                swarm_id,
+                healthy_ratio * 100.0
+            );
             // Could trigger agent replacement logic here
         }
     }
 
     /// Start message processor
-    async fn start_message_processor(&self, mut shutdown_rx: broadcast::Receiver<()>) -> Result<()> {
+    async fn start_message_processor(
+        &self,
+        mut shutdown_rx: broadcast::Receiver<()>,
+    ) -> Result<()> {
         let message_bus = self.message_bus.clone();
 
         tokio::spawn(async move {
@@ -604,7 +644,7 @@ impl SwarmCoordinator {
                     _ = interval.tick() => {
                         let mut sched = scheduler.lock().await;
                         let swarms_guard = swarms.read().await;
-                        
+
                         for (swarm_id, swarm_state) in swarms_guard.iter() {
                             if let Err(e) = sched.process_pending_tasks(swarm_id, swarm_state).await {
                                 warn!("Error processing tasks for swarm {}: {}", swarm_id, e);
@@ -638,7 +678,7 @@ impl TaskScheduler {
             .entry(swarm_id.to_string())
             .or_insert_with(Vec::new)
             .push(task);
-        
+
         Ok(())
     }
 
@@ -648,11 +688,16 @@ impl TaskScheduler {
         swarm_id: &str,
         swarm_state: &SwarmState,
     ) -> Result<()> {
-        if let Some(tasks) = self.pending_assignments.get_mut(swarm_id) {
+        let tasks_snapshot = self.pending_assignments.get(swarm_id).map(|t| t.clone());
+        if let Some(tasks) = tasks_snapshot {
             if !tasks.is_empty() && matches!(swarm_state.status, SwarmStatus::Active) {
                 // Distribute tasks based on the configured method
-                self.distribute_tasks(swarm_state, tasks).await?;
-                tasks.clear();
+                // We work on a snapshot to avoid holding a mutable borrow while calling self methods.
+                let tasks_ref = tasks.as_slice();
+                self.distribute_tasks(swarm_state, tasks_ref).await?;
+                if let Some(pending) = self.pending_assignments.get_mut(swarm_id) {
+                    pending.clear();
+                }
             }
         }
 
@@ -660,12 +705,10 @@ impl TaskScheduler {
     }
 
     /// Distribute tasks to swarm agents
-    async fn distribute_tasks(
-        &self,
-        swarm_state: &SwarmState,
-        tasks: &[DaaTask],
-    ) -> Result<()> {
-        let worker_agents: Vec<_> = swarm_state.agents.values()
+    async fn distribute_tasks(&self, swarm_state: &SwarmState, tasks: &[DaaTask]) -> Result<()> {
+        let worker_agents: Vec<_> = swarm_state
+            .agents
+            .values()
             .filter(|agent| matches!(agent.role, SwarmRole::Worker))
             .collect();
 
@@ -678,8 +721,13 @@ impl TaskScheduler {
             let selected_agent = match swarm_state.config.task_distribution_method {
                 TaskDistributionMethod::LoadBased => {
                     // Select agent with lowest current load
-                    worker_agents.iter()
-                        .min_by(|a, b| a.current_load.partial_cmp(&b.current_load).unwrap_or(std::cmp::Ordering::Equal))
+                    worker_agents
+                        .iter()
+                        .min_by(|a, b| {
+                            a.current_load
+                                .partial_cmp(&b.current_load)
+                                .unwrap_or(std::cmp::Ordering::Equal)
+                        })
                         .unwrap()
                 }
                 TaskDistributionMethod::CapabilityBased => {
@@ -696,7 +744,10 @@ impl TaskScheduler {
                 }
             };
 
-            info!("Assigned task {} to agent {} in swarm {}", task.id, selected_agent.id, swarm_state.id);
+            info!(
+                "Assigned task {} to agent {} in swarm {}",
+                task.id, selected_agent.id, swarm_state.id
+            );
         }
 
         Ok(())
@@ -709,26 +760,33 @@ impl TaskScheduler {
         task: &DaaTask,
     ) -> &'a SwarmAgent {
         // Extract required capabilities from task parameters
-        let required_capabilities: Vec<String> = task.parameters.get("required_capabilities")
+        let required_capabilities: Vec<String> = task
+            .parameters
+            .get("required_capabilities")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default();
 
-        agents.iter()
+        agents
+            .iter()
             .max_by(|a, b| {
-                let score_a = DiscoveryUtils::compatibility_score(&a.discovery_info, &required_capabilities);
-                let score_b = DiscoveryUtils::compatibility_score(&b.discovery_info, &required_capabilities);
-                score_a.partial_cmp(&score_b).unwrap_or(std::cmp::Ordering::Equal)
+                let score_a =
+                    DiscoveryUtils::compatibility_score(&a.discovery_info, &required_capabilities);
+                let score_b =
+                    DiscoveryUtils::compatibility_score(&b.discovery_info, &required_capabilities);
+                score_a
+                    .partial_cmp(&score_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .unwrap_or(&agents[0])
     }
 
     /// Select agent based on priority and performance
-    fn select_by_priority<'a>(
-        &self,
-        agents: &[&'a SwarmAgent],
-        task: &DaaTask,
-    ) -> &'a SwarmAgent {
+    fn select_by_priority<'a>(&self, agents: &[&'a SwarmAgent], task: &DaaTask) -> &'a SwarmAgent {
         let priority_weight = match task.priority {
             TaskPriority::Critical => 1.0,
             TaskPriority::High => 0.8,
@@ -736,11 +794,14 @@ impl TaskScheduler {
             TaskPriority::Low => 0.4,
         };
 
-        agents.iter()
+        agents
+            .iter()
             .max_by(|a, b| {
                 let score_a = a.performance_score * priority_weight - a.current_load * 0.3;
                 let score_b = b.performance_score * priority_weight - b.current_load * 0.3;
-                score_a.partial_cmp(&score_b).unwrap_or(std::cmp::Ordering::Equal)
+                score_a
+                    .partial_cmp(&score_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .unwrap_or(&agents[0])
     }
@@ -808,11 +869,12 @@ impl SwarmTemplates {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{DaaMcpConfig, discovery::DiscoveryConfig};
+    use crate::{discovery::DiscoveryConfig, DaaMcpConfig};
 
     #[test]
     fn test_swarm_templates() {
-        let research_swarm = SwarmTemplates::research_swarm_3_agent("Research crypto markets".to_string());
+        let research_swarm =
+            SwarmTemplates::research_swarm_3_agent("Research crypto markets".to_string());
         assert_eq!(research_swarm.max_agents, 3);
         assert_eq!(research_swarm.min_agents, 3);
         assert!(matches!(research_swarm.mode, SwarmMode::Research));
@@ -824,7 +886,7 @@ mod tests {
 
     #[test]
     fn test_agent_score_calculation() {
-        use crate::discovery::{AgentDiscoveryInfo, AgentAvailability};
+        use crate::discovery::{AgentAvailability, AgentDiscoveryInfo};
 
         let agent = AgentDiscoveryInfo {
             id: "test-agent".to_string(),
@@ -846,7 +908,7 @@ mod tests {
     #[tokio::test]
     async fn test_task_scheduler() {
         let mut scheduler = TaskScheduler::new();
-        
+
         let task = DaaTask {
             id: "test-task".to_string(),
             task_type: "analysis".to_string(),

@@ -3,28 +3,28 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use crate::{Result, EconomyError};
+use crate::{EconomyError, Result};
 
 /// Account information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Account {
     /// Account ID
     pub id: String,
-    
+
     /// Associated agent ID
     pub agent_id: String,
-    
+
     /// Account creation timestamp
     pub created_at: DateTime<Utc>,
-    
+
     /// Account status
     pub status: AccountStatus,
-    
+
     /// Account metadata
     pub metadata: HashMap<String, String>,
 }
@@ -61,7 +61,10 @@ impl AccountManager {
             metadata: HashMap::new(),
         };
 
-        self.accounts.write().await.insert(account.id.clone(), account.clone());
+        self.accounts
+            .write()
+            .await
+            .insert(account.id.clone(), account.clone());
         Ok(account)
     }
 

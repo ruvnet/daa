@@ -1,8 +1,8 @@
 //! Trading engine and order management
 
 use chrono::{DateTime, Utc};
-use rust_decimal::Decimal;
 use num_traits::ToPrimitive;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{debug, info};
@@ -45,7 +45,7 @@ pub struct TradeOrder {
     pub order_type: OrderType,
     pub side: OrderSide,
     pub quantity: Decimal,
-    pub price: Option<Decimal>, // None for market orders
+    pub price: Option<Decimal>,      // None for market orders
     pub stop_price: Option<Decimal>, // For stop orders
     pub filled_quantity: Decimal,
     pub average_fill_price: Decimal,
@@ -116,7 +116,10 @@ impl TradeOrder {
 
     /// Check if order is active (can be filled)
     pub fn is_active(&self) -> bool {
-        matches!(self.status, OrderStatus::Pending | OrderStatus::PartiallyFilled)
+        matches!(
+            self.status,
+            OrderStatus::Pending | OrderStatus::PartiallyFilled
+        )
     }
 
     /// Check if order is expired
@@ -131,23 +134,26 @@ impl TradeOrder {
     /// Partially fill the order
     pub fn fill(&mut self, fill_quantity: Decimal, fill_price: Decimal) -> Result<()> {
         if !self.is_active() {
-            return Err(EconomyError::TradingError(
-                format!("Cannot fill order {} with status {:?}", self.id, self.status)
-            ));
+            return Err(EconomyError::TradingError(format!(
+                "Cannot fill order {} with status {:?}",
+                self.id, self.status
+            )));
         }
 
         if fill_quantity > self.remaining_quantity() {
-            return Err(EconomyError::TradingError(
-                format!("Fill quantity {} exceeds remaining quantity {}", 
-                        fill_quantity, self.remaining_quantity())
-            ));
+            return Err(EconomyError::TradingError(format!(
+                "Fill quantity {} exceeds remaining quantity {}",
+                fill_quantity,
+                self.remaining_quantity()
+            )));
         }
 
         // Update filled quantity and average price
-        let total_value = self.average_fill_price * self.filled_quantity + fill_price * fill_quantity;
+        let total_value =
+            self.average_fill_price * self.filled_quantity + fill_price * fill_quantity;
         self.filled_quantity += fill_quantity;
         self.average_fill_price = total_value / self.filled_quantity;
-        
+
         // Update status
         if self.is_filled() {
             self.status = OrderStatus::Filled;
@@ -156,23 +162,27 @@ impl TradeOrder {
         }
 
         self.updated_at = Utc::now();
-        debug!("Filled order {}: {} @ {}", self.id, fill_quantity, fill_price);
-        
+        debug!(
+            "Filled order {}: {} @ {}",
+            self.id, fill_quantity, fill_price
+        );
+
         Ok(())
     }
 
     /// Cancel the order
     pub fn cancel(&mut self) -> Result<()> {
         if !self.is_active() {
-            return Err(EconomyError::TradingError(
-                format!("Cannot cancel order {} with status {:?}", self.id, self.status)
-            ));
+            return Err(EconomyError::TradingError(format!(
+                "Cannot cancel order {} with status {:?}",
+                self.id, self.status
+            )));
         }
 
         self.status = OrderStatus::Cancelled;
         self.updated_at = Utc::now();
         debug!("Cancelled order {}", self.id);
-        
+
         Ok(())
     }
 
@@ -180,9 +190,12 @@ impl TradeOrder {
     pub fn reject(&mut self, reason: String) -> Result<()> {
         self.status = OrderStatus::Rejected;
         self.updated_at = Utc::now();
-        self.metadata.insert("rejection_reason".to_string(), serde_json::Value::String(reason));
+        self.metadata.insert(
+            "rejection_reason".to_string(),
+            serde_json::Value::String(reason),
+        );
         debug!("Rejected order {}", self.id);
-        
+
         Ok(())
     }
 }
@@ -285,23 +298,23 @@ impl AccountBalance {
         self.free_balance -= amount;
         self.locked_balance += amount;
         self.last_updated = Utc::now();
-        
+
         Ok(())
     }
 
     /// Unlock funds
     pub fn unlock_funds(&mut self, amount: Decimal) -> Result<()> {
         if self.locked_balance < amount {
-            return Err(EconomyError::TradingError(
-                format!("Cannot unlock {} {}, only {} locked", 
-                        amount, self.asset, self.locked_balance)
-            ));
+            return Err(EconomyError::TradingError(format!(
+                "Cannot unlock {} {}, only {} locked",
+                amount, self.asset, self.locked_balance
+            )));
         }
 
         self.locked_balance -= amount;
         self.free_balance += amount;
         self.last_updated = Utc::now();
-        
+
         Ok(())
     }
 
@@ -347,7 +360,8 @@ impl TradingEngine {
 
     /// Set account balance
     pub fn set_balance(&mut self, asset: String, balance: Decimal) {
-        self.balances.insert(asset.clone(), AccountBalance::new(asset, balance));
+        self.balances
+            .insert(asset.clone(), AccountBalance::new(asset, balance));
     }
 
     /// Get account balance
@@ -357,7 +371,8 @@ impl TradingEngine {
 
     /// Get balance for specific asset
     pub fn get_balance(&self, asset: &str) -> Decimal {
-        self.balances.get(asset)
+        self.balances
+            .get(asset)
             .map(|b| b.total_balance)
             .unwrap_or(Decimal::ZERO)
     }
@@ -379,15 +394,17 @@ impl TradingEngine {
         self.validate_order(&order)?;
 
         // Check if we can place the order (symbol limits, etc.)
-        let symbol_orders = self.orders.values()
+        let symbol_orders = self
+            .orders
+            .values()
             .filter(|o| o.symbol == order.symbol && o.is_active())
             .count();
-        
+
         if symbol_orders >= self.max_orders_per_symbol {
-            return Err(EconomyError::TradingError(
-                format!("Maximum orders per symbol ({}) exceeded for {}", 
-                        self.max_orders_per_symbol, order.symbol)
-            ));
+            return Err(EconomyError::TradingError(format!(
+                "Maximum orders per symbol ({}) exceeded for {}",
+                self.max_orders_per_symbol, order.symbol
+            )));
         }
 
         // Lock funds if needed
@@ -403,28 +420,31 @@ impl TradingEngine {
 
         let order_id = order.id.clone();
         self.orders.insert(order_id.clone(), order);
-        
+
         info!("Placed order: {}", order_id);
         Ok(order_id)
     }
 
     /// Cancel an order
     pub fn cancel_order(&mut self, order_id: &str) -> Result<()> {
-        let order = self.orders.get_mut(order_id)
+        let order = self
+            .orders
+            .get_mut(order_id)
             .ok_or_else(|| EconomyError::TradingError(format!("Order {} not found", order_id)))?;
 
         if !order.is_active() {
-            return Err(EconomyError::TradingError(
-                format!("Order {} cannot be cancelled (status: {:?})", order_id, order.status)
-            ));
+            return Err(EconomyError::TradingError(format!(
+                "Order {} cannot be cancelled (status: {:?})",
+                order_id, order.status
+            )));
         }
 
         // Cancel the order
         order.cancel()?;
-        
+
         // Unlock funds
         // Funds unlocking handled elsewhere
-        
+
         info!("Cancelled order: {}", order_id);
         Ok(())
     }
@@ -436,14 +456,16 @@ impl TradingEngine {
 
     /// Get all orders for a symbol
     pub fn get_orders_by_symbol(&self, symbol: &str) -> Vec<&TradeOrder> {
-        self.orders.values()
+        self.orders
+            .values()
             .filter(|order| order.symbol == symbol)
             .collect()
     }
 
     /// Get active orders
     pub fn get_active_orders(&self) -> Vec<&TradeOrder> {
-        self.orders.values()
+        self.orders
+            .values()
             .filter(|order| order.is_active())
             .collect()
     }
@@ -456,33 +478,31 @@ impl TradingEngine {
     /// Process market data and trigger order fills
     pub fn process_market_update(&mut self, symbol: String, price: Decimal) -> Result<Vec<String>> {
         self.update_market_price(symbol.clone(), price);
-        
+
         let mut filled_orders = Vec::new();
         let order_ids: Vec<String> = self.orders.keys().cloned().collect();
-        
+
         for order_id in order_ids {
             if let Some(order) = self.orders.get(&order_id) {
                 if order.symbol == symbol && order.is_active() {
                     let should_fill = match order.order_type {
-                        OrderType::Limit => {
-                            match order.side {
-                                OrderSide::Buy => order.price.map_or(false, |p| price <= p),
-                                OrderSide::Sell => order.price.map_or(false, |p| price >= p),
-                            }
-                        }
+                        OrderType::Limit => match order.side {
+                            OrderSide::Buy => order.price.map_or(false, |p| price <= p),
+                            OrderSide::Sell => order.price.map_or(false, |p| price >= p),
+                        },
                         OrderType::StopLoss => {
-                            order.stop_price.map_or(false, |p| 
-                                match order.side {
-                                    OrderSide::Buy => price >= p,
-                                    OrderSide::Sell => price <= p,
-                                }
-                            )
+                            order.stop_price.map_or(false, |p| match order.side {
+                                OrderSide::Buy => price >= p,
+                                OrderSide::Sell => price <= p,
+                            })
                         }
                         _ => false,
                     };
 
                     if should_fill {
-                        if let Ok(()) = self.fill_order(&order_id, order.remaining_quantity(), price) {
+                        if let Ok(()) =
+                            self.fill_order(&order_id, order.remaining_quantity(), price)
+                        {
                             filled_orders.push(order_id);
                         }
                     }
@@ -499,21 +519,33 @@ impl TradingEngine {
     /// Validate order before placement
     fn validate_order(&self, order: &TradeOrder) -> Result<()> {
         if order.quantity <= Decimal::ZERO {
-            return Err(EconomyError::TradingError("Order quantity must be positive".to_string()));
+            return Err(EconomyError::TradingError(
+                "Order quantity must be positive".to_string(),
+            ));
         }
 
         if order.symbol.is_empty() {
-            return Err(EconomyError::TradingError("Order symbol cannot be empty".to_string()));
+            return Err(EconomyError::TradingError(
+                "Order symbol cannot be empty".to_string(),
+            ));
         }
 
         // Validate price for limit orders
         if order.order_type == OrderType::Limit && order.price.is_none() {
-            return Err(EconomyError::TradingError("Limit orders must have a price".to_string()));
+            return Err(EconomyError::TradingError(
+                "Limit orders must have a price".to_string(),
+            ));
         }
 
         // Validate stop price for stop orders
-        if matches!(order.order_type, OrderType::StopLoss | OrderType::TakeProfit) && order.stop_price.is_none() {
-            return Err(EconomyError::TradingError("Stop orders must have a stop price".to_string()));
+        if matches!(
+            order.order_type,
+            OrderType::StopLoss | OrderType::TakeProfit
+        ) && order.stop_price.is_none()
+        {
+            return Err(EconomyError::TradingError(
+                "Stop orders must have a stop price".to_string(),
+            ));
         }
 
         Ok(())
@@ -524,7 +556,9 @@ impl TradingEngine {
         let (asset, amount) = match order.side {
             OrderSide::Buy => {
                 // For buy orders, lock the quote currency
-                let price = order.price.or_else(|| self.market_prices.get(&order.symbol).copied())
+                let price = order
+                    .price
+                    .or_else(|| self.market_prices.get(&order.symbol).copied())
                     .unwrap_or(rust_decimal_macros::dec!(1.0));
                 ("USD".to_string(), order.quantity * price) // Simplified: assume USD quote
             }
@@ -550,13 +584,13 @@ impl TradingEngine {
     fn unlock_order_funds(&mut self, order: &TradeOrder) -> Result<()> {
         let (asset, amount) = match order.side {
             OrderSide::Buy => {
-                let price = order.price.or_else(|| self.market_prices.get(&order.symbol).copied())
+                let price = order
+                    .price
+                    .or_else(|| self.market_prices.get(&order.symbol).copied())
                     .unwrap_or(rust_decimal_macros::dec!(1.0));
                 ("USD".to_string(), order.remaining_quantity() * price)
             }
-            OrderSide::Sell => {
-                (order.symbol.clone(), order.remaining_quantity())
-            }
+            OrderSide::Sell => (order.symbol.clone(), order.remaining_quantity()),
         };
 
         if let Some(balance) = self.balances.get_mut(&asset) {
@@ -581,7 +615,11 @@ impl TradingEngine {
                 order.side.clone(),
                 fill_quantity,
                 market_price,
-            ).with_fee(fill_quantity * market_price * self.fee_rate, "USD".to_string());
+            )
+            .with_fee(
+                fill_quantity * market_price * self.fee_rate,
+                "USD".to_string(),
+            );
 
             // Fill the order
             order.fill(fill_quantity, market_price)?;
@@ -604,7 +642,9 @@ impl TradingEngine {
         self.next_execution_id += 1;
 
         // Get order
-        let order = self.orders.get_mut(order_id)
+        let order = self
+            .orders
+            .get_mut(order_id)
             .ok_or_else(|| EconomyError::TradingError(format!("Order {} not found", order_id)))?;
 
         // Create execution
@@ -615,7 +655,8 @@ impl TradingEngine {
             order.side.clone(),
             quantity,
             price,
-        ).with_fee(quantity * price * self.fee_rate, "USD".to_string());
+        )
+        .with_fee(quantity * price * self.fee_rate, "USD".to_string());
 
         // Fill the order
         order.fill(quantity, price)?;
@@ -637,11 +678,16 @@ impl TradingEngine {
                 // Decrease quote currency (USD), increase base currency
                 if let Some(quote_balance) = self.balances.get_mut("USD") {
                     quote_balance.unlock_funds(execution.net_value())?;
-                    quote_balance.update_balance(quote_balance.total_balance - execution.net_value());
+                    quote_balance
+                        .update_balance(quote_balance.total_balance - execution.net_value());
                 }
 
-                let base_balance = self.balances.entry(execution.symbol.clone())
-                    .or_insert_with(|| AccountBalance::new(execution.symbol.clone(), Decimal::ZERO));
+                let base_balance = self
+                    .balances
+                    .entry(execution.symbol.clone())
+                    .or_insert_with(|| {
+                        AccountBalance::new(execution.symbol.clone(), Decimal::ZERO)
+                    });
                 base_balance.update_balance(base_balance.total_balance + execution.quantity);
             }
             OrderSide::Sell => {
@@ -651,7 +697,9 @@ impl TradingEngine {
                     base_balance.update_balance(base_balance.total_balance - execution.quantity);
                 }
 
-                let quote_balance = self.balances.entry("USD".to_string())
+                let quote_balance = self
+                    .balances
+                    .entry("USD".to_string())
                     .or_insert_with(|| AccountBalance::new("USD".to_string(), Decimal::ZERO));
                 quote_balance.update_balance(quote_balance.total_balance + execution.net_value());
             }
@@ -662,7 +710,9 @@ impl TradingEngine {
 
     /// Process expired orders
     fn process_expired_orders(&mut self) -> Result<()> {
-        let expired_order_ids: Vec<String> = self.orders.iter()
+        let expired_order_ids: Vec<String> = self
+            .orders
+            .iter()
             .filter_map(|(id, order)| {
                 if order.is_expired() && order.is_active() {
                     Some(id.clone())
@@ -687,7 +737,11 @@ impl TradingEngine {
     /// Get trading statistics
     pub fn get_trading_stats(&self) -> TradingStats {
         let total_orders = self.orders.len();
-        let filled_orders = self.orders.values().filter(|o| o.status == OrderStatus::Filled).count();
+        let filled_orders = self
+            .orders
+            .values()
+            .filter(|o| o.status == OrderStatus::Filled)
+            .count();
         let active_orders = self.orders.values().filter(|o| o.is_active()).count();
         let total_volume = self.executions.iter().map(|e| e.total_value()).sum();
         let total_fees = self.executions.iter().map(|e| e.fee).sum();
@@ -765,7 +819,8 @@ mod tests {
             OrderType::Limit,
             OrderSide::Buy,
             dec!(1.0),
-        ).with_price(dec!(50000.0));
+        )
+        .with_price(dec!(50000.0));
 
         assert_eq!(order.remaining_quantity(), dec!(1.0));
         assert!(order.is_active());
@@ -789,7 +844,8 @@ mod tests {
             OrderSide::Buy,
             dec!(1.0),
             dec!(50000.0),
-        ).with_fee(dec!(50.0), "USD".to_string());
+        )
+        .with_fee(dec!(50.0), "USD".to_string());
 
         assert_eq!(execution.total_value(), dec!(50000.0));
         assert_eq!(execution.net_value(), dec!(50050.0)); // Buy side adds fees
@@ -798,7 +854,7 @@ mod tests {
     #[test]
     fn test_account_balance() {
         let mut balance = AccountBalance::new("BTC".to_string(), dec!(10.0));
-        
+
         balance.lock_funds(dec!(3.0)).unwrap();
         assert_eq!(balance.free_balance, dec!(7.0));
         assert_eq!(balance.locked_balance, dec!(3.0));
@@ -848,13 +904,17 @@ mod tests {
             OrderType::Limit,
             OrderSide::Buy,
             dec!(1.0),
-        ).with_price(dec!(40000.0)); // Below market price
+        )
+        .with_price(dec!(40000.0)); // Below market price
 
         engine.place_order(order).unwrap();
         assert!(engine.get_order("test_cancel").unwrap().is_active());
 
         // Cancel the order
         engine.cancel_order("test_cancel").unwrap();
-        assert_eq!(engine.get_order("test_cancel").unwrap().status, OrderStatus::Cancelled);
+        assert_eq!(
+            engine.get_order("test_cancel").unwrap().status,
+            OrderStatus::Cancelled
+        );
     }
 }

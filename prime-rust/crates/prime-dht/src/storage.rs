@@ -64,7 +64,8 @@ impl Storage {
     }
 
     pub fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
-        self.entries.get(key)
+        self.entries
+            .get(key)
             .filter(|entry| !entry.is_expired())
             .map(|entry| entry.value.clone())
     }
@@ -74,7 +75,8 @@ impl Storage {
     }
 
     pub fn contains(&self, key: &[u8]) -> bool {
-        self.entries.get(key)
+        self.entries
+            .get(key)
             .map(|entry| !entry.is_expired())
             .unwrap_or(false)
     }
@@ -108,14 +110,14 @@ mod tests {
     #[test]
     fn test_basic_storage_operations() {
         let mut storage = Storage::new();
-        
+
         let key = b"test_key".to_vec();
         let value = b"test_value".to_vec();
-        
+
         storage.put(key.clone(), value.clone());
         assert_eq!(storage.get(&key), Some(value.clone()));
         assert!(storage.contains(&key));
-        
+
         assert_eq!(storage.remove(&key), Some(value));
         assert_eq!(storage.get(&key), None);
         assert!(!storage.contains(&key));
@@ -124,19 +126,19 @@ mod tests {
     #[test]
     fn test_ttl_expiration() {
         let mut storage = Storage::new();
-        
+
         let key = b"ttl_key".to_vec();
         let value = b"ttl_value".to_vec();
-        
+
         // Put with very short TTL
         storage.put_with_ttl(key.clone(), value.clone(), Duration::from_millis(1));
-        
+
         // Should be available immediately
         assert_eq!(storage.get(&key), Some(value));
-        
+
         // Wait for expiration
         std::thread::sleep(Duration::from_millis(2));
-        
+
         // Should be expired now
         assert_eq!(storage.get(&key), None);
         assert!(!storage.contains(&key));
@@ -145,17 +147,17 @@ mod tests {
     #[test]
     fn test_max_size_enforcement() {
         let mut storage = Storage::with_max_size(3);
-        
+
         storage.put(b"key1".to_vec(), b"value1".to_vec());
         storage.put(b"key2".to_vec(), b"value2".to_vec());
         storage.put(b"key3".to_vec(), b"value3".to_vec());
-        
+
         assert_eq!(storage.len(), 3);
-        
+
         // Adding fourth item should evict oldest
         storage.put(b"key4".to_vec(), b"value4".to_vec());
         assert_eq!(storage.len(), 3);
-        
+
         // key1 should be evicted
         assert!(!storage.contains(b"key1"));
         assert!(storage.contains(b"key4"));
@@ -166,13 +168,13 @@ mod tests {
     #[test_case(10, 10 ; "full storage")]
     fn test_storage_capacity(initial_items: usize, max_size: usize) {
         let mut storage = Storage::with_max_size(max_size);
-        
+
         for i in 0..initial_items {
             let key = format!("key_{}", i).into_bytes();
             let value = format!("value_{}", i).into_bytes();
             storage.put(key, value);
         }
-        
+
         assert_eq!(storage.len(), initial_items.min(max_size));
     }
 
@@ -190,12 +192,12 @@ mod tests {
         ) {
             let mut storage = Storage::with_max_size(50);
             let mut expected = HashMap::new();
-            
+
             for (key, value, is_put) in operations {
                 if is_put {
                     storage.put(key.clone(), value.clone());
                     expected.insert(key, value);
-                    
+
                     // Maintain max size in expected map
                     if expected.len() > 50 {
                         // Remove arbitrary item (in real impl it would be oldest)
@@ -205,18 +207,18 @@ mod tests {
                 } else {
                     let stored = storage.get(&key);
                     let expected_value = expected.get(&key).cloned();
-                    
+
                     // If we expect a value, it should match
                     if let Some(exp_val) = expected_value {
                         assert_eq!(stored, Some(exp_val));
                     }
                 }
             }
-            
+
             // Storage size should not exceed max
             assert!(storage.len() <= 50);
         }
-        
+
         #[test]
         fn test_ttl_properties(
             ttl_ms in 1u64..1000u64,
@@ -225,13 +227,13 @@ mod tests {
             let mut storage = Storage::new();
             let key = b"ttl_test".to_vec();
             let value = b"ttl_value".to_vec();
-            
+
             storage.put_with_ttl(
-                key.clone(), 
-                value.clone(), 
+                key.clone(),
+                value.clone(),
                 Duration::from_millis(ttl_ms)
             );
-            
+
             if wait_ms < ttl_ms {
                 // Should not be expired yet
                 assert!(storage.contains(&key));

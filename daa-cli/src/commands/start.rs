@@ -1,17 +1,17 @@
 //! Start command implementation
 
 use anyhow::Result;
-use colorful::Colorful;
+use colored::Colorize;
 use std::path::PathBuf;
 
-use crate::{Cli, config::CliConfig};
+use crate::{config::CliConfig, CliContext};
 
 /// Handle the start command
 pub async fn handle_start(
     daemon: bool,
     pid_file: Option<PathBuf>,
     config: &CliConfig,
-    cli: &Cli,
+    cli: &CliContext,
 ) -> Result<()> {
     if cli.verbose {
         println!("Starting DAA orchestrator");
@@ -25,11 +25,14 @@ pub async fn handle_start(
     spinner.finish_with_message("Orchestrator started");
 
     if cli.json {
-        println!("{}", serde_json::json!({
-            "status": "started",
-            "daemon": daemon,
-            "pid": std::process::id()
-        }));
+        println!(
+            "{}",
+            serde_json::json!({
+                "status": "started",
+                "daemon": daemon,
+                "pid": std::process::id()
+            })
+        );
     } else {
         println!("{}", "✓ DAA orchestrator started successfully".green());
         if daemon {

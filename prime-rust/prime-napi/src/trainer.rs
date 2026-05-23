@@ -167,12 +167,10 @@ impl TrainingNode {
         })?;
 
         // Start training
-        trainer.start_training().await.map_err(|e| {
-            Error::new(
-                Status::GenericFailure,
-                format!("Training failed: {}", e),
-            )
-        })?;
+        trainer
+            .start_training()
+            .await
+            .map_err(|e| Error::new(Status::GenericFailure, format!("Training failed: {}", e)))?;
 
         // Increment epoch counter
         let mut epoch = self.current_epoch.write().await;
@@ -216,17 +214,11 @@ impl TrainingNode {
     /// const aggregated = await coordinator.aggregateGradients([grad1, grad2]);
     /// ```
     #[napi]
-    pub async fn aggregate_gradients(
-        &self,
-        gradients: Vec<Buffer>,
-    ) -> Result<Buffer> {
+    pub async fn aggregate_gradients(&self, gradients: Vec<Buffer>) -> Result<Buffer> {
         let config = self.config.read().await;
-        let config = config.as_ref().ok_or_else(|| {
-            Error::new(
-                Status::InvalidArg,
-                "Training not initialized",
-            )
-        })?;
+        let config = config
+            .as_ref()
+            .ok_or_else(|| Error::new(Status::InvalidArg, "Training not initialized"))?;
 
         // Validate inputs
         if gradients.is_empty() {
@@ -253,9 +245,7 @@ impl TrainingNode {
             "fedavg" | "federated_averaging" => {
                 self.federated_averaging(&gradients, gradient_len)?
             }
-            "trimmed_mean" => {
-                self.trimmed_mean(&gradients, gradient_len, 0.1)?
-            }
+            "trimmed_mean" => self.trimmed_mean(&gradients, gradient_len, 0.1)?,
             _ => {
                 // Default to federated averaging
                 self.federated_averaging(&gradients, gradient_len)?

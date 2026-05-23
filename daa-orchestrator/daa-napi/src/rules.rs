@@ -3,11 +3,11 @@
 //! Provides Node.js access to the DAA rules engine for defining and evaluating
 //! business rules and policies.
 
+use daa_rules::context::ExecutionContext;
+use daa_rules::{Rule, RuleAction, RuleCondition, RuleEngine, RuleResult};
 use napi::bindgen_prelude::*;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use daa_rules::{RuleEngine, Rule, RuleCondition, RuleAction, RuleResult};
-use daa_rules::context::ExecutionContext;
 
 /// Rule definition for Node.js
 #[napi(object)]

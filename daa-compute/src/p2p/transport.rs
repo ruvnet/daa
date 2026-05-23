@@ -3,14 +3,12 @@
 //! Supports TCP, WebSocket, and WebRTC transports with automatic
 //! multiplexing and encryption.
 
+use anyhow::Result;
 use libp2p::{
-    Transport, PeerId,
-    core::{transport::Boxed, muxing::StreamMuxerBox, upgrade::Version},
-    tcp, websocket, noise, yamux,
-    dns,
+    core::{muxing::StreamMuxerBox, transport::Boxed, upgrade::Version},
+    dns, noise, tcp, websocket, yamux, PeerId, Transport,
 };
 use std::time::Duration;
-use anyhow::Result;
 
 #[cfg(feature = "browser")]
 use libp2p_webrtc as webrtc;
@@ -61,14 +59,14 @@ pub fn create_transport(
             let dns_tcp = dns::tokio::Transport::system(tcp).unwrap();
             websocket::WsConfig::new(dns_tcp)
         };
-        
+
         let ws_transport = ws_dns_tcp
             .upgrade(Version::V1)
             .authenticate(noise_config.clone())
             .multiplex(yamux_config.clone())
             .timeout(Duration::from_secs(20))
             .boxed();
-            
+
         tcp_transport.or_transport(ws_transport).boxed()
     } else {
         use libp2p::core::transport::dummy::DummyTransport;
@@ -91,10 +89,12 @@ pub fn create_transport(
         // This will be handled in the main swarm construction
     }
 
-    Ok(transport.map(|either_output, _| match either_output {
-        futures::future::Either::Left((peer_id, muxer)) => (peer_id, muxer),
-        futures::future::Either::Right((peer_id, muxer)) => (peer_id, muxer),
-    }).boxed())
+    Ok(transport
+        .map(|either_output, _| match either_output {
+            futures::future::Either::Left((peer_id, muxer)) => (peer_id, muxer),
+            futures::future::Either::Right((peer_id, muxer)) => (peer_id, muxer),
+        })
+        .boxed())
 }
 
 /// Create a WASM-compatible transport for browser nodes
@@ -103,7 +103,7 @@ pub fn create_wasm_transport(
     local_key: &libp2p::identity::Keypair,
 ) -> Result<Boxed<(PeerId, StreamMuxerBox)>> {
     use wasm_bindgen_futures::spawn_local;
-    
+
     let noise_config = noise::Config::new(local_key).unwrap();
     let yamux_config = yamux::Config::default();
 
@@ -119,13 +119,13 @@ pub fn create_wasm_transport(
     {
         let webrtc_config = webrtc::Config::new(local_key)?;
         let webrtc_transport = webrtc::Transport::new(webrtc_config);
-        
+
         Ok(ws_transport
             .or_transport(webrtc_transport)
             .map(|output, _| output)
             .boxed())
     }
-    
+
     #[cfg(not(feature = "browser"))]
     Ok(ws_transport)
 }
@@ -163,12 +163,12 @@ impl Default for IceConfig {
 #[cfg(feature = "browser")]
 pub fn configure_ice_servers(ice_config: &IceConfig) -> webrtc::IceServers {
     let mut servers = webrtc::IceServers::new();
-    
+
     // Add STUN servers
     for stun in &ice_config.stun_servers {
         servers.add_stun(stun);
     }
-    
+
     // Add TURN servers
     for turn in &ice_config.turn_servers {
         for url in &turn.urls {
@@ -177,6 +177,6 @@ pub fn configure_ice_servers(ice_config: &IceConfig) -> webrtc::IceServers {
             }
         }
     }
-    
+
     servers
 }

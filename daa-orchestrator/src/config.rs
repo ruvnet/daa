@@ -8,22 +8,22 @@ use std::time::Duration;
 pub struct OrchestratorConfig {
     /// Orchestrator instance name
     pub name: String,
-    
+
     /// Autonomy loop configuration
     pub autonomy: AutonomyConfig,
-    
+
     /// QuDAG integration configuration
     pub qudag: QuDAGConfig,
-    
+
     /// MCP server configuration
     pub mcp: McpConfig,
-    
+
     /// API server configuration
     pub api: ApiConfig,
-    
+
     /// Logging configuration
     pub logging: LoggingConfig,
-    
+
     /// Health check configuration
     pub health_check: HealthCheckConfig,
 }
@@ -47,22 +47,22 @@ impl Default for OrchestratorConfig {
 pub struct AutonomyConfig {
     /// Whether the autonomy loop is enabled
     pub enabled: bool,
-    
+
     /// Loop iteration interval in milliseconds
     pub loop_interval_ms: u64,
-    
+
     /// Maximum number of tasks to process per iteration
     pub max_tasks_per_iteration: usize,
-    
+
     /// Task timeout in milliseconds
     pub task_timeout_ms: u64,
-    
+
     /// Whether to enable learning from decisions
     pub enable_learning: bool,
-    
+
     /// Rules engine configuration
     pub rules_config: RulesConfig,
-    
+
     /// AI agents configuration
     pub ai_config: AiConfig,
 }
@@ -86,16 +86,16 @@ impl Default for AutonomyConfig {
 pub struct RulesConfig {
     /// Whether rules engine is enabled
     pub enabled: bool,
-    
+
     /// Fail-fast mode for rule evaluation
     pub fail_fast: bool,
-    
+
     /// Maximum daily spending limit
     pub max_daily_spending: f64,
-    
+
     /// Minimum balance requirements
     pub min_balance_threshold: f64,
-    
+
     /// Risk assessment thresholds
     pub max_risk_score: f64,
 }
@@ -117,13 +117,13 @@ impl Default for RulesConfig {
 pub struct AiConfig {
     /// Whether AI agents are enabled
     pub enabled: bool,
-    
+
     /// Maximum number of concurrent agents
     pub max_agents: usize,
-    
+
     /// Agent task queue size
     pub agent_queue_size: usize,
-    
+
     /// Learning data retention period in days
     pub learning_retention_days: i64,
 }
@@ -144,28 +144,28 @@ impl Default for AiConfig {
 pub struct QuDAGConfig {
     /// Whether QuDAG integration is enabled
     pub enabled: bool,
-    
+
     /// QuDAG node endpoint
     pub node_endpoint: String,
-    
+
     /// QuDAG network ID
     pub network_id: String,
-    
+
     /// Node ID for this orchestrator
     pub node_id: String,
-    
+
     /// Bootstrap peers
     pub bootstrap_peers: Vec<String>,
-    
+
     /// Connection timeout in milliseconds
     pub connection_timeout_ms: u64,
-    
+
     /// Reconnection attempts
     pub max_reconnection_attempts: usize,
-    
+
     /// Consensus participation
     pub participate_in_consensus: bool,
-    
+
     /// Exchange integration
     pub exchange_config: ExchangeConfig,
 }
@@ -177,10 +177,7 @@ impl Default for QuDAGConfig {
             node_endpoint: "localhost:7000".to_string(),
             network_id: "qudag-testnet".to_string(),
             node_id: uuid::Uuid::new_v4().to_string(),
-            bootstrap_peers: vec![
-                "localhost:7001".to_string(),
-                "localhost:7002".to_string(),
-            ],
+            bootstrap_peers: vec!["localhost:7001".to_string(), "localhost:7002".to_string()],
             connection_timeout_ms: 10000,
             max_reconnection_attempts: 5,
             participate_in_consensus: true,
@@ -194,13 +191,13 @@ impl Default for QuDAGConfig {
 pub struct ExchangeConfig {
     /// Whether exchange integration is enabled
     pub enabled: bool,
-    
+
     /// Exchange endpoint
     pub endpoint: String,
-    
+
     /// Trading pairs to monitor
     pub trading_pairs: Vec<String>,
-    
+
     /// Order book depth
     pub order_book_depth: usize,
 }
@@ -221,22 +218,22 @@ impl Default for ExchangeConfig {
 pub struct McpConfig {
     /// Whether MCP server is enabled
     pub enabled: bool,
-    
+
     /// Server bind address
     pub bind_address: String,
-    
+
     /// Server port
     pub port: u16,
-    
+
     /// Maximum concurrent connections
     pub max_connections: usize,
-    
+
     /// Request timeout in milliseconds
     pub request_timeout_ms: u64,
-    
+
     /// Whether to enable authentication
     pub enable_auth: bool,
-    
+
     /// API key for authentication (if enabled)
     pub api_key: Option<String>,
 }
@@ -260,22 +257,22 @@ impl Default for McpConfig {
 pub struct ApiConfig {
     /// Whether API server is enabled
     pub enabled: bool,
-    
+
     /// Server bind address
     pub bind_address: String,
-    
+
     /// Server port
     pub port: u16,
-    
+
     /// Maximum concurrent connections
     pub max_connections: usize,
-    
+
     /// Request timeout in milliseconds
     pub request_timeout_ms: u64,
-    
+
     /// Whether to enable CORS
     pub enable_cors: bool,
-    
+
     /// Allowed CORS origins
     pub cors_origins: Vec<String>,
 }
@@ -299,13 +296,13 @@ impl Default for ApiConfig {
 pub struct LoggingConfig {
     /// Log level (trace, debug, info, warn, error)
     pub level: String,
-    
+
     /// Whether to log to stdout
     pub stdout: bool,
-    
+
     /// Log file path (optional)
     pub file_path: Option<String>,
-    
+
     /// Whether to enable structured logging (JSON)
     pub structured: bool,
 }
@@ -326,13 +323,13 @@ impl Default for LoggingConfig {
 pub struct HealthCheckConfig {
     /// Health check interval in seconds
     pub interval_seconds: u64,
-    
+
     /// Component timeout in milliseconds
     pub component_timeout_ms: u64,
-    
+
     /// Whether to restart failed components
     pub auto_restart: bool,
-    
+
     /// Maximum restart attempts per component
     pub max_restart_attempts: usize,
 }
@@ -449,10 +446,13 @@ mod tests {
     #[test]
     fn test_duration_conversions() {
         let config = OrchestratorConfig::default();
-        
+
         assert_eq!(config.autonomy_loop_interval(), Duration::from_millis(1000));
         assert_eq!(config.task_timeout(), Duration::from_millis(30000));
-        assert_eq!(config.qudag_connection_timeout(), Duration::from_millis(10000));
+        assert_eq!(
+            config.qudag_connection_timeout(),
+            Duration::from_millis(10000)
+        );
         assert_eq!(config.health_check_interval(), Duration::from_secs(30));
     }
 
