@@ -7,12 +7,14 @@
 //! - Integration with existing transport layer
 //! - Quantum-resistant encryption over WebRTC
 
-use crate::transport::{AsyncTransport, ConnectionMetadata, Transport, TransportConfig, TransportError, TransportStats};
-use crate::types::{ConnectionStatus, NetworkError, PeerId};
 use crate::nat_traversal::{StunClient, TurnClient};
+use crate::transport::{
+    AsyncTransport, ConnectionMetadata, Transport, TransportConfig, TransportError, TransportStats,
+};
+use crate::types::{ConnectionStatus, NetworkError, PeerId};
 use async_trait::async_trait;
 use futures::StreamExt;
-use libp2p::core::transport::{Transport as LibP2PTransport, ListenerEvent};
+use libp2p::core::transport::{ListenerEvent, Transport as LibP2PTransport};
 use libp2p::PeerId as LibP2PPeerId;
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -31,10 +33,8 @@ use webrtc::{
         ice_server::RTCIceServer,
     },
     peer_connection::{
-        configuration::RTCConfiguration,
-        peer_connection_state::RTCPeerConnectionState,
-        sdp::session_description::RTCSessionDescription,
-        RTCPeerConnection,
+        configuration::RTCConfiguration, peer_connection_state::RTCPeerConnectionState,
+        sdp::session_description::RTCSessionDescription, RTCPeerConnection,
     },
 };
 
@@ -159,7 +159,8 @@ impl WebRTCTransport {
 
     /// Generate a unique connection ID
     fn generate_connection_id(&self) -> String {
-        let id = self.connection_counter
+        let id = self
+            .connection_counter
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         format!("webrtc_conn_{}", id)
     }
@@ -192,43 +193,48 @@ impl WebRTCTransport {
     }
 
     /// Create a new peer connection
-    async fn create_peer_connection(&self, connection_id: String) -> Result<Arc<RTCPeerConnection>, TransportError> {
+    async fn create_peer_connection(
+        &self,
+        connection_id: String,
+    ) -> Result<Arc<RTCPeerConnection>, TransportError> {
         let config = RTCConfiguration {
             ice_servers: self.create_ice_servers(),
             ..Default::default()
         };
 
-        let peer_connection = Arc::new(
-            self.api
-                .new_peer_connection(config)
-                .await
-                .map_err(|e| TransportError::ConnectionFailed(format!("Failed to create peer connection: {}", e)))?
-        );
+        let peer_connection =
+            Arc::new(self.api.new_peer_connection(config).await.map_err(|e| {
+                TransportError::ConnectionFailed(format!("Failed to create peer connection: {}", e))
+            })?);
 
         // Set up connection state handler
         let conn_id = connection_id.clone();
         let metadata = Arc::clone(&self.metadata);
-        peer_connection.on_peer_connection_state_change(Box::new(move |state: RTCPeerConnectionState| {
-            let conn_id = conn_id.clone();
-            let metadata = metadata.clone();
-            Box::pin(async move {
-                debug!("Peer connection state changed to: {:?}", state);
-                
-                // Update connection metadata based on state
-                if let Ok(mut meta_lock) = metadata.write().await.try_write() {
-                    if let Some(meta) = meta_lock.get_mut(&conn_id) {
-                        meta.status = match state {
-                            RTCPeerConnectionState::Connected => ConnectionStatus::Connected,
-                            RTCPeerConnectionState::Disconnected => ConnectionStatus::Disconnected,
-                            RTCPeerConnectionState::Failed => ConnectionStatus::Failed,
-                            RTCPeerConnectionState::Closed => ConnectionStatus::Closed,
-                            _ => ConnectionStatus::Connecting,
-                        };
-                        meta.last_activity = Instant::now();
+        peer_connection.on_peer_connection_state_change(Box::new(
+            move |state: RTCPeerConnectionState| {
+                let conn_id = conn_id.clone();
+                let metadata = metadata.clone();
+                Box::pin(async move {
+                    debug!("Peer connection state changed to: {:?}", state);
+
+                    // Update connection metadata based on state
+                    if let Ok(mut meta_lock) = metadata.write().await.try_write() {
+                        if let Some(meta) = meta_lock.get_mut(&conn_id) {
+                            meta.status = match state {
+                                RTCPeerConnectionState::Connected => ConnectionStatus::Connected,
+                                RTCPeerConnectionState::Disconnected => {
+                                    ConnectionStatus::Disconnected
+                                }
+                                RTCPeerConnectionState::Failed => ConnectionStatus::Failed,
+                                RTCPeerConnectionState::Closed => ConnectionStatus::Closed,
+                                _ => ConnectionStatus::Connecting,
+                            };
+                            meta.last_activity = Instant::now();
+                        }
                     }
-                }
-            })
-        }));
+                })
+            },
+        ));
 
         // Set up ICE candidate handler
         let signaling_tx = self.signaling_tx.clone();
@@ -239,13 +245,19 @@ impl WebRTCTransport {
             Box::pin(async move {
                 if let Some(candidate) = candidate {
                     if let Some(tx) = signaling_tx {
-                        let _ = tx.send(SignalingMessage::IceCandidate {
-                            from: conn_id.clone(),
-                            to: "remote".to_string(), // This should be the actual remote peer ID
-                            candidate: candidate.to_json().await.unwrap_or_default().candidate,
-                            sdp_mid: candidate.to_json().await.ok().and_then(|c| c.sdp_mid),
-                            sdp_mline_index: candidate.to_json().await.ok().and_then(|c| c.sdp_mline_index),
-                        }).await;
+                        let _ = tx
+                            .send(SignalingMessage::IceCandidate {
+                                from: conn_id.clone(),
+                                to: "remote".to_string(), // This should be the actual remote peer ID
+                                candidate: candidate.to_json().await.unwrap_or_default().candidate,
+                                sdp_mid: candidate.to_json().await.ok().and_then(|c| c.sdp_mid),
+                                sdp_mline_index: candidate
+                                    .to_json()
+                                    .await
+                                    .ok()
+                                    .and_then(|c| c.sdp_mline_index),
+                            })
+                            .await;
                     }
                 }
             })
@@ -269,43 +281,46 @@ impl WebRTCTransport {
         let data_channel = peer_connection
             .create_data_channel(label, Some(data_channel_init))
             .await
-            .map_err(|e| TransportError::ConnectionFailed(format!("Failed to create data channel: {}", e)))?;
+            .map_err(|e| {
+                TransportError::ConnectionFailed(format!("Failed to create data channel: {}", e))
+            })?;
 
         Ok(Arc::new(data_channel))
     }
 
     /// Handle incoming offer
-    async fn handle_offer(
-        &self,
-        from: String,
-        sdp: String,
-    ) -> Result<String, TransportError> {
+    async fn handle_offer(&self, from: String, sdp: String) -> Result<String, TransportError> {
         let connection_id = self.generate_connection_id();
         let peer_connection = self.create_peer_connection(connection_id.clone()).await?;
 
         // Set remote description
-        let offer = RTCSessionDescription::offer(sdp).map_err(|e| {
-            TransportError::ConnectionFailed(format!("Invalid offer SDP: {}", e))
-        })?;
+        let offer = RTCSessionDescription::offer(sdp)
+            .map_err(|e| TransportError::ConnectionFailed(format!("Invalid offer SDP: {}", e)))?;
 
         peer_connection
             .set_remote_description(offer)
             .await
-            .map_err(|e| TransportError::ConnectionFailed(format!("Failed to set remote description: {}", e)))?;
+            .map_err(|e| {
+                TransportError::ConnectionFailed(format!("Failed to set remote description: {}", e))
+            })?;
 
         // Create answer
-        let answer = peer_connection
-            .create_answer(None)
-            .await
-            .map_err(|e| TransportError::ConnectionFailed(format!("Failed to create answer: {}", e)))?;
+        let answer = peer_connection.create_answer(None).await.map_err(|e| {
+            TransportError::ConnectionFailed(format!("Failed to create answer: {}", e))
+        })?;
 
         peer_connection
             .set_local_description(answer.clone())
             .await
-            .map_err(|e| TransportError::ConnectionFailed(format!("Failed to set local description: {}", e)))?;
+            .map_err(|e| {
+                TransportError::ConnectionFailed(format!("Failed to set local description: {}", e))
+            })?;
 
         // Store connection
-        self.connections.write().await.insert(connection_id.clone(), peer_connection);
+        self.connections
+            .write()
+            .await
+            .insert(connection_id.clone(), peer_connection);
 
         // Create metadata
         let metadata = ConnectionMetadata {
@@ -319,7 +334,10 @@ impl WebRTCTransport {
             is_post_quantum: false, // WebRTC doesn't support post-quantum crypto yet
             tls_version: Some("DTLS 1.2".to_string()),
         };
-        self.metadata.write().await.insert(connection_id.clone(), metadata);
+        self.metadata
+            .write()
+            .await
+            .insert(connection_id.clone(), metadata);
 
         Ok(answer.sdp)
     }
@@ -335,14 +353,15 @@ impl WebRTCTransport {
             .get(&connection_id)
             .ok_or_else(|| TransportError::ConnectionFailed("Connection not found".to_string()))?;
 
-        let answer = RTCSessionDescription::answer(sdp).map_err(|e| {
-            TransportError::ConnectionFailed(format!("Invalid answer SDP: {}", e))
-        })?;
+        let answer = RTCSessionDescription::answer(sdp)
+            .map_err(|e| TransportError::ConnectionFailed(format!("Invalid answer SDP: {}", e)))?;
 
         peer_connection
             .set_remote_description(answer)
             .await
-            .map_err(|e| TransportError::ConnectionFailed(format!("Failed to set remote description: {}", e)))?;
+            .map_err(|e| {
+                TransportError::ConnectionFailed(format!("Failed to set remote description: {}", e))
+            })?;
 
         Ok(())
     }
@@ -370,7 +389,9 @@ impl WebRTCTransport {
         peer_connection
             .add_ice_candidate(ice_candidate)
             .await
-            .map_err(|e| TransportError::ConnectionFailed(format!("Failed to add ICE candidate: {}", e)))?;
+            .map_err(|e| {
+                TransportError::ConnectionFailed(format!("Failed to add ICE candidate: {}", e))
+            })?;
 
         Ok(())
     }
@@ -386,17 +407,23 @@ impl WebRTCTransport {
                             Ok(answer_sdp) => {
                                 // Send answer back through signaling
                                 if let Some(tx) = &self.signaling_tx {
-                                    let _ = tx.send(SignalingMessage::Answer {
-                                        from: "local".to_string(),
-                                        to: from,
-                                        sdp: answer_sdp,
-                                    }).await;
+                                    let _ = tx
+                                        .send(SignalingMessage::Answer {
+                                            from: "local".to_string(),
+                                            to: from,
+                                            sdp: answer_sdp,
+                                        })
+                                        .await;
                                 }
                             }
                             Err(e) => error!("Failed to handle offer: {}", e),
                         }
                     }
-                    SignalingMessage::Answer { from: connection_id, sdp, .. } => {
+                    SignalingMessage::Answer {
+                        from: connection_id,
+                        sdp,
+                        ..
+                    } => {
                         if let Err(e) = self.handle_answer(connection_id, sdp).await {
                             error!("Failed to handle answer: {}", e);
                         }
@@ -408,12 +435,15 @@ impl WebRTCTransport {
                         sdp_mline_index,
                         ..
                     } => {
-                        if let Err(e) = self.handle_ice_candidate(
-                            connection_id,
-                            candidate,
-                            sdp_mid,
-                            sdp_mline_index,
-                        ).await {
+                        if let Err(e) = self
+                            .handle_ice_candidate(
+                                connection_id,
+                                candidate,
+                                sdp_mid,
+                                sdp_mline_index,
+                            )
+                            .await
+                        {
                             error!("Failed to handle ICE candidate: {}", e);
                         }
                     }
@@ -428,7 +458,7 @@ impl WebRTCTransport {
 impl Transport for WebRTCTransport {
     async fn init(&mut self, config: TransportConfig) -> Result<(), TransportError> {
         info!("Initializing WebRTC transport");
-        
+
         // Merge transport config with WebRTC-specific config
         if config.max_message_size > 0 {
             self.config.max_message_size = config.max_message_size;
@@ -470,19 +500,26 @@ impl Transport for WebRTCTransport {
         let data_channel = self.create_data_channel(&peer_connection, "qudag").await?;
 
         // Create offer
-        let offer = peer_connection
-            .create_offer(None)
-            .await
-            .map_err(|e| TransportError::ConnectionFailed(format!("Failed to create offer: {}", e)))?;
+        let offer = peer_connection.create_offer(None).await.map_err(|e| {
+            TransportError::ConnectionFailed(format!("Failed to create offer: {}", e))
+        })?;
 
         peer_connection
             .set_local_description(offer.clone())
             .await
-            .map_err(|e| TransportError::ConnectionFailed(format!("Failed to set local description: {}", e)))?;
+            .map_err(|e| {
+                TransportError::ConnectionFailed(format!("Failed to set local description: {}", e))
+            })?;
 
         // Store connection
-        self.connections.write().await.insert(connection_id.clone(), peer_connection);
-        self.data_channels.write().await.insert(connection_id.clone(), data_channel.clone());
+        self.connections
+            .write()
+            .await
+            .insert(connection_id.clone(), peer_connection);
+        self.data_channels
+            .write()
+            .await
+            .insert(connection_id.clone(), data_channel.clone());
 
         // Create metadata
         let metadata = ConnectionMetadata {
@@ -496,15 +533,20 @@ impl Transport for WebRTCTransport {
             is_post_quantum: false,
             tls_version: Some("DTLS 1.2".to_string()),
         };
-        self.metadata.write().await.insert(connection_id.clone(), metadata.clone());
+        self.metadata
+            .write()
+            .await
+            .insert(connection_id.clone(), metadata.clone());
 
         // Send offer through signaling
         if let Some(tx) = &self.signaling_tx {
-            let _ = tx.send(SignalingMessage::Offer {
-                from: connection_id.clone(),
-                to: addr.to_string(), // This should be the actual peer ID
-                sdp: offer.sdp,
-            }).await;
+            let _ = tx
+                .send(SignalingMessage::Offer {
+                    from: connection_id.clone(),
+                    to: addr.to_string(), // This should be the actual peer ID
+                    sdp: offer.sdp,
+                })
+                .await;
         }
 
         // Update stats
@@ -554,22 +596,13 @@ impl Transport for WebRTCTransport {
     fn get_connections(&self) -> Vec<ConnectionMetadata> {
         // This is a blocking call in an async context, but it's required by the trait
         let rt = tokio::runtime::Handle::current();
-        rt.block_on(async {
-            self.metadata
-                .read()
-                .await
-                .values()
-                .cloned()
-                .collect()
-        })
+        rt.block_on(async { self.metadata.read().await.values().cloned().collect() })
     }
 
     fn get_stats(&self) -> TransportStats {
         // This is a blocking call in an async context, but it's required by the trait
         let rt = tokio::runtime::Handle::current();
-        rt.block_on(async {
-            self.stats.read().await.clone()
-        })
+        rt.block_on(async { self.stats.read().await.clone() })
     }
 
     async fn shutdown(&mut self) -> Result<(), TransportError> {
@@ -620,10 +653,7 @@ impl AsyncWrite for WebRTCDataChannelTransport {
         Poll::Pending
     }
 
-    fn poll_flush(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<(), std::io::Error>> {
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), std::io::Error>> {
         Poll::Ready(Ok(()))
     }
 

@@ -43,54 +43,54 @@ pub use utils::*;
 /// Initialize the QuDAG native module
 #[napi]
 pub fn init() -> Result<String> {
-  Ok("QuDAG Native v0.1.0 - High-performance quantum-resistant cryptography".to_string())
+    Ok("QuDAG Native v0.1.0 - High-performance quantum-resistant cryptography".to_string())
 }
 
 /// Get module version
 #[napi]
 pub fn version() -> String {
-  env!("CARGO_PKG_VERSION").to_string()
+    env!("CARGO_PKG_VERSION").to_string()
 }
 
 /// Get module information
 #[napi(object)]
 pub struct ModuleInfo {
-  pub name: String,
-  pub version: String,
-  pub description: String,
-  pub features: Vec<String>,
+    pub name: String,
+    pub version: String,
+    pub description: String,
+    pub features: Vec<String>,
 }
 
 /// Get detailed module information
 #[napi]
 pub fn get_module_info() -> ModuleInfo {
-  ModuleInfo {
-    name: "qudag-native".to_string(),
-    version: env!("CARGO_PKG_VERSION").to_string(),
-    description: "Native Node.js bindings for QuDAG quantum-resistant cryptography".to_string(),
-    features: vec![
-      "ML-KEM-768".to_string(),
-      "ML-DSA".to_string(),
-      "BLAKE3".to_string(),
-      "Password Vault".to_string(),
-      "Zero-copy operations".to_string(),
-    ],
-  }
+    ModuleInfo {
+        name: "qudag-native".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        description: "Native Node.js bindings for QuDAG quantum-resistant cryptography".to_string(),
+        features: vec![
+            "ML-KEM-768".to_string(),
+            "ML-DSA".to_string(),
+            "BLAKE3".to_string(),
+            "Password Vault".to_string(),
+            "Zero-copy operations".to_string(),
+        ],
+    }
 }
 
 #[cfg(test)]
 mod tests {
-  use super::*;
+    use super::*;
 
-  #[test]
-  fn test_version() {
-    let v = version();
-    assert!(!v.is_empty());
-  }
+    #[test]
+    fn test_version() {
+        let v = version();
+        assert!(!v.is_empty());
+    }
 
-  #[test]
-  fn test_init() {
-    let msg = init().unwrap();
-    assert!(msg.contains("QuDAG Native"));
-  }
+    #[test]
+    fn test_init() {
+        let msg = init().unwrap();
+        assert!(msg.contains("QuDAG Native"));
+    }
 }

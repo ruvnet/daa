@@ -4,12 +4,12 @@
 //! enabling distributed consensus through the quantum-resistant Avalanche algorithm.
 
 use crate::p2p::{P2PEvent, P2PHandle, QuDagRequest, QuDagResponse};
-use crate::types::{NetworkError, NetworkMessage, PeerId};
 use crate::quantum_crypto::{QuantumKeyExchange, SharedSecret};
+use crate::types::{NetworkError, NetworkMessage, PeerId};
 use async_trait::async_trait;
 use qudag_dag::{
-    Consensus, ConsensusStatus, QRAvalanche, Vertex, VertexId,
-    DagMessage, ConsensusConfig as DagConsensusConfig,
+    Consensus, ConsensusConfig as DagConsensusConfig, ConsensusStatus, DagMessage, QRAvalanche,
+    Vertex, VertexId,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -79,12 +79,14 @@ impl From<&Vertex> for SerializedVertex {
     fn from(vertex: &Vertex) -> Self {
         Self {
             id: vertex.id.as_bytes().to_vec(),
-            parents: vertex.parents.iter()
+            parents: vertex
+                .parents
+                .iter()
                 .map(|p| p.as_bytes().to_vec())
                 .collect(),
             payload: vertex.payload.clone(),
             timestamp: vertex.timestamp,
-            author: vec![], // TODO: Extract from vertex metadata
+            author: vec![],    // TODO: Extract from vertex metadata
             signature: vec![], // TODO: Extract from vertex metadata
         }
     }
@@ -94,10 +96,12 @@ impl SerializedVertex {
     /// Convert back to Vertex
     pub fn to_vertex(&self) -> Vertex {
         let id = VertexId::from_bytes(self.id.clone());
-        let parents = self.parents.iter()
+        let parents = self
+            .parents
+            .iter()
             .map(|p| VertexId::from_bytes(p.clone()))
             .collect();
-        
+
         Vertex::new(id, self.payload.clone(), parents)
     }
 }
@@ -196,7 +200,7 @@ impl DagConsensusNetwork {
     /// Create a new DAG consensus network manager
     pub fn new(local_peer_id: PeerId, config: ConsensusNetworkConfig) -> Self {
         let (event_tx, event_rx) = mpsc::channel(1024);
-        
+
         Self {
             p2p_handle: None,
             local_peer_id,
@@ -260,11 +264,13 @@ impl DagConsensusNetwork {
 
     /// Query network for vertex confidence
     async fn query_vertex_confidence(&self, vertex_id: &VertexId) -> Result<(), NetworkError> {
-        let query_id = self.query_counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        
+        let query_id = self
+            .query_counter
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
         // Select random sample of peers
         let peers = self.select_query_sample().await?;
-        
+
         if peers.is_empty() {
             return Err(NetworkError::NoPeersAvailable);
         }
@@ -279,7 +285,10 @@ impl DagConsensusNetwork {
             sample_size,
         };
 
-        self.active_queries.write().await.insert(query_id, query_info);
+        self.active_queries
+            .write()
+            .await
+            .insert(query_id, query_info);
 
         // Send queries to selected peers
         let msg = ConsensusMessage::Query {
@@ -300,9 +309,10 @@ impl DagConsensusNetwork {
     /// Select random sample of peers for querying
     async fn select_query_sample(&self) -> Result<Vec<PeerId>, NetworkError> {
         let scores = self.peer_scores.read().await;
-        
+
         // Filter peers by reputation
-        let eligible_peers: Vec<_> = scores.iter()
+        let eligible_peers: Vec<_> = scores
+            .iter()
             .filter(|(_, score)| **score >= self.config.min_peer_reputation)
             .map(|(peer_id, _)| peer_id.clone())
             .collect();
@@ -312,9 +322,13 @@ impl DagConsensusNetwork {
         }
 
         // Random sample selection
-        let sample_size = self.config.dag_config.query_sample_size.min(eligible_peers.len());
+        let sample_size = self
+            .config
+            .dag_config
+            .query_sample_size
+            .min(eligible_peers.len());
         let mut selected = Vec::with_capacity(sample_size);
-        
+
         // Simple random selection (in production, use proper randomness)
         for i in 0..sample_size {
             selected.push(eligible_peers[i % eligible_peers.len()].clone());
@@ -330,11 +344,22 @@ impl DagConsensusNetwork {
         message: ConsensusMessage,
     ) -> Result<(), NetworkError> {
         match message {
-            ConsensusMessage::Query { vertex_id, query_id, .. } => {
+            ConsensusMessage::Query {
+                vertex_id,
+                query_id,
+                ..
+            } => {
                 self.handle_query(from, vertex_id, query_id).await?;
             }
-            ConsensusMessage::QueryResponse { vertex_id, query_id, confidence, is_final, .. } => {
-                self.handle_query_response(from, vertex_id, query_id, confidence, is_final).await?;
+            ConsensusMessage::QueryResponse {
+                vertex_id,
+                query_id,
+                confidence,
+                is_final,
+                ..
+            } => {
+                self.handle_query_response(from, vertex_id, query_id, confidence, is_final)
+                    .await?;
             }
             ConsensusMessage::VertexAnnouncement { vertex, .. } => {
                 self.handle_vertex_announcement(from, vertex).await?;
@@ -342,8 +367,13 @@ impl DagConsensusNetwork {
             ConsensusMessage::VertexRequest { vertex_id, .. } => {
                 self.handle_vertex_request(from, vertex_id).await?;
             }
-            ConsensusMessage::SyncRequest { from_height, to_height, .. } => {
-                self.handle_sync_request(from, from_height, to_height).await?;
+            ConsensusMessage::SyncRequest {
+                from_height,
+                to_height,
+                ..
+            } => {
+                self.handle_sync_request(from, from_height, to_height)
+                    .await?;
             }
             ConsensusMessage::SyncResponse { vertices, .. } => {
                 self.handle_sync_response(from, vertices).await?;
@@ -363,7 +393,7 @@ impl DagConsensusNetwork {
         query_id: u64,
     ) -> Result<(), NetworkError> {
         let vertex_id = VertexId::from_bytes(vertex_id);
-        
+
         // Get local confidence
         let consensus = self.consensus.read().await;
         let (confidence, is_final) = if let Some(status) = consensus.vertices.get(&vertex_id) {
@@ -400,39 +430,42 @@ impl DagConsensusNetwork {
         is_final: bool,
     ) -> Result<(), NetworkError> {
         let mut queries = self.active_queries.write().await;
-        
+
         if let Some(query_info) = queries.get_mut(&query_id) {
             // Record response
-            query_info.responses.insert(from.clone(), QueryResponse {
-                confidence,
-                is_final,
-                received_at: Instant::now(),
-            });
+            query_info.responses.insert(
+                from.clone(),
+                QueryResponse {
+                    confidence,
+                    is_final,
+                    received_at: Instant::now(),
+                },
+            );
 
             // Check if we have enough responses
-            if query_info.responses.len() >= query_info.sample_size * 8 / 10 { // 80% threshold
+            if query_info.responses.len() >= query_info.sample_size * 8 / 10 {
+                // 80% threshold
                 // Calculate aggregate confidence
-                let total_confidence: f64 = query_info.responses.values()
-                    .map(|r| r.confidence)
-                    .sum();
+                let total_confidence: f64 =
+                    query_info.responses.values().map(|r| r.confidence).sum();
                 let avg_confidence = total_confidence / query_info.responses.len() as f64;
 
-                let final_count = query_info.responses.values()
-                    .filter(|r| r.is_final)
-                    .count();
+                let final_count = query_info.responses.values().filter(|r| r.is_final).count();
 
                 // Update consensus state if threshold met
                 if avg_confidence >= self.config.dag_config.finality_threshold {
                     let mut consensus = self.consensus.write().await;
-                    consensus.vertices.insert(
-                        query_info.vertex_id.clone(),
-                        ConsensusStatus::Final,
-                    );
+                    consensus
+                        .vertices
+                        .insert(query_info.vertex_id.clone(), ConsensusStatus::Final);
 
                     // Notify about finalization
-                    let _ = self.event_tx.send(ConsensusNetworkEvent::VertexFinalized(
-                        query_info.vertex_id.clone()
-                    )).await;
+                    let _ = self
+                        .event_tx
+                        .send(ConsensusNetworkEvent::VertexFinalized(
+                            query_info.vertex_id.clone(),
+                        ))
+                        .await;
                 }
 
                 // Remove completed query
@@ -455,18 +488,19 @@ impl DagConsensusNetwork {
         vertex: SerializedVertex,
     ) -> Result<(), NetworkError> {
         // TODO: Verify signature
-        
+
         let vertex = vertex.to_vertex();
-        
+
         // Add to consensus if new
         let mut consensus = self.consensus.write().await;
         if !consensus.vertices.contains_key(&vertex.id) {
             consensus.add_vertex(vertex.id.clone(), ConsensusStatus::Pending);
-            
+
             // Notify about new vertex
-            let _ = self.event_tx.send(ConsensusNetworkEvent::VertexReceived(
-                vertex.clone()
-            )).await;
+            let _ = self
+                .event_tx
+                .send(ConsensusNetworkEvent::VertexReceived(vertex.clone()))
+                .await;
 
             // Start consensus process
             drop(consensus);
@@ -506,10 +540,10 @@ impl DagConsensusNetwork {
         vertices: Vec<SerializedVertex>,
     ) -> Result<(), NetworkError> {
         let vertices_count = vertices.len();
-        
+
         for serialized_vertex in vertices {
             let vertex = serialized_vertex.to_vertex();
-            
+
             // Add to consensus
             let mut consensus = self.consensus.write().await;
             if !consensus.vertices.contains_key(&vertex.id) {
@@ -518,9 +552,12 @@ impl DagConsensusNetwork {
         }
 
         // Notify about sync completion
-        let _ = self.event_tx.send(ConsensusNetworkEvent::SyncCompleted {
-            vertices_received: vertices_count,
-        }).await;
+        let _ = self
+            .event_tx
+            .send(ConsensusNetworkEvent::SyncCompleted {
+                vertices_received: vertices_count,
+            })
+            .await;
 
         Ok(())
     }
@@ -532,10 +569,12 @@ impl DagConsensusNetwork {
         vertex_id: Vec<u8>,
     ) -> Result<(), NetworkError> {
         let vertex_id = VertexId::from_bytes(vertex_id);
-        
+
         // Update local consensus state
         let mut consensus = self.consensus.write().await;
-        consensus.vertices.insert(vertex_id.clone(), ConsensusStatus::Final);
+        consensus
+            .vertices
+            .insert(vertex_id.clone(), ConsensusStatus::Final);
 
         // Update peer score positively
         let mut scores = self.peer_scores.write().await;
@@ -546,7 +585,11 @@ impl DagConsensusNetwork {
     }
 
     /// Send message to specific peer
-    async fn send_to_peer(&self, peer: &PeerId, message: ConsensusMessage) -> Result<(), NetworkError> {
+    async fn send_to_peer(
+        &self,
+        peer: &PeerId,
+        message: ConsensusMessage,
+    ) -> Result<(), NetworkError> {
         if let Some(handle) = &self.p2p_handle {
             let msg_bytes = bincode::serialize(&message)
                 .map_err(|e| NetworkError::SerializationError(e.to_string()))?;
@@ -582,8 +625,14 @@ impl DagConsensusNetwork {
             };
 
             // Get all connected peers
-            let peers = self.peer_scores.read().await.keys().cloned().collect::<Vec<_>>();
-            
+            let peers = self
+                .peer_scores
+                .read()
+                .await
+                .keys()
+                .cloned()
+                .collect::<Vec<_>>();
+
             for peer in peers {
                 if let Err(e) = handle.send_message(peer, network_msg.clone()).await {
                     warn!("Failed to broadcast to peer: {}", e);
@@ -622,9 +671,9 @@ impl DagConsensusNetwork {
                     let mut queries_lock = queries.write().await;
                     for (query_id, vertex_id) in expired {
                         queries_lock.remove(&query_id);
-                        let _ = event_tx.send(ConsensusNetworkEvent::QueryTimeout {
-                            vertex_id,
-                        }).await;
+                        let _ = event_tx
+                            .send(ConsensusNetworkEvent::QueryTimeout { vertex_id })
+                            .await;
                     }
                 }
             }
@@ -663,9 +712,11 @@ impl DagConsensusNetwork {
                 }
 
                 if !potentially_partitioned.is_empty() {
-                    let _ = event_tx.send(ConsensusNetworkEvent::PartitionDetected {
-                        affected_peers: potentially_partitioned,
-                    }).await;
+                    let _ = event_tx
+                        .send(ConsensusNetworkEvent::PartitionDetected {
+                            affected_peers: potentially_partitioned,
+                        })
+                        .await;
                 }
             }
         });
@@ -678,9 +729,10 @@ impl DagConsensusNetwork {
         }
 
         let quantum_kex = self.quantum_kex.read().await;
-        
+
         // Generate key pair
-        let (public_key, secret_key) = quantum_kex.generate_keypair()
+        let (public_key, secret_key) = quantum_kex
+            .generate_keypair()
             .map_err(|e| NetworkError::CryptoError(e.to_string()))?;
 
         // Exchange keys with peer (simplified - in reality would use network messages)
@@ -689,7 +741,10 @@ impl DagConsensusNetwork {
             secret: vec![0u8; 32], // Placeholder
         };
 
-        self.secure_channels.write().await.insert(peer.clone(), shared_secret);
+        self.secure_channels
+            .write()
+            .await
+            .insert(peer.clone(), shared_secret);
 
         info!("Established quantum-secure channel with peer {:?}", peer);
         Ok(())
@@ -701,11 +756,15 @@ impl DagConsensusNetwork {
         let queries = self.active_queries.read().await;
         let peers = self.peer_scores.read().await;
 
-        let finalized = consensus.vertices.values()
+        let finalized = consensus
+            .vertices
+            .values()
             .filter(|s| matches!(s, ConsensusStatus::Final))
             .count();
 
-        let pending = consensus.vertices.values()
+        let pending = consensus
+            .vertices
+            .values()
             .filter(|s| matches!(s, ConsensusStatus::Pending))
             .count();
 
@@ -765,7 +824,11 @@ mod tests {
         let deserialized: ConsensusMessage = bincode::deserialize(&serialized).unwrap();
 
         match deserialized {
-            ConsensusMessage::Query { vertex_id, query_id, sender } => {
+            ConsensusMessage::Query {
+                vertex_id,
+                query_id,
+                sender,
+            } => {
                 assert_eq!(vertex_id, vec![1, 2, 3]);
                 assert_eq!(query_id, 42);
                 assert_eq!(sender, vec![4, 5, 6]);
@@ -788,11 +851,7 @@ mod tests {
     #[test]
     fn test_serialized_vertex_conversion() {
         let vertex_id = VertexId::new();
-        let vertex = Vertex::new(
-            vertex_id.clone(),
-            vec![1, 2, 3],
-            HashSet::new(),
-        );
+        let vertex = Vertex::new(vertex_id.clone(), vec![1, 2, 3], HashSet::new());
 
         let serialized = SerializedVertex::from(&vertex);
         let deserialized = serialized.to_vertex();
