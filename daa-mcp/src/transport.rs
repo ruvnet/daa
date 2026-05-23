@@ -11,6 +11,7 @@ use serde_json::Value;
 use tokio::sync::{broadcast, RwLock};
 use tracing::{debug, error, info, warn};
 
+use futures::{SinkExt, StreamExt};
 use crate::{DaaMcpError, McpMessage, Result};
 
 /// Transport trait for MCP communication
@@ -135,18 +136,18 @@ impl McpTransport for HttpTransport {
 pub struct WebSocketTransport {
     endpoint: String,
     sender: Option<broadcast::Sender<McpMessage>>,
-    receiver: Option<broadcast::Receiver<McpMessage>>,
+    receiver: Arc<tokio::sync::Mutex<Option<broadcast::Receiver<McpMessage>>>>,
     connected: Arc<RwLock<bool>>,
 }
 
 impl WebSocketTransport {
     pub fn new(endpoint: String) -> Self {
         let (sender, receiver) = broadcast::channel(100);
-        
+
         Self {
             endpoint,
             sender: Some(sender),
-            receiver: Some(receiver),
+            receiver: Arc::new(tokio::sync::Mutex::new(Some(receiver))),
             connected: Arc::new(RwLock::new(false)),
         }
     }
@@ -229,7 +230,7 @@ impl McpTransport for WebSocketTransport {
     }
 
     async fn receive_message(&self) -> Result<Option<McpMessage>> {
-        if let Some(ref mut receiver) = self.receiver.as_ref() {
+        if let Some(ref mut receiver) = self.receiver.lock().await.as_mut() {
             match receiver.try_recv() {
                 Ok(message) => Ok(Some(message)),
                 Err(broadcast::error::TryRecvError::Empty) => Ok(None),

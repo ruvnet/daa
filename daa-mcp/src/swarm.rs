@@ -272,10 +272,11 @@ impl SwarmCoordinator {
             swarm.pending_tasks.push_back(task.clone());
             
             // Notify task scheduler
+            let task_id = task.id.clone();
             let mut scheduler = self.task_scheduler.lock().await;
             scheduler.schedule_task(swarm_id, task).await?;
-            
-            info!("Task {} added to swarm {}", task.id, swarm_id);
+
+            info!("Task {} added to swarm {}", task_id, swarm_id);
             Ok(())
         } else {
             Err(DaaMcpError::Protocol(format!("Swarm not found: {}", swarm_id)))
@@ -351,10 +352,11 @@ impl SwarmCoordinator {
             all_agents.extend(agents);
         }
 
-        // Remove duplicates and sort by suitability
-        let mut unique_agents: Vec<_> = all_agents.into_iter()
-            .collect::<HashSet<_>>()
+        // Remove duplicates by agent id and sort by suitability
+        let mut seen_ids = std::collections::HashSet::new();
+        let mut unique_agents: Vec<_> = all_agents
             .into_iter()
+            .filter(|a| seen_ids.insert(a.id.clone()))
             .collect();
 
         // Sort by suitability (availability, load, response time)
@@ -648,11 +650,16 @@ impl TaskScheduler {
         swarm_id: &str,
         swarm_state: &SwarmState,
     ) -> Result<()> {
-        if let Some(tasks) = self.pending_assignments.get_mut(swarm_id) {
+        let tasks_snapshot = self.pending_assignments.get(swarm_id).map(|t| t.clone());
+        if let Some(tasks) = tasks_snapshot {
             if !tasks.is_empty() && matches!(swarm_state.status, SwarmStatus::Active) {
                 // Distribute tasks based on the configured method
-                self.distribute_tasks(swarm_state, tasks).await?;
-                tasks.clear();
+                // We work on a snapshot to avoid holding a mutable borrow while calling self methods.
+                let tasks_ref = tasks.as_slice();
+                self.distribute_tasks(swarm_state, tasks_ref).await?;
+                if let Some(pending) = self.pending_assignments.get_mut(swarm_id) {
+                    pending.clear();
+                }
             }
         }
 

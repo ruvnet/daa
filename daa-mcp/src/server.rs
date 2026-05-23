@@ -8,9 +8,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::{
-    extract::{State, WebSocketUpgrade},
+    extract::{State, ws::WebSocketUpgrade},
     http::StatusCode,
-    response::{Json, Response},
+    response::{IntoResponse, Json, Response},
     routing::{get, post},
     Router,
 };
@@ -53,6 +53,16 @@ impl DaaMcpServer {
         let listener = tokio::net::TcpListener::bind(&bind_addr).await?;
         axum::serve(listener, self.app.clone()).await?;
         
+        Ok(())
+    }
+
+    /// Stop the MCP server gracefully.
+    ///
+    /// Currently a no-op stub — shutdown is signaled via process termination or
+    /// the caller dropping the server handle.  A full implementation would cancel
+    /// the background tasks and close the listener.
+    pub async fn stop(&self) -> Result<()> {
+        info!("MCP server stop requested");
         Ok(())
     }
 

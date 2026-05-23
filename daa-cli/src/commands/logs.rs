@@ -1,9 +1,9 @@
 //! Logs command implementation
 
 use anyhow::Result;
-use colorful::Colorful;
+use colored::Colorize;
 
-use crate::{Cli, config::CliConfig};
+use crate::{CliContext, config::CliConfig};
 
 /// Handle the logs command
 pub async fn handle_logs(
@@ -12,7 +12,7 @@ pub async fn handle_logs(
     level: Option<String>,
     component: Option<String>,
     config: &CliConfig,
-    cli: &Cli,
+    cli: &CliContext,
 ) -> Result<()> {
     if cli.verbose {
         println!("Showing logs: {} lines", lines);
@@ -41,7 +41,7 @@ async fn handle_follow_logs(
     level: Option<String>,
     component: Option<String>,
     config: &CliConfig,
-    cli: &Cli,
+    cli: &CliContext,
 ) -> Result<()> {
     println!("Following logs (press Ctrl+C to exit)...");
     

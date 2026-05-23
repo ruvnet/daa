@@ -4,8 +4,6 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-use crate::{Cli, ConfigAction};
-
 /// CLI configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CliConfig {
@@ -205,98 +203,21 @@ impl CliConfig {
     }
 }
 
-/// Handle config command
-pub async fn handle_config(action: ConfigAction, config: &CliConfig, cli: &Cli) -> Result<()> {
-    match action {
-        ConfigAction::Show => {
-            if cli.json {
-                println!("{}", serde_json::to_string_pretty(config)?);
-            } else {
-                println!("DAA CLI Configuration:");
-                println!("  Orchestrator Config: {:?}", config.orchestrator_config);
-                println!("  Output Format: {:?}", config.default_output_format);
-                println!("  API Endpoint: {}", config.connection.api_endpoint);
-                println!("  MCP Endpoint: {}", config.connection.mcp_endpoint);
-                println!("  Timeout: {}s", config.connection.timeout_seconds);
-                println!("  Retry Attempts: {}", config.connection.retry_attempts);
-                println!("  Colored Output: {}", config.display.colored);
-                println!("  Page Size: {}", config.display.page_size);
-                println!("  Show Timestamps: {}", config.display.show_timestamps);
-                println!("  Compact Mode: {}", config.display.compact);
-            }
-        }
-        ConfigAction::Get { key } => {
-            let value = config.get_value(&key)?;
-            if cli.json {
-                println!("{}", serde_json::json!({ "key": key, "value": value }));
-            } else {
-                println!("{}: {}", key, value);
-            }
-        }
-        ConfigAction::Set { key, value } => {
-            let mut new_config = config.clone();
-            new_config.set_value(&key, &value)?;
-            new_config.validate()?;
-            
-            // Save to config file
-            let config_path = crate::utils::get_default_config_path()?;
-            new_config.to_file(&config_path)?;
-            
-            if cli.json {
-                println!("{}", serde_json::json!({ "key": key, "value": value, "status": "updated" }));
-            } else {
-                println!("Updated {}: {}", key, value);
-                println!("Configuration saved to: {}", config_path.display());
-            }
-        }
-        ConfigAction::Validate => {
-            match config.validate() {
-                Ok(_) => {
-                    if cli.json {
-                        println!("{}", serde_json::json!({ "status": "valid" }));
-                    } else {
-                        println!("✓ Configuration is valid");
-                    }
-                }
-                Err(e) => {
-                    if cli.json {
-                        println!("{}", serde_json::json!({ "status": "invalid", "error": e.to_string() }));
-                    } else {
-                        println!("✗ Configuration is invalid: {}", e);
-                    }
-                    std::process::exit(1);
-                }
-            }
-        }
-        ConfigAction::Reset { yes } => {
-            if !yes {
-                print!("This will reset your configuration to defaults. Are you sure? (y/N): ");
-                use std::io::{self, Write};
-                io::stdout().flush()?;
-                
-                let mut input = String::new();
-                io::stdin().read_line(&mut input)?;
-                
-                if !input.trim().to_lowercase().starts_with('y') {
-                    println!("Configuration reset cancelled");
-                    return Ok(());
-                }
-            }
-            
-            let default_config = CliConfig::default();
-            let config_path = crate::utils::get_default_config_path()?;
-            default_config.to_file(&config_path)?;
-            
-            if cli.json {
-                println!("{}", serde_json::json!({ "status": "reset" }));
-            } else {
-                println!("Configuration reset to defaults");
-                println!("Configuration saved to: {}", config_path.display());
-            }
-        }
+/// Load configuration from the given path, or use defaults if the path is None
+/// or the file does not exist.
+pub async fn load_config(config_path: Option<&std::path::PathBuf>) -> Result<CliConfig> {
+    let path = if let Some(p) = config_path {
+        p.clone()
+    } else {
+        crate::utils::get_default_config_path()?
+    };
+
+    if path.exists() {
+        CliConfig::from_file(&path)
+            .with_context(|| format!("Failed to load config from {}", path.display()))
+    } else {
+        Ok(CliConfig::default())
     }
-    
-    Ok(())
 }
 
 #[cfg(test)]

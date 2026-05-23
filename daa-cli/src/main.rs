@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use colorful::Colorful;
+use colored::Colorize;
 use std::path::PathBuf;
 use tracing::{info, error};
 
@@ -10,8 +10,16 @@ mod commands;
 mod config;
 mod utils;
 
-use commands::*;
 use config::CliConfig;
+
+/// Lightweight context passed to command handlers so that `cli.command` can be
+/// destructured without triggering borrow-after-partial-move.
+pub struct CliContext {
+    pub verbose: bool,
+    pub json: bool,
+    pub no_color: bool,
+    pub config: Option<PathBuf>,
+}
 
 /// DAA CLI - Decentralized Autonomous Application Command Line Interface
 #[derive(Parser)]
@@ -224,7 +232,7 @@ pub enum AgentAction {
         agent_type: String,
         
         /// Agent capabilities (comma-separated)
-        #[arg(short, long)]
+        #[arg(short = 'C', long)]
         capabilities: Option<String>,
     },
     
@@ -255,34 +263,44 @@ async fn main() -> Result<()> {
     // Load configuration
     let config = load_config(&cli).await?;
 
+    // Snapshot CLI flags before consuming cli.command, avoiding partial-move issues.
+    let verbose = cli.verbose;
+    let json = cli.json;
+    let no_color = cli.no_color;
+    let config_path = cli.config.clone();
+
+    // Build a lightweight context struct so command handlers don't need the full Cli.
+    // This avoids Rust borrow-after-partial-move when we destructure cli.command.
+    let cli_ctx = CliContext { verbose, json, no_color, config: config_path };
+
     // Handle commands
     match cli.command {
         Commands::Init { directory, template, force } => {
-            init::handle_init(directory, template, force, &cli).await
+            commands::init::handle_init(directory, template, force, &cli_ctx).await
         }
         Commands::Start { daemon, pid_file } => {
-            start::handle_start(daemon, pid_file, &config, &cli).await
+            commands::start::handle_start(daemon, pid_file, &config, &cli_ctx).await
         }
         Commands::Status { detailed, watch, interval } => {
-            status::handle_status(detailed, watch, interval, &config, &cli).await
+            commands::status::handle_status(detailed, watch, interval, &config, &cli_ctx).await
         }
         Commands::Stop { force, grace_period } => {
-            stop::handle_stop(force, grace_period, &config, &cli).await
+            commands::stop::handle_stop(force, grace_period, &config, &cli_ctx).await
         }
         Commands::AddRule { name, rule_type, params, description } => {
-            rules::handle_add_rule(name, rule_type, params, description, &config, &cli).await
+            commands::rules::handle_add_rule(name, rule_type, params, description, &config, &cli_ctx).await
         }
         Commands::Config { action } => {
-            config::handle_config(action, &config, &cli).await
+            handle_config_command(action, &config, &cli_ctx).await
         }
         Commands::Network { action } => {
-            network::handle_network(action, &config, &cli).await
+            commands::network::handle_network(action, &config, &cli_ctx).await
         }
         Commands::Agent { action } => {
-            agent::handle_agent(action, &config, &cli).await
+            commands::agent::handle_agent(action, &config, &cli_ctx).await
         }
         Commands::Logs { lines, follow, level, component } => {
-            logs::handle_logs(lines, follow, level, component, &config, &cli).await
+            commands::logs::handle_logs(lines, follow, level, component, &config, &cli_ctx).await
         }
     }
 }
@@ -303,6 +321,91 @@ fn init_logging(cli: &Cli) -> Result<()> {
         subscriber.init();
     }
 
+    Ok(())
+}
+
+async fn handle_config_command(action: ConfigAction, config: &CliConfig, cli: &CliContext) -> Result<()> {
+    match action {
+        ConfigAction::Show => {
+            if cli.json {
+                println!("{}", serde_json::to_string_pretty(config)?);
+            } else {
+                println!("DAA CLI Configuration:");
+                println!("  Orchestrator Config: {:?}", config.orchestrator_config);
+                println!("  Output Format: {:?}", config.default_output_format);
+                println!("  API Endpoint: {}", config.connection.api_endpoint);
+                println!("  MCP Endpoint: {}", config.connection.mcp_endpoint);
+                println!("  Timeout: {}s", config.connection.timeout_seconds);
+                println!("  Retry Attempts: {}", config.connection.retry_attempts);
+                println!("  Colored Output: {}", config.display.colored);
+                println!("  Page Size: {}", config.display.page_size);
+                println!("  Show Timestamps: {}", config.display.show_timestamps);
+                println!("  Compact Mode: {}", config.display.compact);
+            }
+        }
+        ConfigAction::Get { key } => {
+            let value = config.get_value(&key)?;
+            if cli.json {
+                println!("{}", serde_json::json!({ "key": key, "value": value }));
+            } else {
+                println!("{}: {}", key, value);
+            }
+        }
+        ConfigAction::Set { key, value } => {
+            let mut new_config = config.clone();
+            new_config.set_value(&key, &value)?;
+            new_config.validate()?;
+            let config_path = utils::get_default_config_path()?;
+            new_config.to_file(&config_path)?;
+            if cli.json {
+                println!("{}", serde_json::json!({ "key": key, "value": value, "status": "updated" }));
+            } else {
+                println!("Updated {}: {}", key, value);
+                println!("Configuration saved to: {}", config_path.display());
+            }
+        }
+        ConfigAction::Validate => {
+            match config.validate() {
+                Ok(_) => {
+                    if cli.json {
+                        println!("{}", serde_json::json!({ "status": "valid" }));
+                    } else {
+                        println!("Configuration is valid");
+                    }
+                }
+                Err(e) => {
+                    if cli.json {
+                        println!("{}", serde_json::json!({ "status": "invalid", "error": e.to_string() }));
+                    } else {
+                        println!("Configuration is invalid: {}", e);
+                    }
+                    std::process::exit(1);
+                }
+            }
+        }
+        ConfigAction::Reset { yes } => {
+            if !yes {
+                use std::io::{self, Write};
+                print!("This will reset your configuration to defaults. Are you sure? (y/N): ");
+                io::stdout().flush()?;
+                let mut input = String::new();
+                io::stdin().read_line(&mut input)?;
+                if !input.trim().to_lowercase().starts_with('y') {
+                    println!("Configuration reset cancelled");
+                    return Ok(());
+                }
+            }
+            let default_config = CliConfig::default();
+            let config_path = utils::get_default_config_path()?;
+            default_config.to_file(&config_path)?;
+            if cli.json {
+                println!("{}", serde_json::json!({ "status": "reset" }));
+            } else {
+                println!("Configuration reset to defaults");
+                println!("Configuration saved to: {}", config_path.display());
+            }
+        }
+    }
     Ok(())
 }
 

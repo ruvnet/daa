@@ -1,15 +1,15 @@
 //! Agent command implementation
 
 use anyhow::Result;
-use colorful::Colorful;
+use colored::Colorize;
 
-use crate::{Cli, config::CliConfig, AgentAction};
+use crate::{CliContext, config::CliConfig, AgentAction};
 
 /// Handle the agent command
 pub async fn handle_agent(
     action: AgentAction,
     config: &CliConfig,
-    cli: &Cli,
+    cli: &CliContext,
 ) -> Result<()> {
     match action {
         AgentAction::List => {

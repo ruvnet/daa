@@ -979,7 +979,9 @@ mod tests {
             "config": {
                 "name": "test-agent",
                 "agent_type": "treasury",
-                "capabilities": ["trading", "risk_management"]
+                "capabilities": ["trading", "risk_management"],
+                "rules": {},
+                "metadata": {}
             }
         });
 

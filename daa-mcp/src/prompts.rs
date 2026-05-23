@@ -1021,7 +1021,8 @@ mod tests {
 
         let response = emergency_response_prompt(state, args).await.unwrap();
         assert!(response.description.contains("Emergency"));
-        assert!(response.messages[1].content.to_string().contains("CRITICAL"));
+        // The critical severity inserts "IMMEDIATE action required" into the prompt
+        assert!(response.messages[1].content.to_string().contains("IMMEDIATE"));
     }
 }
 

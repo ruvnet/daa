@@ -1,17 +1,17 @@
 //! Start command implementation
 
 use anyhow::Result;
-use colorful::Colorful;
+use colored::Colorize;
 use std::path::PathBuf;
 
-use crate::{Cli, config::CliConfig};
+use crate::{CliContext, config::CliConfig};
 
 /// Handle the start command
 pub async fn handle_start(
     daemon: bool,
     pid_file: Option<PathBuf>,
     config: &CliConfig,
-    cli: &Cli,
+    cli: &CliContext,
 ) -> Result<()> {
     if cli.verbose {
         println!("Starting DAA orchestrator");

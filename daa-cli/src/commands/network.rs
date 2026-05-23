@@ -1,15 +1,15 @@
 //! Network command implementation
 
 use anyhow::Result;
-use colorful::Colorful;
+use colored::Colorize;
 
-use crate::{Cli, config::CliConfig, NetworkAction};
+use crate::{CliContext, config::CliConfig, NetworkAction};
 
 /// Handle the network command
 pub async fn handle_network(
     action: NetworkAction,
     config: &CliConfig,
-    cli: &Cli,
+    cli: &CliContext,
 ) -> Result<()> {
     match action {
         NetworkAction::Status => {

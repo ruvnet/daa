@@ -39,7 +39,7 @@ hex-literal = "0.4"
 async-trait = "0.1"
 toml = "0.8"
 hex = "0.4"
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "sqlite"] }
 
 [workspace.package]
 version = "0.4.3"

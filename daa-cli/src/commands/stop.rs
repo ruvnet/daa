@@ -1,16 +1,16 @@
 //! Stop command implementation
 
 use anyhow::Result;
-use colorful::Colorful;
+use colored::Colorize;
 
-use crate::{Cli, config::CliConfig};
+use crate::{CliContext, config::CliConfig};
 
 /// Handle the stop command
 pub async fn handle_stop(
     force: bool,
     grace_period: u64,
     config: &CliConfig,
-    cli: &Cli,
+    cli: &CliContext,
 ) -> Result<()> {
     if cli.verbose {
         println!("Stopping DAA orchestrator");

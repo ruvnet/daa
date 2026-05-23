@@ -56,10 +56,10 @@ pub enum DaaMcpError {
     Serialization(#[from] serde_json::Error),
     
     #[error("DAA orchestrator error: {0}")]
-    Orchestrator(#[from] daa_orchestrator::Error),
-    
+    Orchestrator(#[from] daa_orchestrator::OrchestratorError),
+
     #[error("AI integration error: {0}")]
-    AI(#[from] daa_ai::Error),
+    AI(#[from] daa_ai::AIError),
 }
 
 pub type Result<T> = std::result::Result<T, DaaMcpError>;

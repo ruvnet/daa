@@ -33,7 +33,7 @@ impl DaaIntegrationManager {
         let server_state = Arc::new(McpServerState::new(mcp_config.clone()));
         
         // Initialize MCP server
-        let mcp_server = DaaMcpServer::new(mcp_config).await?;
+        let mcp_server = DaaMcpServer::new(mcp_config);
         
         // Initialize discovery protocol
         let discovery = Arc::new(DiscoveryProtocol::new(discovery_config, server_state.clone()).await?);
@@ -262,7 +262,7 @@ impl DaaIntegrationManager {
                     "objective": objective,
                     "sources": ["academic", "industry", "technical"],
                     "depth": "comprehensive"
-                }).as_object().unwrap().clone(),
+                }).as_object().unwrap().clone().into_iter().collect(),
                 priority: TaskPriority::High,
                 timeout: Some(180),
                 dependencies: vec![],
@@ -276,7 +276,7 @@ impl DaaIntegrationManager {
                     "objective": objective,
                     "data_sources": ["public_apis", "datasets", "market_data"],
                     "quality_threshold": 0.8
-                }).as_object().unwrap().clone(),
+                }).as_object().unwrap().clone().into_iter().collect(),
                 priority: TaskPriority::High,
                 timeout: Some(240),
                 dependencies: vec![],
@@ -290,7 +290,7 @@ impl DaaIntegrationManager {
                     "objective": objective,
                     "analysis_methods": ["statistical", "comparative", "trend"],
                     "output_format": "comprehensive_report"
-                }).as_object().unwrap().clone(),
+                }).as_object().unwrap().clone().into_iter().collect(),
                 priority: TaskPriority::Medium,
                 timeout: Some(300),
                 dependencies: vec![], // Would reference the IDs of the above tasks
@@ -310,7 +310,7 @@ impl DaaIntegrationManager {
                     "objective": objective,
                     "constraints": ["scalable", "maintainable", "secure"],
                     "patterns": ["microservices", "event_driven"]
-                }).as_object().unwrap().clone(),
+                }).as_object().unwrap().clone().into_iter().collect(),
                 priority: TaskPriority::Critical,
                 timeout: Some(300),
                 dependencies: vec![],
@@ -325,7 +325,7 @@ impl DaaIntegrationManager {
                     "language": "rust",
                     "frameworks": ["tokio", "axum", "serde"],
                     "test_coverage": 0.9
-                }).as_object().unwrap().clone(),
+                }).as_object().unwrap().clone().into_iter().collect(),
                 priority: TaskPriority::High,
                 timeout: Some(600),
                 dependencies: vec![],
@@ -339,7 +339,7 @@ impl DaaIntegrationManager {
                     "objective": objective,
                     "test_types": ["unit", "integration", "performance"],
                     "quality_gates": ["security", "performance", "reliability"]
-                }).as_object().unwrap().clone(),
+                }).as_object().unwrap().clone().into_iter().collect(),
                 priority: TaskPriority::High,
                 timeout: Some(240),
                 dependencies: vec![],
@@ -362,7 +362,7 @@ impl DaaIntegrationManager {
                     "objective": objective,
                     "preprocessing": ["clean", "normalize", "validate"],
                     "output_format": "structured"
-                }).as_object().unwrap().clone(),
+                }).as_object().unwrap().clone().into_iter().collect(),
                 priority: TaskPriority::High,
                 timeout: Some(180),
                 dependencies: vec![],
@@ -376,7 +376,7 @@ impl DaaIntegrationManager {
                     "objective": objective,
                     "methods": ["descriptive", "inferential", "predictive"],
                     "confidence_level": 0.95
-                }).as_object().unwrap().clone(),
+                }).as_object().unwrap().clone().into_iter().collect(),
                 priority: TaskPriority::High,
                 timeout: Some(240),
                 dependencies: vec![data_prep_id],
@@ -390,7 +390,7 @@ impl DaaIntegrationManager {
                     "objective": objective,
                     "sections": ["executive_summary", "methodology", "findings", "recommendations"],
                     "format": "detailed_markdown"
-                }).as_object().unwrap().clone(),
+                }).as_object().unwrap().clone().into_iter().collect(),
                 priority: TaskPriority::Medium,
                 timeout: Some(300),
                 dependencies: vec![analysis_id],

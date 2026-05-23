@@ -1,9 +1,9 @@
 //! Rules command implementation
 
 use anyhow::Result;
-use colorful::Colorful;
+use colored::Colorize;
 
-use crate::{Cli, config::CliConfig};
+use crate::{CliContext, config::CliConfig};
 
 /// Handle the add-rule command
 pub async fn handle_add_rule(
@@ -12,7 +12,7 @@ pub async fn handle_add_rule(
     params: Option<String>,
     description: Option<String>,
     config: &CliConfig,
-    cli: &Cli,
+    cli: &CliContext,
 ) -> Result<()> {
     if cli.verbose {
         println!("Adding rule: {}", name);

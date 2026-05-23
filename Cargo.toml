@@ -62,7 +62,7 @@ toml = "0.8"
 subtle = "2.5"
 zeroize = { version = "1.7", features = ["zeroize_derive"] }
 hex-literal = "0.4"
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "sqlite"] }
 tokio-test = "0.4"
 
 # QuDAG dependencies  

@@ -1,9 +1,9 @@
 //! Status command implementation
 
 use anyhow::Result;
-use colorful::Colorful;
+use colored::Colorize;
 
-use crate::{Cli, config::CliConfig};
+use crate::{CliContext, config::CliConfig};
 
 /// Handle the status command
 pub async fn handle_status(
@@ -11,7 +11,7 @@ pub async fn handle_status(
     watch: bool,
     interval: u64,
     config: &CliConfig,
-    cli: &Cli,
+    cli: &CliContext,
 ) -> Result<()> {
     if watch {
         return handle_watch_status(detailed, interval, config, cli).await;
@@ -32,7 +32,7 @@ async fn handle_watch_status(
     detailed: bool,
     interval: u64,
     config: &CliConfig,
-    cli: &Cli,
+    cli: &CliContext,
 ) -> Result<()> {
     println!("Watching DAA status (press Ctrl+C to exit)...");
     
