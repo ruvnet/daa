@@ -1,5 +1,5 @@
 //! # DAA MCP - Model Context Protocol Interface for DAA Management
-//! 
+//!
 //! This crate provides a comprehensive Model Context Protocol (MCP) interface
 //! for managing Decentralized Autonomous Agents (DAAs). It enables external
 //! systems to interact with DAA agents through standardized JSON-RPC 2.0
@@ -11,50 +11,50 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use uuid::Uuid;
 use tokio::sync::RwLock;
+use uuid::Uuid;
 
-pub mod server;
 pub mod client;
-pub mod tools;
-pub mod resources;
-pub mod prompts;
-pub mod transport;
 pub mod discovery;
-pub mod swarm;
 pub mod integration;
+pub mod prompts;
+pub mod resources;
+pub mod server;
+pub mod swarm;
+pub mod tools;
+pub mod transport;
 
 // Re-export key types
-pub use server::DaaMcpServer;
 pub use client::DaaMcpClient;
-pub use tools::*;
-pub use resources::*;
 pub use prompts::*;
+pub use resources::*;
+pub use server::DaaMcpServer;
+pub use tools::*;
 
 /// DAA MCP Error types
 #[derive(Error, Debug)]
 pub enum DaaMcpError {
     #[error("Protocol error: {0}")]
     Protocol(String),
-    
+
     #[error("Agent not found: {0}")]
     AgentNotFound(String),
-    
+
     #[error("Invalid tool: {0}")]
     InvalidTool(String),
-    
+
     #[error("Resource not available: {0}")]
     ResourceNotAvailable(String),
-    
+
     #[error("Authorization failed: {0}")]
     AuthorizationFailed(String),
-    
+
     #[error("Network error: {0}")]
     Network(#[from] std::io::Error),
-    
+
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
-    
+
     #[error("DAA orchestrator error: {0}")]
     Orchestrator(#[from] daa_orchestrator::OrchestratorError),
 
@@ -419,7 +419,7 @@ mod tests {
 
         let json = serde_json::to_string(&msg).unwrap();
         let parsed: McpMessage = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(parsed.jsonrpc, "2.0");
         assert_eq!(parsed.method, Some("tools/list".to_string()));
     }

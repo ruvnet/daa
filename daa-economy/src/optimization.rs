@@ -183,7 +183,11 @@ impl OptimizationResult {
             self.expected_return * rust_decimal_macros::dec!(100),
             self.expected_risk,
             self.expected_cost,
-            if self.constraints_satisfied { "✓" } else { "✗" }
+            if self.constraints_satisfied {
+                "✓"
+            } else {
+                "✗"
+            }
         )
     }
 }
@@ -242,11 +246,16 @@ impl EconomicOptimizer {
 
     /// Add resource for optimization
     pub fn add_resource(&mut self, resource: Resource) {
-        self.resources.insert(resource.resource_type.clone(), resource);
+        self.resources
+            .insert(resource.resource_type.clone(), resource);
     }
 
     /// Optimize portfolio allocation
-    pub fn optimize_portfolio(&mut self, strategy: &OptimizationStrategy, assets: &[String]) -> Result<OptimizationResult> {
+    pub fn optimize_portfolio(
+        &mut self,
+        strategy: &OptimizationStrategy,
+        assets: &[String],
+    ) -> Result<OptimizationResult> {
         let mut result = OptimizationResult::new(strategy.name.clone(), strategy.objective.clone());
 
         match strategy.objective {
@@ -263,9 +272,10 @@ impl EconomicOptimizer {
                 self.optimize_for_balanced_growth(&mut result, assets, strategy)?;
             }
             _ => {
-                return Err(EconomyError::OptimizationError(
-                    format!("Optimization objective {:?} not yet implemented", strategy.objective)
-                ));
+                return Err(EconomyError::OptimizationError(format!(
+                    "Optimization objective {:?} not yet implemented",
+                    strategy.objective
+                )));
             }
         }
 
@@ -330,7 +340,9 @@ impl EconomicOptimizer {
             let risk = if let Some(assessment) = self.risk_assessments.get(asset) {
                 assessment.overall_score
             } else if let Some(market_data) = self.market_data.get(asset) {
-                market_data.calculate_volatility().unwrap_or(rust_decimal_macros::dec!(0.5))
+                market_data
+                    .calculate_volatility()
+                    .unwrap_or(rust_decimal_macros::dec!(0.5))
             } else {
                 rust_decimal_macros::dec!(0.5) // Default risk
             };
@@ -343,7 +355,7 @@ impl EconomicOptimizer {
         // Allocate more to lower-risk assets
         let total_weight = rust_decimal_macros::dec!(1.0);
         let num_assets = Decimal::from(asset_risks.len());
-        
+
         for (asset, risk) in asset_risks {
             let weight = total_weight / num_assets; // Equal weight for simplicity
             result.add_allocation(asset, weight);
@@ -366,25 +378,28 @@ impl EconomicOptimizer {
         for asset in assets {
             if let Some(market_data) = self.market_data.get(asset) {
                 let expected_return = self.calculate_expected_return(market_data)?;
-                let risk = market_data.calculate_volatility().unwrap_or(rust_decimal_macros::dec!(0.1));
-                
+                let risk = market_data
+                    .calculate_volatility()
+                    .unwrap_or(rust_decimal_macros::dec!(0.1));
+
                 let sharpe_ratio = if risk > Decimal::ZERO {
                     (expected_return - self.risk_free_rate) / risk
                 } else {
                     Decimal::ZERO
                 };
-                
+
                 asset_sharpe_ratios.push((asset.clone(), sharpe_ratio));
             }
         }
 
         // Sort by Sharpe ratio (descending)
-        asset_sharpe_ratios.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        asset_sharpe_ratios
+            .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         // Allocate based on Sharpe ratio ranking
         let total_weight = rust_decimal_macros::dec!(1.0);
         let num_assets = Decimal::from(asset_sharpe_ratios.len());
-        
+
         for (asset, _sharpe) in asset_sharpe_ratios {
             let weight = total_weight / num_assets; // Equal weight for simplicity
             result.add_allocation(asset, weight);
@@ -446,15 +461,21 @@ impl EconomicOptimizer {
     }
 
     /// Calculate portfolio metrics
-    fn calculate_portfolio_metrics(&self, result: &mut OptimizationResult, _strategy: &OptimizationStrategy) -> Result<()> {
+    fn calculate_portfolio_metrics(
+        &self,
+        result: &mut OptimizationResult,
+        _strategy: &OptimizationStrategy,
+    ) -> Result<()> {
         let mut portfolio_return = Decimal::ZERO;
         let mut portfolio_risk = Decimal::ZERO;
 
         for (asset, weight) in &result.allocations {
             if let Some(market_data) = self.market_data.get(asset) {
                 let asset_return = self.calculate_expected_return(market_data)?;
-                let asset_risk = market_data.calculate_volatility().unwrap_or(rust_decimal_macros::dec!(0.1));
-                
+                let asset_risk = market_data
+                    .calculate_volatility()
+                    .unwrap_or(rust_decimal_macros::dec!(0.1));
+
                 portfolio_return += asset_return * weight;
                 portfolio_risk += asset_risk * weight; // Simplified risk calculation
             }
@@ -468,7 +489,11 @@ impl EconomicOptimizer {
     }
 
     /// Check if constraints are satisfied
-    fn check_constraints(&self, result: &OptimizationResult, strategy: &OptimizationStrategy) -> Result<bool> {
+    fn check_constraints(
+        &self,
+        result: &OptimizationResult,
+        strategy: &OptimizationStrategy,
+    ) -> Result<bool> {
         for constraint in &strategy.constraints {
             match &constraint.constraint_type {
                 ConstraintType::MaxRisk => {
@@ -490,7 +515,10 @@ impl EconomicOptimizer {
                 }
                 _ => {
                     // Other constraint types not implemented yet
-                    debug!("Constraint type {:?} not implemented", constraint.constraint_type);
+                    debug!(
+                        "Constraint type {:?} not implemented",
+                        constraint.constraint_type
+                    );
                 }
             }
         }
@@ -498,7 +526,11 @@ impl EconomicOptimizer {
     }
 
     /// Calculate optimization score
-    fn calculate_optimization_score(&self, result: &OptimizationResult, strategy: &OptimizationStrategy) -> Decimal {
+    fn calculate_optimization_score(
+        &self,
+        result: &OptimizationResult,
+        strategy: &OptimizationStrategy,
+    ) -> Decimal {
         let mut score = rust_decimal_macros::dec!(0.0);
 
         // Base score from objective achievement
@@ -507,7 +539,8 @@ impl EconomicOptimizer {
                 score += result.expected_return * rust_decimal_macros::dec!(100.0);
             }
             OptimizationObjective::MinimizeRisk => {
-                score += (rust_decimal_macros::dec!(1.0) - result.expected_risk) * rust_decimal_macros::dec!(100.0);
+                score += (rust_decimal_macros::dec!(1.0) - result.expected_risk)
+                    * rust_decimal_macros::dec!(100.0);
             }
             OptimizationObjective::MaximizeSharpeRatio => {
                 if let Some(sharpe) = result.sharpe_ratio {
@@ -524,29 +557,49 @@ impl EconomicOptimizer {
             score *= rust_decimal_macros::dec!(0.8);
         }
 
-        score.max(Decimal::ZERO).min(rust_decimal_macros::dec!(100.0))
+        score
+            .max(Decimal::ZERO)
+            .min(rust_decimal_macros::dec!(100.0))
     }
 
     /// Generate optimization recommendations
-    fn generate_recommendations(&self, result: &mut OptimizationResult, strategy: &OptimizationStrategy) {
+    fn generate_recommendations(
+        &self,
+        result: &mut OptimizationResult,
+        strategy: &OptimizationStrategy,
+    ) {
         if !result.constraints_satisfied {
-            result.add_recommendation("Consider adjusting constraints or strategy parameters".to_string());
+            result.add_recommendation(
+                "Consider adjusting constraints or strategy parameters".to_string(),
+            );
         }
 
         if result.expected_risk > strategy.risk_tolerance.to_score() {
-            result.add_recommendation("Portfolio risk exceeds risk tolerance - consider reducing high-risk allocations".to_string());
+            result.add_recommendation(
+                "Portfolio risk exceeds risk tolerance - consider reducing high-risk allocations"
+                    .to_string(),
+            );
         }
 
         if let Some(sharpe_ratio) = result.sharpe_ratio {
             if sharpe_ratio < rust_decimal_macros::dec!(0.5) {
-                result.add_recommendation("Low Sharpe ratio - consider alternative assets or strategy".to_string());
+                result.add_recommendation(
+                    "Low Sharpe ratio - consider alternative assets or strategy".to_string(),
+                );
             }
         }
 
         // Check for concentration risk
-        let max_allocation = result.allocations.values().max().copied().unwrap_or(Decimal::ZERO);
+        let max_allocation = result
+            .allocations
+            .values()
+            .max()
+            .copied()
+            .unwrap_or(Decimal::ZERO);
         if max_allocation > rust_decimal_macros::dec!(0.5) {
-            result.add_recommendation("High concentration risk - consider diversifying allocations".to_string());
+            result.add_recommendation(
+                "High concentration risk - consider diversifying allocations".to_string(),
+            );
         }
     }
 
@@ -557,8 +610,11 @@ impl EconomicOptimizer {
 
     /// Get best optimization result by score
     pub fn get_best_optimization(&self) -> Option<&OptimizationResult> {
-        self.optimization_history.iter()
-            .max_by(|a, b| a.optimization_score.partial_cmp(&b.optimization_score).unwrap_or(std::cmp::Ordering::Equal))
+        self.optimization_history.iter().max_by(|a, b| {
+            a.optimization_score
+                .partial_cmp(&b.optimization_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
     }
 }
 
@@ -590,10 +646,8 @@ mod tests {
 
     #[test]
     fn test_optimization_result() {
-        let mut result = OptimizationResult::new(
-            "Test".to_string(),
-            OptimizationObjective::MaximizeReturn,
-        );
+        let mut result =
+            OptimizationResult::new("Test".to_string(), OptimizationObjective::MaximizeReturn);
 
         result.add_allocation("BTC".to_string(), dec!(0.6));
         result.add_allocation("ETH".to_string(), dec!(0.4));
@@ -608,12 +662,12 @@ mod tests {
     #[test]
     fn test_economic_optimizer() {
         let mut optimizer = EconomicOptimizer::new();
-        
+
         // Add sample market data
         let mut btc_data = MarketData::new("BTC".to_string());
         btc_data.add_price_point(PricePoint::new(dec!(50000.0), dec!(100.0)));
         btc_data.add_price_point(PricePoint::new(dec!(52000.0), dec!(110.0)));
-        
+
         optimizer.add_market_data("BTC".to_string(), btc_data);
 
         let strategy = OptimizationStrategy::new(
@@ -638,10 +692,8 @@ mod tests {
 
         strategy.add_constraint(OptimizationConstraint::max_risk(dec!(0.1)));
 
-        let mut result = OptimizationResult::new(
-            "Test".to_string(),
-            OptimizationObjective::MaximizeReturn,
-        );
+        let mut result =
+            OptimizationResult::new("Test".to_string(), OptimizationObjective::MaximizeReturn);
         result.expected_risk = dec!(0.2); // Exceeds constraint
 
         let satisfied = optimizer.check_constraints(&result, &strategy).unwrap();

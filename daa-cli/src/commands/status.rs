@@ -3,7 +3,7 @@
 use anyhow::Result;
 use colored::Colorize;
 
-use crate::{CliContext, config::CliConfig};
+use crate::{config::CliConfig, CliContext};
 
 /// Handle the status command
 pub async fn handle_status(
@@ -18,7 +18,7 @@ pub async fn handle_status(
     }
 
     let status = get_orchestrator_status(config).await?;
-    
+
     if cli.json {
         println!("{}", serde_json::to_string_pretty(&status)?);
     } else {
@@ -35,19 +35,19 @@ async fn handle_watch_status(
     cli: &CliContext,
 ) -> Result<()> {
     println!("Watching DAA status (press Ctrl+C to exit)...");
-    
+
     loop {
         let status = get_orchestrator_status(config).await?;
-        
+
         // Clear screen
         print!("\x1B[2J\x1B[1;1H");
-        
+
         if cli.json {
             println!("{}", serde_json::to_string_pretty(&status)?);
         } else {
             display_status(&status, detailed);
         }
-        
+
         tokio::time::sleep(std::time::Duration::from_secs(interval)).await;
     }
 }
@@ -73,7 +73,7 @@ async fn get_orchestrator_status(config: &CliConfig) -> Result<OrchestratorStatu
 fn display_status(status: &OrchestratorStatus, detailed: bool) {
     println!("{}", "DAA Orchestrator Status".blue().bold());
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    
+
     let state_color = match status.state.as_str() {
         "Running" => status.state.green(),
         "Starting" => status.state.yellow(),
@@ -81,30 +81,38 @@ fn display_status(status: &OrchestratorStatus, detailed: bool) {
         "Stopped" => status.state.red(),
         _ => status.state.white(),
     };
-    
+
     println!("Name:     {}", status.name);
     println!("State:    {}", state_color);
     println!("Uptime:   {}", status.uptime);
-    
+
     if detailed {
         println!();
         println!("{}", "Components".blue().bold());
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         println!("Autonomy Loop:   {}", status.autonomy_status.green());
         println!("QuDAG Network:   {}", status.qudag_status.green());
-        
+
         if status.mcp_enabled {
-            println!("MCP Server:      {} (port {})", "Enabled".green(), status.mcp_port);
+            println!(
+                "MCP Server:      {} (port {})",
+                "Enabled".green(),
+                status.mcp_port
+            );
         } else {
             println!("MCP Server:      {}", "Disabled".red());
         }
-        
+
         if status.api_enabled {
-            println!("API Server:      {} (port {})", "Enabled".green(), status.api_port);
+            println!(
+                "API Server:      {} (port {})",
+                "Enabled".green(),
+                status.api_port
+            );
         } else {
             println!("API Server:      {}", "Disabled".red());
         }
-        
+
         println!();
         println!("{}", "Statistics".blue().bold());
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━");

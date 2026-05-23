@@ -14,9 +14,12 @@ pub async fn handle_init(
     cli: &CliContext,
 ) -> Result<()> {
     let target_dir = directory.unwrap_or_else(|| std::env::current_dir().unwrap());
-    
+
     if cli.verbose {
-        println!("Initializing DAA configuration in: {}", target_dir.display());
+        println!(
+            "Initializing DAA configuration in: {}",
+            target_dir.display()
+        );
         println!("Template: {}", template);
         println!("Force: {}", force);
     }
@@ -51,16 +54,19 @@ tmp/
     std::fs::write(config_dir.join(".gitignore"), gitignore_content)?;
 
     if cli.json {
-        println!("{}", serde_json::json!({
-            "status": "success",
-            "directory": target_dir,
-            "template": template,
-            "files_created": [
-                orchestrator_config_path.display().to_string(),
-                cli_config_path.display().to_string(),
-                config_dir.join(".gitignore").display().to_string()
-            ]
-        }));
+        println!(
+            "{}",
+            serde_json::json!({
+                "status": "success",
+                "directory": target_dir,
+                "template": template,
+                "files_created": [
+                    orchestrator_config_path.display().to_string(),
+                    cli_config_path.display().to_string(),
+                    config_dir.join(".gitignore").display().to_string()
+                ]
+            })
+        );
     } else {
         println!("{}", "✓ DAA configuration initialized successfully".green());
         println!("  Directory: {}", target_dir.display());

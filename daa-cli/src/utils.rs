@@ -5,37 +5,46 @@ use std::path::PathBuf;
 
 /// Get the default configuration file path
 pub fn get_default_config_path() -> Result<PathBuf> {
-    let config_dir = dirs::config_dir()
-        .context("Unable to determine config directory")?;
-    
+    let config_dir = dirs::config_dir().context("Unable to determine config directory")?;
+
     let daa_config_dir = config_dir.join("daa");
-    std::fs::create_dir_all(&daa_config_dir)
-        .with_context(|| format!("Failed to create config directory: {}", daa_config_dir.display()))?;
-    
+    std::fs::create_dir_all(&daa_config_dir).with_context(|| {
+        format!(
+            "Failed to create config directory: {}",
+            daa_config_dir.display()
+        )
+    })?;
+
     Ok(daa_config_dir.join("config.toml"))
 }
 
 /// Get the default data directory path
 pub fn get_default_data_path() -> Result<PathBuf> {
-    let data_dir = dirs::data_dir()
-        .context("Unable to determine data directory")?;
-    
+    let data_dir = dirs::data_dir().context("Unable to determine data directory")?;
+
     let daa_data_dir = data_dir.join("daa");
-    std::fs::create_dir_all(&daa_data_dir)
-        .with_context(|| format!("Failed to create data directory: {}", daa_data_dir.display()))?;
-    
+    std::fs::create_dir_all(&daa_data_dir).with_context(|| {
+        format!(
+            "Failed to create data directory: {}",
+            daa_data_dir.display()
+        )
+    })?;
+
     Ok(daa_data_dir)
 }
 
 /// Get the default orchestrator configuration path
 pub fn get_default_orchestrator_config_path() -> Result<PathBuf> {
-    let config_dir = dirs::config_dir()
-        .context("Unable to determine config directory")?;
-    
+    let config_dir = dirs::config_dir().context("Unable to determine config directory")?;
+
     let daa_config_dir = config_dir.join("daa");
-    std::fs::create_dir_all(&daa_config_dir)
-        .with_context(|| format!("Failed to create config directory: {}", daa_config_dir.display()))?;
-    
+    std::fs::create_dir_all(&daa_config_dir).with_context(|| {
+        format!(
+            "Failed to create config directory: {}",
+            daa_config_dir.display()
+        )
+    })?;
+
     Ok(daa_config_dir.join("orchestrator.toml"))
 }
 
@@ -88,7 +97,7 @@ pub fn truncate_string(s: &str, max_len: usize) -> String {
 /// Check if a process is running by PID
 pub fn is_process_running(pid: u32) -> bool {
     use std::process::Command;
-    
+
     #[cfg(target_os = "windows")]
     {
         Command::new("tasklist")
@@ -97,7 +106,7 @@ pub fn is_process_running(pid: u32) -> bool {
             .map(|output| String::from_utf8_lossy(&output.stdout).contains(&pid.to_string()))
             .unwrap_or(false)
     }
-    
+
     #[cfg(not(target_os = "windows"))]
     {
         Command::new("kill")
@@ -112,8 +121,10 @@ pub fn is_process_running(pid: u32) -> bool {
 pub fn read_pid_file(path: &std::path::Path) -> Result<u32> {
     let content = std::fs::read_to_string(path)
         .with_context(|| format!("Failed to read PID file: {}", path.display()))?;
-    
-    content.trim().parse::<u32>()
+
+    content
+        .trim()
+        .parse::<u32>()
         .with_context(|| format!("Invalid PID in file: {}", path.display()))
 }
 
@@ -123,7 +134,7 @@ pub fn write_pid_file(path: &std::path::Path, pid: u32) -> Result<()> {
         std::fs::create_dir_all(parent)
             .with_context(|| format!("Failed to create directory: {}", parent.display()))?;
     }
-    
+
     std::fs::write(path, pid.to_string())
         .with_context(|| format!("Failed to write PID file: {}", path.display()))
 }
@@ -144,7 +155,7 @@ pub fn create_spinner(message: &str) -> indicatif::ProgressBar {
         indicatif::ProgressStyle::default_spinner()
             .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
             .template("{spinner:.green} {msg}")
-            .unwrap()
+            .unwrap(),
     );
     pb.set_message(message.to_string());
     pb.enable_steady_tick(std::time::Duration::from_millis(80));
@@ -172,9 +183,17 @@ fn json_value_to_string(value: &serde_json::Value) -> String {
         serde_json::Value::Bool(b) => b.to_string(),
         serde_json::Value::Null => "null".to_string(),
         serde_json::Value::Array(arr) => {
-            format!("[{}]", arr.iter().map(json_value_to_string).collect::<Vec<_>>().join(", "))
+            format!(
+                "[{}]",
+                arr.iter()
+                    .map(json_value_to_string)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
         }
-        serde_json::Value::Object(_) => serde_json::to_string_pretty(value).unwrap_or_else(|_| "{}".to_string()),
+        serde_json::Value::Object(_) => {
+            serde_json::to_string_pretty(value).unwrap_or_else(|_| "{}".to_string())
+        }
     }
 }
 
@@ -185,9 +204,18 @@ mod tests {
     #[test]
     fn test_format_duration() {
         assert_eq!(format_duration(std::time::Duration::from_secs(30)), "30s");
-        assert_eq!(format_duration(std::time::Duration::from_secs(90)), "1m 30s");
-        assert_eq!(format_duration(std::time::Duration::from_secs(3661)), "1h 1m 1s");
-        assert_eq!(format_duration(std::time::Duration::from_secs(90061)), "1d 1h 1m 1s");
+        assert_eq!(
+            format_duration(std::time::Duration::from_secs(90)),
+            "1m 30s"
+        );
+        assert_eq!(
+            format_duration(std::time::Duration::from_secs(3661)),
+            "1h 1m 1s"
+        );
+        assert_eq!(
+            format_duration(std::time::Duration::from_secs(90061)),
+            "1d 1h 1m 1s"
+        );
     }
 
     #[test]
@@ -212,7 +240,7 @@ mod tests {
             "count": 42,
             "active": true
         });
-        
+
         let table = json_to_table(&json);
         assert!(table.contains("name: test"));
         assert!(table.contains("count: 42"));

@@ -3,8 +3,8 @@
 //! Provides lightweight model inference capabilities optimized for
 //! web browser execution with minimal memory footprint.
 
-use serde::{Serialize, Deserialize};
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -104,16 +104,21 @@ impl BrowserInference {
     /// Load a model for inference
     #[cfg(target_arch = "wasm32")]
     #[wasm_bindgen]
-    pub async fn load_model(&mut self, model_data: &[u8], metadata_json: &str) -> Result<String, JsValue> {
-        let metadata: ModelMetadata = serde_json::from_str(metadata_json)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    pub async fn load_model(
+        &mut self,
+        model_data: &[u8],
+        metadata_json: &str,
+    ) -> Result<String, JsValue> {
+        let metadata: ModelMetadata =
+            serde_json::from_str(metadata_json).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         // Decompress and deserialize model
-        let weights = self.deserialize_model(model_data)
+        let weights = self
+            .deserialize_model(model_data)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         let model_id = format!("{}-{}", metadata.name, metadata.version);
-        
+
         // Cache the model
         self.cache_model(model_id.clone(), weights, metadata);
 
@@ -129,14 +134,13 @@ impl BrowserInference {
     #[cfg(target_arch = "wasm32")]
     #[wasm_bindgen]
     pub async fn infer(&mut self, model_id: &str, input_data: &[f32]) -> Result<Vec<f32>, JsValue> {
-        let start = web_sys::window()
-            .unwrap()
-            .performance()
-            .unwrap()
-            .now();
+        let start = web_sys::window().unwrap().performance().unwrap().now();
 
         // Get model from cache
-        let model = self.model_cache.models.get(model_id)
+        let model = self
+            .model_cache
+            .models
+            .get(model_id)
             .ok_or_else(|| JsValue::from_str("Model not found in cache"))?;
 
         // Validate input shape
@@ -159,14 +163,12 @@ impl BrowserInference {
         };
 
         // Check time constraint
-        let elapsed = web_sys::window()
-            .unwrap()
-            .performance()
-            .unwrap()
-            .now() - start;
+        let elapsed = web_sys::window().unwrap().performance().unwrap().now() - start;
 
         if elapsed > self.config.max_inference_time_ms as f64 {
-            web_sys::console::warn_1(&format!("Inference took {}ms, exceeding limit", elapsed).into());
+            web_sys::console::warn_1(
+                &format!("Inference took {}ms, exceeding limit", elapsed).into(),
+            );
         }
 
         Ok(output)
@@ -176,7 +178,10 @@ impl BrowserInference {
     #[cfg(target_arch = "wasm32")]
     #[wasm_bindgen]
     pub fn get_model_info(&self, model_id: &str) -> Result<String, JsValue> {
-        let model = self.model_cache.models.get(model_id)
+        let model = self
+            .model_cache
+            .models
+            .get(model_id)
             .ok_or_else(|| JsValue::from_str("Model not found"))?;
 
         let info = serde_json::json!({
@@ -254,7 +259,7 @@ impl BrowserInference {
         // Softmax for classification
         let max = output.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
         let sum: f32 = output.iter().map(|&x| (x - max).exp()).sum();
-        
+
         for x in output.iter_mut() {
             *x = (*x - max).exp() / sum;
         }
@@ -270,9 +275,11 @@ impl BrowserInference {
         };
 
         let size = self.estimate_model_size(&model);
-        
+
         // Evict old models if needed
-        while self.model_cache.current_size_bytes + size > self.model_cache.max_cache_size_mb * 1024 * 1024 {
+        while self.model_cache.current_size_bytes + size
+            > self.model_cache.max_cache_size_mb * 1024 * 1024
+        {
             self.evict_oldest_model();
         }
 
@@ -282,15 +289,21 @@ impl BrowserInference {
 
     /// Estimate model size in bytes
     fn estimate_model_size(&self, model: &CachedModel) -> usize {
-        model.weights.iter()
+        model
+            .weights
+            .iter()
             .map(|layer| layer.len() * std::mem::size_of::<f32>())
             .sum()
     }
 
     /// Evict the oldest model from cache
     fn evict_oldest_model(&mut self) {
-        if let Some((oldest_id, _)) = self.model_cache.models.iter()
-            .min_by_key(|(_, model)| model.last_used) {
+        if let Some((oldest_id, _)) = self
+            .model_cache
+            .models
+            .iter()
+            .min_by_key(|(_, model)| model.last_used)
+        {
             let oldest_id = oldest_id.clone();
             if let Some(model) = self.model_cache.models.remove(&oldest_id) {
                 self.model_cache.current_size_bytes -= self.estimate_model_size(&model);
@@ -329,7 +342,14 @@ impl BrowserInference {
     #[cfg(target_arch = "wasm32")]
     async fn store_in_indexeddb(&self, model_id: &str, data: &[u8]) -> Result<(), JsValue> {
         // IndexedDB implementation would go here
-        web_sys::console::log_1(&format!("Would store {} bytes for model {} in IndexedDB", data.len(), model_id).into());
+        web_sys::console::log_1(
+            &format!(
+                "Would store {} bytes for model {} in IndexedDB",
+                data.len(),
+                model_id
+            )
+            .into(),
+        );
         Ok(())
     }
 
@@ -358,7 +378,7 @@ impl BrowserInference {
 #[wasm_bindgen]
 pub fn get_inference_capabilities() -> String {
     let window = web_sys::window().unwrap();
-    
+
     let caps = serde_json::json!({
         "webgl": window.document()
             .and_then(|d| d.create_element("canvas").ok())
@@ -384,9 +404,9 @@ pub fn get_inference_capabilities() -> String {
 pub async fn benchmark_inference(size: usize) -> String {
     let input = vec![0.5; size];
     let weights = vec![vec![0.1; size]; 10];
-    
+
     let start = web_sys::window().unwrap().performance().unwrap().now();
-    
+
     // Run simple inference
     let mut current = input;
     for _ in 0..10 {
@@ -398,13 +418,14 @@ pub async fn benchmark_inference(size: usize) -> String {
         }
         current = output;
     }
-    
+
     let elapsed = web_sys::window().unwrap().performance().unwrap().now() - start;
-    
+
     serde_json::json!({
         "input_size": size,
         "layers": 10,
         "time_ms": elapsed,
         "throughput_ops_per_sec": (size * 10 * 10) as f64 / (elapsed / 1000.0),
-    }).to_string()
+    })
+    .to_string()
 }

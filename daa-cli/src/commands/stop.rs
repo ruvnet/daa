@@ -3,7 +3,7 @@
 use anyhow::Result;
 use colored::Colorize;
 
-use crate::{CliContext, config::CliConfig};
+use crate::{config::CliConfig, CliContext};
 
 /// Handle the stop command
 pub async fn handle_stop(
@@ -23,11 +23,14 @@ pub async fn handle_stop(
     spinner.finish_with_message("Orchestrator stopped");
 
     if cli.json {
-        println!("{}", serde_json::json!({
-            "status": "stopped",
-            "force": force,
-            "grace_period": grace_period
-        }));
+        println!(
+            "{}",
+            serde_json::json!({
+                "status": "stopped",
+                "force": force,
+                "grace_period": grace_period
+            })
+        );
     } else {
         println!("{}", "✓ DAA orchestrator stopped successfully".green());
     }

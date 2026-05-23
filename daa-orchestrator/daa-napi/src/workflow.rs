@@ -3,11 +3,13 @@
 //! Provides Node.js access to the DAA workflow engine for creating and executing
 //! complex multi-step workflows.
 
+use daa_orchestrator::workflow::{
+    Workflow, WorkflowEngine, WorkflowResult, WorkflowStatus, WorkflowStep,
+};
+use daa_orchestrator::WorkflowConfig;
 use napi::bindgen_prelude::*;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use daa_orchestrator::workflow::{Workflow, WorkflowStep, WorkflowEngine, WorkflowResult, WorkflowStatus};
-use daa_orchestrator::WorkflowConfig;
 
 /// Workflow configuration for Node.js
 #[napi(object)]

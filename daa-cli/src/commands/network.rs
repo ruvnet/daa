@@ -3,7 +3,7 @@
 use anyhow::Result;
 use colored::Colorize;
 
-use crate::{CliContext, config::CliConfig, NetworkAction};
+use crate::{config::CliConfig, CliContext, NetworkAction};
 
 /// Handle the network command
 pub async fn handle_network(
@@ -27,16 +27,19 @@ pub async fn handle_network(
                     println!("Target node: {}", node);
                 }
             }
-            
+
             let spinner = crate::utils::create_spinner("Connecting to network...");
             tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             spinner.finish_with_message("Connected to network");
-            
+
             if cli.json {
-                println!("{}", serde_json::json!({
-                    "status": "connected",
-                    "node": node
-                }));
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "status": "connected",
+                        "node": node
+                    })
+                );
             } else {
                 println!("{}", "✓ Connected to QuDAG network".green());
             }
@@ -65,7 +68,7 @@ pub async fn handle_network(
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -109,13 +112,13 @@ async fn get_network_stats() -> Result<NetworkStats> {
 fn display_network_status(status: &NetworkStatus) {
     println!("{}", "QuDAG Network Status".blue().bold());
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    
+
     let connected_status = if status.connected {
         "Connected".green()
     } else {
         "Disconnected".red()
     };
-    
+
     println!("Status:          {}", connected_status);
     println!("Network ID:      {}", status.network_id);
     println!("Node ID:         {}", status.node_id);
@@ -127,16 +130,18 @@ fn display_network_status(status: &NetworkStatus) {
 fn display_peers(peers: &[NetworkPeer]) {
     println!("{}", "Connected Peers".blue().bold());
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    
+
     for peer in peers {
         let status = if peer.connected {
             "Connected".green()
         } else {
             "Disconnected".red()
         };
-        
-        println!("{} - {} ({}) - {}ms latency", 
-                 peer.id, peer.address, status, peer.latency_ms);
+
+        println!(
+            "{} - {} ({}) - {}ms latency",
+            peer.id, peer.address, status, peer.latency_ms
+        );
     }
 }
 

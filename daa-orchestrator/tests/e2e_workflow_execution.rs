@@ -1,8 +1,8 @@
 //! End-to-end tests for DAA workflow execution
 
 use daa_orchestrator::{
+    workflow::{Workflow, WorkflowResult, WorkflowStatus, WorkflowStep},
     DaaOrchestrator, OrchestratorConfig,
-    workflow::{Workflow, WorkflowStep, WorkflowStatus, WorkflowResult},
 };
 use serde_json::json;
 use std::time::Duration;
@@ -15,27 +15,25 @@ async fn test_basic_workflow_execution() {
     let config = OrchestratorConfig::default();
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
-    
+
     // Create a simple workflow
     let workflow = Workflow {
         id: Uuid::new_v4().to_string(),
         name: "Basic Test Workflow".to_string(),
-        steps: vec![
-            WorkflowStep {
-                id: "step1".to_string(),
-                step_type: "test_action".to_string(),
-                parameters: json!({
-                    "action": "initialize",
-                    "timeout": 5000
-                }),
-            },
-        ],
+        steps: vec![WorkflowStep {
+            id: "step1".to_string(),
+            step_type: "test_action".to_string(),
+            parameters: json!({
+                "action": "initialize",
+                "timeout": 5000
+            }),
+        }],
     };
-    
+
     // Execute workflow
     let result = orchestrator.execute_workflow(workflow.clone()).await;
     assert!(result.is_ok(), "Failed to execute basic workflow");
-    
+
     let workflow_result = result.unwrap();
     assert_eq!(workflow_result.workflow_id, workflow.id);
     assert!(matches!(workflow_result.status, WorkflowStatus::Completed));
@@ -47,7 +45,7 @@ async fn test_multi_step_workflow_execution() {
     let config = OrchestratorConfig::default();
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
-    
+
     // Create a multi-step workflow
     let workflow = Workflow {
         id: Uuid::new_v4().to_string(),
@@ -88,11 +86,11 @@ async fn test_multi_step_workflow_execution() {
             },
         ],
     };
-    
+
     // Execute multi-step workflow
     let result = orchestrator.execute_workflow(workflow.clone()).await;
     assert!(result.is_ok(), "Failed to execute multi-step workflow");
-    
+
     let workflow_result = result.unwrap();
     assert_eq!(workflow_result.workflow_id, workflow.id);
     assert!(matches!(workflow_result.status, WorkflowStatus::Completed));
@@ -104,7 +102,7 @@ async fn test_ai_agent_coordination_workflow() {
     let config = OrchestratorConfig::default();
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
-    
+
     let workflow = Workflow {
         id: Uuid::new_v4().to_string(),
         name: "AI Agent Coordination".to_string(),
@@ -147,10 +145,10 @@ async fn test_ai_agent_coordination_workflow() {
             },
         ],
     };
-    
+
     let result = orchestrator.execute_workflow(workflow.clone()).await;
     assert!(result.is_ok(), "Failed to execute AI coordination workflow");
-    
+
     let workflow_result = result.unwrap();
     assert_eq!(workflow_result.workflow_id, workflow.id);
     assert!(matches!(workflow_result.status, WorkflowStatus::Completed));
@@ -162,7 +160,7 @@ async fn test_rule_compliance_workflow() {
     let config = OrchestratorConfig::default();
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
-    
+
     let workflow = Workflow {
         id: Uuid::new_v4().to_string(),
         name: "Rule Compliance Check".to_string(),
@@ -198,10 +196,10 @@ async fn test_rule_compliance_workflow() {
             },
         ],
     };
-    
+
     let result = orchestrator.execute_workflow(workflow.clone()).await;
     assert!(result.is_ok(), "Failed to execute compliance workflow");
-    
+
     let workflow_result = result.unwrap();
     assert_eq!(workflow_result.workflow_id, workflow.id);
     assert!(matches!(workflow_result.status, WorkflowStatus::Completed));
@@ -213,7 +211,7 @@ async fn test_economic_operations_workflow() {
     let config = OrchestratorConfig::default();
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
-    
+
     let workflow = Workflow {
         id: Uuid::new_v4().to_string(),
         name: "Economic Operations".to_string(),
@@ -256,10 +254,13 @@ async fn test_economic_operations_workflow() {
             },
         ],
     };
-    
+
     let result = orchestrator.execute_workflow(workflow.clone()).await;
-    assert!(result.is_ok(), "Failed to execute economic operations workflow");
-    
+    assert!(
+        result.is_ok(),
+        "Failed to execute economic operations workflow"
+    );
+
     let workflow_result = result.unwrap();
     assert_eq!(workflow_result.workflow_id, workflow.id);
     assert!(matches!(workflow_result.status, WorkflowStatus::Completed));
@@ -271,30 +272,29 @@ async fn test_workflow_execution_timeout() {
     let config = OrchestratorConfig::default();
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
-    
+
     let workflow = Workflow {
         id: Uuid::new_v4().to_string(),
         name: "Timeout Test Workflow".to_string(),
-        steps: vec![
-            WorkflowStep {
-                id: "quick_step".to_string(),
-                step_type: "fast_operation".to_string(),
-                parameters: json!({
-                    "operation": "status_check",
-                    "expected_duration": "100ms"
-                }),
-            },
-        ],
+        steps: vec![WorkflowStep {
+            id: "quick_step".to_string(),
+            step_type: "fast_operation".to_string(),
+            parameters: json!({
+                "operation": "status_check",
+                "expected_duration": "100ms"
+            }),
+        }],
     };
-    
+
     // Execute with timeout
     let result = timeout(
         Duration::from_secs(5),
-        orchestrator.execute_workflow(workflow.clone())
-    ).await;
-    
+        orchestrator.execute_workflow(workflow.clone()),
+    )
+    .await;
+
     assert!(result.is_ok(), "Workflow execution should not timeout");
-    
+
     let workflow_result = result.unwrap().unwrap();
     assert_eq!(workflow_result.workflow_id, workflow.id);
 }
@@ -305,65 +305,59 @@ async fn test_concurrent_workflow_execution() {
     let config = OrchestratorConfig::default();
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
-    
+
     // Create multiple workflows
     let workflow1 = Workflow {
         id: Uuid::new_v4().to_string(),
         name: "Concurrent Workflow 1".to_string(),
-        steps: vec![
-            WorkflowStep {
-                id: "step1".to_string(),
-                step_type: "parallel_task".to_string(),
-                parameters: json!({"task_id": 1}),
-            },
-        ],
+        steps: vec![WorkflowStep {
+            id: "step1".to_string(),
+            step_type: "parallel_task".to_string(),
+            parameters: json!({"task_id": 1}),
+        }],
     };
-    
+
     let workflow2 = Workflow {
         id: Uuid::new_v4().to_string(),
         name: "Concurrent Workflow 2".to_string(),
-        steps: vec![
-            WorkflowStep {
-                id: "step1".to_string(),
-                step_type: "parallel_task".to_string(),
-                parameters: json!({"task_id": 2}),
-            },
-        ],
+        steps: vec![WorkflowStep {
+            id: "step1".to_string(),
+            step_type: "parallel_task".to_string(),
+            parameters: json!({"task_id": 2}),
+        }],
     };
-    
+
     let workflow3 = Workflow {
         id: Uuid::new_v4().to_string(),
         name: "Concurrent Workflow 3".to_string(),
-        steps: vec![
-            WorkflowStep {
-                id: "step1".to_string(),
-                step_type: "parallel_task".to_string(),
-                parameters: json!({"task_id": 3}),
-            },
-        ],
+        steps: vec![WorkflowStep {
+            id: "step1".to_string(),
+            step_type: "parallel_task".to_string(),
+            parameters: json!({"task_id": 3}),
+        }],
     };
-    
+
     // Execute workflows concurrently
     let (result1, result2, result3) = tokio::join!(
         orchestrator.execute_workflow(workflow1.clone()),
         orchestrator.execute_workflow(workflow2.clone()),
         orchestrator.execute_workflow(workflow3.clone())
     );
-    
+
     // All should succeed
     assert!(result1.is_ok(), "Concurrent workflow 1 failed");
     assert!(result2.is_ok(), "Concurrent workflow 2 failed");
     assert!(result3.is_ok(), "Concurrent workflow 3 failed");
-    
+
     // Verify results
     let result1 = result1.unwrap();
     let result2 = result2.unwrap();
     let result3 = result3.unwrap();
-    
+
     assert_eq!(result1.workflow_id, workflow1.id);
     assert_eq!(result2.workflow_id, workflow2.id);
     assert_eq!(result3.workflow_id, workflow3.id);
-    
+
     assert!(matches!(result1.status, WorkflowStatus::Completed));
     assert!(matches!(result2.status, WorkflowStatus::Completed));
     assert!(matches!(result3.status, WorkflowStatus::Completed));
@@ -375,51 +369,52 @@ async fn test_workflow_complex_parameters() {
     let config = OrchestratorConfig::default();
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
-    
+
     let workflow = Workflow {
         id: Uuid::new_v4().to_string(),
         name: "Complex Parameters Workflow".to_string(),
-        steps: vec![
-            WorkflowStep {
-                id: "complex_processing".to_string(),
-                step_type: "advanced_operation".to_string(),
-                parameters: json!({
-                    "nested_config": {
-                        "algorithm_settings": {
-                            "learning_rate": 0.001,
-                            "batch_size": 32,
-                            "epochs": 100
-                        },
-                        "data_sources": [
-                            {
-                                "type": "market_data",
-                                "endpoint": "wss://api.exchange.com/ws",
-                                "auth": {
-                                    "type": "api_key",
-                                    "key": "test_key"
-                                }
-                            },
-                            {
-                                "type": "blockchain_data",
-                                "endpoint": "https://api.qudag.network/v1",
-                                "filters": ["transactions", "blocks"]
-                            }
-                        ]
+        steps: vec![WorkflowStep {
+            id: "complex_processing".to_string(),
+            step_type: "advanced_operation".to_string(),
+            parameters: json!({
+                "nested_config": {
+                    "algorithm_settings": {
+                        "learning_rate": 0.001,
+                        "batch_size": 32,
+                        "epochs": 100
                     },
-                    "execution_parameters": {
-                        "max_retries": 3,
-                        "timeout_seconds": 300,
-                        "fallback_strategy": "conservative",
-                        "notification_channels": ["slack", "email"]
-                    }
-                }),
-            },
-        ],
+                    "data_sources": [
+                        {
+                            "type": "market_data",
+                            "endpoint": "wss://api.exchange.com/ws",
+                            "auth": {
+                                "type": "api_key",
+                                "key": "test_key"
+                            }
+                        },
+                        {
+                            "type": "blockchain_data",
+                            "endpoint": "https://api.qudag.network/v1",
+                            "filters": ["transactions", "blocks"]
+                        }
+                    ]
+                },
+                "execution_parameters": {
+                    "max_retries": 3,
+                    "timeout_seconds": 300,
+                    "fallback_strategy": "conservative",
+                    "notification_channels": ["slack", "email"]
+                }
+            }),
+        }],
     };
-    
+
     let result = orchestrator.execute_workflow(workflow.clone()).await;
-    assert!(result.is_ok(), "Failed to execute workflow with complex parameters");
-    
+    assert!(
+        result.is_ok(),
+        "Failed to execute workflow with complex parameters"
+    );
+
     let workflow_result = result.unwrap();
     assert_eq!(workflow_result.workflow_id, workflow.id);
     assert!(matches!(workflow_result.status, WorkflowStatus::Completed));
@@ -431,35 +426,33 @@ async fn test_workflow_statistics() {
     let config = OrchestratorConfig::default();
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
-    
+
     // Get initial statistics
     let initial_stats = orchestrator.get_statistics().await;
     assert_eq!(initial_stats.active_workflows, 0);
-    
+
     // Execute a workflow
     let workflow = Workflow {
         id: Uuid::new_v4().to_string(),
         name: "Statistics Test Workflow".to_string(),
-        steps: vec![
-            WorkflowStep {
-                id: "stats_step".to_string(),
-                step_type: "monitoring_operation".to_string(),
-                parameters: json!({
-                    "collect_metrics": true,
-                    "duration": "1s"
-                }),
-            },
-        ],
+        steps: vec![WorkflowStep {
+            id: "stats_step".to_string(),
+            step_type: "monitoring_operation".to_string(),
+            parameters: json!({
+                "collect_metrics": true,
+                "duration": "1s"
+            }),
+        }],
     };
-    
+
     let result = orchestrator.execute_workflow(workflow).await;
     assert!(result.is_ok(), "Failed to execute statistics test workflow");
-    
+
     // Statistics should reflect the execution
     let final_stats = orchestrator.get_statistics().await;
     // Note: In the current implementation, active_workflows might be 0 after completion
     // This is expected behavior as workflows complete quickly
-    
+
     println!("Workflow statistics test completed");
     println!("Initial stats: {}", initial_stats);
     println!("Final stats: {}", final_stats);
@@ -471,34 +464,35 @@ async fn test_workflow_error_scenarios() {
     let config = OrchestratorConfig::default();
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
-    
+
     // Test workflow with empty steps (should still succeed in current implementation)
     let empty_workflow = Workflow {
         id: Uuid::new_v4().to_string(),
         name: "Empty Workflow".to_string(),
         steps: vec![],
     };
-    
+
     let result = orchestrator.execute_workflow(empty_workflow).await;
-    assert!(result.is_ok(), "Empty workflow should be handled gracefully");
-    
+    assert!(
+        result.is_ok(),
+        "Empty workflow should be handled gracefully"
+    );
+
     // Test workflow with complex error-prone parameters
     let error_workflow = Workflow {
         id: Uuid::new_v4().to_string(),
         name: "Error Handling Test".to_string(),
-        steps: vec![
-            WorkflowStep {
-                id: "error_step".to_string(),
-                step_type: "error_simulation".to_string(),
-                parameters: json!({
-                    "simulate_error": false, // Don't actually error in test
-                    "error_type": "network_timeout",
-                    "recovery_strategy": "retry_with_backoff"
-                }),
-            },
-        ],
+        steps: vec![WorkflowStep {
+            id: "error_step".to_string(),
+            step_type: "error_simulation".to_string(),
+            parameters: json!({
+                "simulate_error": false, // Don't actually error in test
+                "error_type": "network_timeout",
+                "recovery_strategy": "retry_with_backoff"
+            }),
+        }],
     };
-    
+
     let result = orchestrator.execute_workflow(error_workflow).await;
     assert!(result.is_ok(), "Error handling workflow should succeed");
 }
@@ -509,44 +503,50 @@ async fn test_workflow_performance() {
     let config = OrchestratorConfig::default();
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
-    
+
     let start_time = std::time::Instant::now();
-    
+
     // Execute multiple workflows to test performance
     let mut handles = Vec::new();
-    
+
     for i in 0..10 {
         let workflow = Workflow {
             id: Uuid::new_v4().to_string(),
             name: format!("Performance Test Workflow {}", i),
-            steps: vec![
-                WorkflowStep {
-                    id: format!("perf_step_{}", i),
-                    step_type: "performance_test".to_string(),
-                    parameters: json!({
-                        "iteration": i,
-                        "load_test": true
-                    }),
-                },
-            ],
+            steps: vec![WorkflowStep {
+                id: format!("perf_step_{}", i),
+                step_type: "performance_test".to_string(),
+                parameters: json!({
+                    "iteration": i,
+                    "load_test": true
+                }),
+            }],
         };
-        
+
         let handle = orchestrator.execute_workflow(workflow);
         handles.push(handle);
     }
-    
+
     // Wait for all workflows to complete
     let results = futures::future::join_all(handles).await;
-    
+
     let elapsed = start_time.elapsed();
-    
+
     // All workflows should succeed
     for (i, result) in results.iter().enumerate() {
         assert!(result.is_ok(), "Performance test workflow {} failed", i);
     }
-    
-    println!("Performance test completed: {} workflows in {:?}", results.len(), elapsed);
-    
+
+    println!(
+        "Performance test completed: {} workflows in {:?}",
+        results.len(),
+        elapsed
+    );
+
     // Should complete reasonably quickly
-    assert!(elapsed < Duration::from_secs(10), "Performance test took too long: {:?}", elapsed);
+    assert!(
+        elapsed < Duration::from_secs(10),
+        "Performance test took too long: {:?}",
+        elapsed
+    );
 }

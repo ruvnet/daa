@@ -3,11 +3,11 @@
 //! Provides Node.js access to the DAA economy system for token management,
 //! account operations, and trading.
 
+use daa_economy::accounts::AccountManager;
+use daa_economy::trading::TradingEngine;
 use napi::bindgen_prelude::*;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use daa_economy::trading::TradingEngine;
-use daa_economy::accounts::AccountManager;
 
 /// Account information for Node.js
 #[napi(object)]

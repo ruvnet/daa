@@ -1,20 +1,20 @@
 //! Three-Agent Swarm Demonstration
-//! 
+//!
 //! This example demonstrates the complete DAA MCP system with:
 //! - Model Context Protocol server
 //! - Agent discovery protocol
 //! - 3-agent swarm coordination
 //! - Parallel task execution using batch tools
-//! 
+//!
 //! Usage: cargo run --example three_agent_swarm_demo
 
 use std::time::Duration;
 use tokio::time::sleep;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 use daa_mcp::{
-    integration::{DaaIntegrationManager, DaaSystemFactory},
     discovery::DiscoveryConfig,
+    integration::{DaaIntegrationManager, DaaSystemFactory},
     swarm::SwarmTemplates,
     DaaMcpConfig, Result,
 };
@@ -30,7 +30,7 @@ async fn main() -> Result<()> {
 
     // Create and start the integrated DAA system
     let mut daa_system = DaaSystemFactory::create_research_system().await?;
-    
+
     // Start all services
     match daa_system.start().await {
         Ok(_) => info!("✅ DAA system started successfully"),
@@ -70,8 +70,11 @@ async fn demonstrate_all_swarm_types(daa_system: &DaaIntegrationManager) -> Resu
     // 1. Research Swarm
     info!("📚 Executing 3-Agent Research Swarm");
     let research_objective = "Analyze the current state of decentralized finance (DeFi) protocols and their security implications";
-    
-    match daa_system.execute_3_agent_research_swarm(research_objective).await {
+
+    match daa_system
+        .execute_3_agent_research_swarm(research_objective)
+        .await
+    {
         Ok(result) => info!("✅ Research Swarm Result: {}", result),
         Err(e) => warn!("⚠️ Research Swarm encountered expected limitations: {}", e),
     }
@@ -81,20 +84,31 @@ async fn demonstrate_all_swarm_types(daa_system: &DaaIntegrationManager) -> Resu
 
     // 2. Development Swarm
     info!("💻 Executing 3-Agent Development Swarm");
-    let development_objective = "Design and implement a secure multi-signature wallet system with atomic swaps";
-    
-    match daa_system.execute_3_agent_development_swarm(development_objective).await {
+    let development_objective =
+        "Design and implement a secure multi-signature wallet system with atomic swaps";
+
+    match daa_system
+        .execute_3_agent_development_swarm(development_objective)
+        .await
+    {
         Ok(result) => info!("✅ Development Swarm Result: {}", result),
-        Err(e) => warn!("⚠️ Development Swarm encountered expected limitations: {}", e),
+        Err(e) => warn!(
+            "⚠️ Development Swarm encountered expected limitations: {}",
+            e
+        ),
     }
 
     sleep(Duration::from_secs(2)).await;
 
     // 3. Analysis Swarm
     info!("📊 Executing 3-Agent Analysis Swarm");
-    let analysis_objective = "Comprehensive risk assessment of algorithmic trading strategies in volatile markets";
-    
-    match daa_system.execute_3_agent_analysis_swarm(analysis_objective).await {
+    let analysis_objective =
+        "Comprehensive risk assessment of algorithmic trading strategies in volatile markets";
+
+    match daa_system
+        .execute_3_agent_analysis_swarm(analysis_objective)
+        .await
+    {
         Ok(result) => info!("✅ Analysis Swarm Result: {}", result),
         Err(e) => warn!("⚠️ Analysis Swarm encountered expected limitations: {}", e),
     }
@@ -109,7 +123,10 @@ async fn demonstrate_parallel_batch_execution(daa_system: &DaaIntegrationManager
 
     match daa_system.demonstrate_parallel_batch_execution().await {
         Ok(results) => {
-            info!("✅ Parallel batch execution completed with {} results:", results.len());
+            info!(
+                "✅ Parallel batch execution completed with {} results:",
+                results.len()
+            );
             for (i, result) in results.iter().enumerate() {
                 info!("   {}. {}", i + 1, result);
             }
@@ -130,9 +147,16 @@ async fn run_integration_tests(daa_system: &DaaIntegrationManager) -> Result<()>
     match daa_system.test_system_integration().await {
         Ok(report) => {
             info!("📋 Integration Test Report:");
-            info!("   Overall Success: {}", if report.overall_success { "✅ PASS" } else { "❌ FAIL" });
+            info!(
+                "   Overall Success: {}",
+                if report.overall_success {
+                    "✅ PASS"
+                } else {
+                    "❌ FAIL"
+                }
+            );
             info!("   Summary: {}", report.summary);
-            
+
             info!("   Individual Test Results:");
             for (test_name, passed) in &report.test_results {
                 let status = if *passed { "✅ PASS" } else { "❌ FAIL" };
@@ -162,7 +186,7 @@ async fn demonstrate_mcp_protocol() -> Result<()> {
 
     let example_mcp_messages = vec![
         "initialize - Establish MCP connection with capabilities",
-        "tools/list - List all available DAA management tools", 
+        "tools/list - List all available DAA management tools",
         "tools/call spawn_agent - Create a new autonomous agent",
         "tools/call coordinate_swarm - Deploy a multi-agent swarm",
         "resources/list - List all available system resources",
@@ -208,7 +232,7 @@ fn show_system_architecture() {
     info!("│  - Workflow Templates  - System Monitoring                 │");
     info!("│  - Error Handling      - Performance Metrics               │");
     info!("└─────────────────────────────────────────────────────────────┘");
-    info!(""); 
+    info!("");
 
     info!("🔄 Workflow Demonstrated:");
     info!("   1. 🚀 System Initialization");
@@ -260,13 +284,13 @@ fn show_swarm_configurations() {
 async fn full_demonstration() -> Result<()> {
     // Show system architecture
     show_system_architecture();
-    
-    // Show swarm configurations  
+
+    // Show swarm configurations
     show_swarm_configurations();
-    
+
     // Show MCP protocol capabilities
     demonstrate_mcp_protocol().await?;
-    
+
     // Run the main demonstration
     main().await
 }

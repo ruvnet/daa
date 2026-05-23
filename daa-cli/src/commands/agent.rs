@@ -3,14 +3,10 @@
 use anyhow::Result;
 use colored::Colorize;
 
-use crate::{CliContext, config::CliConfig, AgentAction};
+use crate::{config::CliConfig, AgentAction, CliContext};
 
 /// Handle the agent command
-pub async fn handle_agent(
-    action: AgentAction,
-    config: &CliConfig,
-    cli: &CliContext,
-) -> Result<()> {
+pub async fn handle_agent(action: AgentAction, config: &CliConfig, cli: &CliContext) -> Result<()> {
     match action {
         AgentAction::List => {
             let agents = get_agents().await?;
@@ -28,13 +24,20 @@ pub async fn handle_agent(
                 display_agent_details(&agent);
             }
         }
-        AgentAction::Create { name, agent_type, capabilities } => {
+        AgentAction::Create {
+            name,
+            agent_type,
+            capabilities,
+        } => {
             let agent_id = create_agent(name, agent_type, capabilities).await?;
             if cli.json {
-                println!("{}", serde_json::json!({
-                    "status": "created",
-                    "agent_id": agent_id
-                }));
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "status": "created",
+                        "agent_id": agent_id
+                    })
+                );
             } else {
                 println!("{}", "✓ Agent created successfully".green());
                 println!("Agent ID: {}", agent_id);
@@ -43,10 +46,13 @@ pub async fn handle_agent(
         AgentAction::Stop { agent_id, force } => {
             stop_agent(&agent_id, force).await?;
             if cli.json {
-                println!("{}", serde_json::json!({
-                    "status": "stopped",
-                    "agent_id": agent_id
-                }));
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "status": "stopped",
+                        "agent_id": agent_id
+                    })
+                );
             } else {
                 println!("{}", "✓ Agent stopped".yellow());
             }
@@ -54,16 +60,19 @@ pub async fn handle_agent(
         AgentAction::Restart { agent_id } => {
             restart_agent(&agent_id).await?;
             if cli.json {
-                println!("{}", serde_json::json!({
-                    "status": "restarted",
-                    "agent_id": agent_id
-                }));
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "status": "restarted",
+                        "agent_id": agent_id
+                    })
+                );
             } else {
                 println!("{}", "✓ Agent restarted".green());
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -106,8 +115,15 @@ async fn get_agent_details(agent_id: &str) -> Result<AgentDetails> {
     })
 }
 
-async fn create_agent(name: String, agent_type: String, capabilities: Option<String>) -> Result<String> {
-    let agent_id = format!("agent-{}", uuid::Uuid::new_v4().to_string()[..8].to_uppercase());
+async fn create_agent(
+    name: String,
+    agent_type: String,
+    capabilities: Option<String>,
+) -> Result<String> {
+    let agent_id = format!(
+        "agent-{}",
+        uuid::Uuid::new_v4().to_string()[..8].to_uppercase()
+    );
     // Mock agent creation
     Ok(agent_id)
 }
@@ -125,7 +141,7 @@ async fn restart_agent(agent_id: &str) -> Result<()> {
 fn display_agents(agents: &[AgentInfo]) {
     println!("{}", "DAA Agents".blue().bold());
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    
+
     for agent in agents {
         let state_color = match agent.state.as_str() {
             "Active" => agent.state.green(),
@@ -134,10 +150,12 @@ fn display_agents(agents: &[AgentInfo]) {
             "Error" => agent.state.red(),
             _ => agent.state.white(),
         };
-        
+
         println!("{} - {} ({})", agent.id, agent.name, state_color);
-        println!("  Type: {} | Tasks: {} | Uptime: {}", 
-                 agent.agent_type, agent.tasks_completed, agent.uptime);
+        println!(
+            "  Type: {} | Tasks: {} | Uptime: {}",
+            agent.agent_type, agent.tasks_completed, agent.uptime
+        );
         println!("  Capabilities: {}", agent.capabilities.join(", "));
         println!();
     }
@@ -146,7 +164,7 @@ fn display_agents(agents: &[AgentInfo]) {
 fn display_agent_details(agent: &AgentDetails) {
     println!("{}", format!("Agent Details: {}", agent.name).blue().bold());
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    
+
     let state_color = match agent.state.as_str() {
         "Active" => agent.state.green(),
         "Idle" => agent.state.yellow(),
@@ -154,7 +172,7 @@ fn display_agent_details(agent: &AgentDetails) {
         "Error" => agent.state.red(),
         _ => agent.state.white(),
     };
-    
+
     println!("ID:              {}", agent.id);
     println!("Name:            {}", agent.name);
     println!("Type:            {}", agent.agent_type);
@@ -164,11 +182,11 @@ fn display_agent_details(agent: &AgentDetails) {
     println!("Tasks Failed:    {}", agent.tasks_failed);
     println!("Success Rate:    {:.1}%", agent.success_rate);
     println!("Queue Length:    {}", agent.queue_length);
-    
+
     if let Some(ref task) = agent.current_task {
         println!("Current Task:    {}", task);
     }
-    
+
     println!("Capabilities:    {}", agent.capabilities.join(", "));
 }
 

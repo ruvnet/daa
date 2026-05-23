@@ -1,5 +1,5 @@
 //! MCP Prompts for DAA management
-//! 
+//!
 //! This module defines prompt templates for common DAA operations,
 //! making it easy for AI systems to interact with the DAA SDK.
 
@@ -88,7 +88,8 @@ pub fn get_available_prompts() -> Vec<PromptInfo> {
                 },
                 PromptArgument {
                     name: "research_domain".to_string(),
-                    description: "Primary domain for research (e.g., 'crypto', 'defi', 'markets')".to_string(),
+                    description: "Primary domain for research (e.g., 'crypto', 'defi', 'markets')"
+                        .to_string(),
                     required: false,
                 },
             ],
@@ -109,7 +110,6 @@ pub fn get_available_prompts() -> Vec<PromptInfo> {
                 },
             ],
         },
-
         // Task Coordination Prompts
         PromptInfo {
             name: "coordinate_market_analysis".to_string(),
@@ -122,7 +122,8 @@ pub fn get_available_prompts() -> Vec<PromptInfo> {
                 },
                 PromptArgument {
                     name: "analysis_depth".to_string(),
-                    description: "Depth of analysis ('basic', 'detailed', 'comprehensive')".to_string(),
+                    description: "Depth of analysis ('basic', 'detailed', 'comprehensive')"
+                        .to_string(),
                     required: false,
                 },
                 PromptArgument {
@@ -153,7 +154,6 @@ pub fn get_available_prompts() -> Vec<PromptInfo> {
                 },
             ],
         },
-
         // Swarm Coordination Prompts
         PromptInfo {
             name: "deploy_agent_swarm".to_string(),
@@ -171,7 +171,9 @@ pub fn get_available_prompts() -> Vec<PromptInfo> {
                 },
                 PromptArgument {
                     name: "coordination_strategy".to_string(),
-                    description: "Strategy for swarm coordination ('hierarchical', 'peer-to-peer', 'hybrid')".to_string(),
+                    description:
+                        "Strategy for swarm coordination ('hierarchical', 'peer-to-peer', 'hybrid')"
+                            .to_string(),
                     required: false,
                 },
             ],
@@ -197,7 +199,6 @@ pub fn get_available_prompts() -> Vec<PromptInfo> {
                 },
             ],
         },
-
         // Analysis and Reporting Prompts
         PromptInfo {
             name: "generate_performance_report".to_string(),
@@ -215,7 +216,9 @@ pub fn get_available_prompts() -> Vec<PromptInfo> {
                 },
                 PromptArgument {
                     name: "metrics_focus".to_string(),
-                    description: "Focus area for metrics ('performance', 'economics', 'coordination')".to_string(),
+                    description:
+                        "Focus area for metrics ('performance', 'economics', 'coordination')"
+                            .to_string(),
                     required: false,
                 },
             ],
@@ -236,7 +239,6 @@ pub fn get_available_prompts() -> Vec<PromptInfo> {
                 },
             ],
         },
-
         // Configuration and Setup Prompts
         PromptInfo {
             name: "setup_development_environment".to_string(),
@@ -244,7 +246,8 @@ pub fn get_available_prompts() -> Vec<PromptInfo> {
             arguments: vec![
                 PromptArgument {
                     name: "environment_type".to_string(),
-                    description: "Type of environment ('local', 'staging', 'production')".to_string(),
+                    description: "Type of environment ('local', 'staging', 'production')"
+                        .to_string(),
                     required: true,
                 },
                 PromptArgument {
@@ -256,7 +259,8 @@ pub fn get_available_prompts() -> Vec<PromptInfo> {
         },
         PromptInfo {
             name: "optimize_agent_configuration".to_string(),
-            description: "Template for optimizing agent configurations for better performance".to_string(),
+            description: "Template for optimizing agent configurations for better performance"
+                .to_string(),
             arguments: vec![
                 PromptArgument {
                     name: "agent_id".to_string(),
@@ -265,7 +269,8 @@ pub fn get_available_prompts() -> Vec<PromptInfo> {
                 },
                 PromptArgument {
                     name: "optimization_goal".to_string(),
-                    description: "Goal for optimization ('performance', 'efficiency', 'accuracy')".to_string(),
+                    description: "Goal for optimization ('performance', 'efficiency', 'accuracy')"
+                        .to_string(),
                     required: false,
                 },
             ],
@@ -289,8 +294,12 @@ pub async fn get_prompt(
         "emergency_response" => emergency_response_prompt(state, arguments).await,
         "generate_performance_report" => generate_performance_report_prompt(state, arguments).await,
         "diagnose_system_issues" => diagnose_system_issues_prompt(state, arguments).await,
-        "setup_development_environment" => setup_development_environment_prompt(state, arguments).await,
-        "optimize_agent_configuration" => optimize_agent_configuration_prompt(state, arguments).await,
+        "setup_development_environment" => {
+            setup_development_environment_prompt(state, arguments).await
+        }
+        "optimize_agent_configuration" => {
+            optimize_agent_configuration_prompt(state, arguments).await
+        }
         _ => Err(DaaMcpError::Protocol(format!("Unknown prompt: {}", name))),
     }
 }
@@ -301,13 +310,16 @@ async fn create_treasury_agent_prompt(
     _state: Arc<McpServerState>,
     args: Value,
 ) -> Result<PromptResponse> {
-    let agent_name = args.get("agent_name")
+    let agent_name = args
+        .get("agent_name")
         .and_then(|v| v.as_str())
         .unwrap_or("TreasuryAgent");
-    let initial_balance = args.get("initial_balance")
+    let initial_balance = args
+        .get("initial_balance")
         .and_then(|v| v.as_u64())
         .unwrap_or(100000);
-    let risk_threshold = args.get("risk_threshold")
+    let risk_threshold = args
+        .get("risk_threshold")
         .and_then(|v| v.as_f64())
         .unwrap_or(0.2);
 
@@ -365,8 +377,14 @@ async fn create_treasury_agent_prompt(
 4. **Initialize the autonomy loop**
 
 The agent will automatically begin operating according to its configured rules and risk parameters."#,
-        agent_name, agent_name, initial_balance, risk_threshold,
-        agent_name, initial_balance, initial_balance / 10, risk_threshold
+        agent_name,
+        agent_name,
+        initial_balance,
+        risk_threshold,
+        agent_name,
+        initial_balance,
+        initial_balance / 10,
+        risk_threshold
     );
 
     Ok(PromptResponse {
@@ -391,10 +409,12 @@ async fn create_research_agent_prompt(
     _state: Arc<McpServerState>,
     args: Value,
 ) -> Result<PromptResponse> {
-    let agent_name = args.get("agent_name")
+    let agent_name = args
+        .get("agent_name")
         .and_then(|v| v.as_str())
         .unwrap_or("ResearchAgent");
-    let research_domain = args.get("research_domain")
+    let research_domain = args
+        .get("research_domain")
         .and_then(|v| v.as_str())
         .unwrap_or("general");
 
@@ -437,7 +457,10 @@ The agent will continuously monitor {} markets and provide research insights to 
     );
 
     Ok(PromptResponse {
-        description: format!("Research agent creation guide for {} domain", research_domain),
+        description: format!(
+            "Research agent creation guide for {} domain",
+            research_domain
+        ),
         messages: vec![
             PromptMessage {
                 role: "user".to_string(),
@@ -458,10 +481,12 @@ async fn create_monitoring_agent_prompt(
     _state: Arc<McpServerState>,
     args: Value,
 ) -> Result<PromptResponse> {
-    let agent_name = args.get("agent_name")
+    let agent_name = args
+        .get("agent_name")
         .and_then(|v| v.as_str())
         .unwrap_or("MonitoringAgent");
-    let monitoring_targets = args.get("monitoring_targets")
+    let monitoring_targets = args
+        .get("monitoring_targets")
         .and_then(|v| v.as_str())
         .unwrap_or("system_health,agent_performance,network_status");
 
@@ -505,9 +530,15 @@ async fn create_monitoring_agent_prompt(
 - Response time > 1000ms
 
 The agent will continuously monitor these targets and alert when thresholds are exceeded."#,
-        agent_name, monitoring_targets, agent_name, 
+        agent_name,
+        monitoring_targets,
+        agent_name,
         serde_json::to_string(&targets).unwrap(),
-        targets.iter().map(|t| format!("- {}", t)).collect::<Vec<_>>().join("\n")
+        targets
+            .iter()
+            .map(|t| format!("- {}", t))
+            .collect::<Vec<_>>()
+            .join("\n")
     );
 
     Ok(PromptResponse {
@@ -534,20 +565,26 @@ async fn coordinate_market_analysis_prompt(
     state: Arc<McpServerState>,
     args: Value,
 ) -> Result<PromptResponse> {
-    let market_symbol = args.get("market_symbol")
+    let market_symbol = args
+        .get("market_symbol")
         .and_then(|v| v.as_str())
         .ok_or_else(|| DaaMcpError::Protocol("market_symbol is required".to_string()))?;
-    let analysis_depth = args.get("analysis_depth")
+    let analysis_depth = args
+        .get("analysis_depth")
         .and_then(|v| v.as_str())
         .unwrap_or("detailed");
-    let time_horizon = args.get("time_horizon")
+    let time_horizon = args
+        .get("time_horizon")
         .and_then(|v| v.as_str())
         .unwrap_or("1d");
 
     // Check available agents
     let agents = state.agents.read().await;
-    let research_agents: Vec<_> = agents.values()
-        .filter(|a| a.agent_type == "researcher" || a.capabilities.contains(&"market_research".to_string()))
+    let research_agents: Vec<_> = agents
+        .values()
+        .filter(|a| {
+            a.agent_type == "researcher" || a.capabilities.contains(&"market_research".to_string())
+        })
         .collect();
 
     let prompt_text = format!(
@@ -595,16 +632,24 @@ async fn coordinate_market_analysis_prompt(
 - **Volume Analysis**: Trading volume patterns, liquidity assessment
 
 Results will be aggregated into a comprehensive market assessment."#,
-        market_symbol, analysis_depth, time_horizon,
+        market_symbol,
+        analysis_depth,
+        time_horizon,
         if research_agents.is_empty() {
-            "No research agents currently available. Consider spawning research agents first.".to_string()
+            "No research agents currently available. Consider spawning research agents first."
+                .to_string()
         } else {
-            research_agents.iter()
+            research_agents
+                .iter()
                 .map(|a| format!("- {} ({}): {}", a.name, a.id, a.capabilities.join(", ")))
                 .collect::<Vec<_>>()
                 .join("\n")
         },
-        market_symbol, market_symbol, analysis_depth, time_horizon, market_symbol
+        market_symbol,
+        market_symbol,
+        analysis_depth,
+        time_horizon,
+        market_symbol
     );
 
     Ok(PromptResponse {
@@ -629,15 +674,15 @@ async fn execute_trading_strategy_prompt(
     _state: Arc<McpServerState>,
     args: Value,
 ) -> Result<PromptResponse> {
-    let strategy_name = args.get("strategy_name")
+    let strategy_name = args
+        .get("strategy_name")
         .and_then(|v| v.as_str())
         .ok_or_else(|| DaaMcpError::Protocol("strategy_name is required".to_string()))?;
-    let allocation_amount = args.get("allocation_amount")
+    let allocation_amount = args
+        .get("allocation_amount")
         .and_then(|v| v.as_u64())
         .unwrap_or(10000);
-    let max_risk = args.get("max_risk")
-        .and_then(|v| v.as_f64())
-        .unwrap_or(0.1);
+    let max_risk = args.get("max_risk").and_then(|v| v.as_f64()).unwrap_or(0.1);
 
     let prompt_text = format!(
         r#"Executing trading strategy: {} with {} allocation and {}% max risk.
@@ -681,10 +726,17 @@ async fn execute_trading_strategy_prompt(
 - **Monitoring**: Continuous performance tracking
 
 The strategy will be executed with full risk controls and monitoring in place."#,
-        strategy_name, allocation_amount, max_risk * 100.0,
-        strategy_name, strategy_name, allocation_amount, max_risk,
-        max_risk * 100.0, max_risk * 50.0,
-        allocation_amount, (allocation_amount as f64 * max_risk) as u64
+        strategy_name,
+        allocation_amount,
+        max_risk * 100.0,
+        strategy_name,
+        strategy_name,
+        allocation_amount,
+        max_risk,
+        max_risk * 100.0,
+        max_risk * 50.0,
+        allocation_amount,
+        (allocation_amount as f64 * max_risk) as u64
     );
 
     Ok(PromptResponse {
@@ -711,13 +763,16 @@ async fn deploy_agent_swarm_prompt(
     _state: Arc<McpServerState>,
     args: Value,
 ) -> Result<PromptResponse> {
-    let swarm_objective = args.get("swarm_objective")
+    let swarm_objective = args
+        .get("swarm_objective")
         .and_then(|v| v.as_str())
         .ok_or_else(|| DaaMcpError::Protocol("swarm_objective is required".to_string()))?;
-    let agent_types = args.get("agent_types")
+    let agent_types = args
+        .get("agent_types")
         .and_then(|v| v.as_str())
         .ok_or_else(|| DaaMcpError::Protocol("agent_types is required".to_string()))?;
-    let coordination_strategy = args.get("coordination_strategy")
+    let coordination_strategy = args
+        .get("coordination_strategy")
         .and_then(|v| v.as_str())
         .unwrap_or("hierarchical");
 
@@ -795,19 +850,25 @@ async fn emergency_response_prompt(
     state: Arc<McpServerState>,
     args: Value,
 ) -> Result<PromptResponse> {
-    let incident_type = args.get("incident_type")
+    let incident_type = args
+        .get("incident_type")
         .and_then(|v| v.as_str())
         .ok_or_else(|| DaaMcpError::Protocol("incident_type is required".to_string()))?;
-    let severity_level = args.get("severity_level")
+    let severity_level = args
+        .get("severity_level")
         .and_then(|v| v.as_str())
         .ok_or_else(|| DaaMcpError::Protocol("severity_level is required".to_string()))?;
-    let affected_systems = args.get("affected_systems")
+    let affected_systems = args
+        .get("affected_systems")
         .and_then(|v| v.as_str())
         .unwrap_or("unknown");
 
     // Check system status
     let agents = state.agents.read().await;
-    let active_agents = agents.values().filter(|a| matches!(a.status, crate::AgentStatus::Running)).count();
+    let active_agents = agents
+        .values()
+        .filter(|a| matches!(a.status, crate::AgentStatus::Running))
+        .count();
 
     let prompt_text = format!(
         r#"🚨 EMERGENCY RESPONSE PROTOCOL ACTIVATED 🚨
@@ -895,7 +956,8 @@ async fn generate_performance_report_prompt(
     _state: Arc<McpServerState>,
     args: Value,
 ) -> Result<PromptResponse> {
-    let report_period = args.get("report_period")
+    let report_period = args
+        .get("report_period")
         .and_then(|v| v.as_str())
         .unwrap_or("daily");
 
@@ -906,12 +968,10 @@ async fn generate_performance_report_prompt(
 
     Ok(PromptResponse {
         description: format!("{} performance report generation", report_period),
-        messages: vec![
-            PromptMessage {
-                role: "assistant".to_string(),
-                content: PromptContent::Text(prompt_text),
-            },
-        ],
+        messages: vec![PromptMessage {
+            role: "assistant".to_string(),
+            content: PromptContent::Text(prompt_text),
+        }],
     })
 }
 
@@ -919,7 +979,8 @@ async fn diagnose_system_issues_prompt(
     _state: Arc<McpServerState>,
     args: Value,
 ) -> Result<PromptResponse> {
-    let symptom_description = args.get("symptom_description")
+    let symptom_description = args
+        .get("symptom_description")
         .and_then(|v| v.as_str())
         .unwrap_or("unspecified symptoms");
 
@@ -930,12 +991,10 @@ async fn diagnose_system_issues_prompt(
 
     Ok(PromptResponse {
         description: "System diagnostic procedure".to_string(),
-        messages: vec![
-            PromptMessage {
-                role: "assistant".to_string(),
-                content: PromptContent::Text(prompt_text),
-            },
-        ],
+        messages: vec![PromptMessage {
+            role: "assistant".to_string(),
+            content: PromptContent::Text(prompt_text),
+        }],
     })
 }
 
@@ -943,7 +1002,8 @@ async fn setup_development_environment_prompt(
     _state: Arc<McpServerState>,
     args: Value,
 ) -> Result<PromptResponse> {
-    let environment_type = args.get("environment_type")
+    let environment_type = args
+        .get("environment_type")
         .and_then(|v| v.as_str())
         .unwrap_or("local");
 
@@ -954,12 +1014,10 @@ async fn setup_development_environment_prompt(
 
     Ok(PromptResponse {
         description: format!("{} environment setup", environment_type),
-        messages: vec![
-            PromptMessage {
-                role: "assistant".to_string(),
-                content: PromptContent::Text(prompt_text),
-            },
-        ],
+        messages: vec![PromptMessage {
+            role: "assistant".to_string(),
+            content: PromptContent::Text(prompt_text),
+        }],
     })
 }
 
@@ -967,23 +1025,19 @@ async fn optimize_agent_configuration_prompt(
     _state: Arc<McpServerState>,
     args: Value,
 ) -> Result<PromptResponse> {
-    let agent_id = args.get("agent_id")
+    let agent_id = args
+        .get("agent_id")
         .and_then(|v| v.as_str())
         .unwrap_or("unknown");
 
-    let prompt_text = format!(
-        "Optimizing configuration for agent: {}",
-        agent_id
-    );
+    let prompt_text = format!("Optimizing configuration for agent: {}", agent_id);
 
     Ok(PromptResponse {
         description: format!("Agent optimization for {}", agent_id),
-        messages: vec![
-            PromptMessage {
-                role: "assistant".to_string(),
-                content: PromptContent::Text(prompt_text),
-            },
-        ],
+        messages: vec![PromptMessage {
+            role: "assistant".to_string(),
+            content: PromptContent::Text(prompt_text),
+        }],
     })
 }
 
@@ -1022,7 +1076,10 @@ mod tests {
         let response = emergency_response_prompt(state, args).await.unwrap();
         assert!(response.description.contains("Emergency"));
         // The critical severity inserts "IMMEDIATE action required" into the prompt
-        assert!(response.messages[1].content.to_string().contains("IMMEDIATE"));
+        assert!(response.messages[1]
+            .content
+            .to_string()
+            .contains("IMMEDIATE"));
     }
 }
 

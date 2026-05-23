@@ -3,7 +3,7 @@
 use anyhow::Result;
 use colored::Colorize;
 
-use crate::{CliContext, config::CliConfig};
+use crate::{config::CliConfig, CliContext};
 
 /// Handle the logs command
 pub async fn handle_logs(
@@ -26,7 +26,7 @@ pub async fn handle_logs(
     }
 
     let logs = get_logs(lines, level, component).await?;
-    
+
     if cli.json {
         println!("{}", serde_json::json!({ "logs": logs }));
     } else {
@@ -44,15 +44,15 @@ async fn handle_follow_logs(
     cli: &CliContext,
 ) -> Result<()> {
     println!("Following logs (press Ctrl+C to exit)...");
-    
+
     // Show initial logs
     let initial_logs = get_logs(lines, level.clone(), component.clone()).await?;
     display_logs(&initial_logs);
-    
+
     // Mock follow functionality
     loop {
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-        
+
         // Mock new log entry
         let new_log = LogEntry {
             timestamp: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
@@ -60,7 +60,7 @@ async fn handle_follow_logs(
             component: "orchestrator".to_string(),
             message: "Autonomy loop iteration completed".to_string(),
         };
-        
+
         if should_include_log(&new_log, &level, &component) {
             if cli.json {
                 println!("{}", serde_json::to_string(&new_log)?);
@@ -157,11 +157,13 @@ fn display_log_entry(log: &LogEntry) {
         _ => log.level.white(),
     };
 
-    println!("{} [{}] {}: {}", 
-             log.timestamp, 
-             level_color, 
-             log.component.cyan(), 
-             log.message);
+    println!(
+        "{} [{}] {}: {}",
+        log.timestamp,
+        level_color,
+        log.component.cyan(),
+        log.message
+    );
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]

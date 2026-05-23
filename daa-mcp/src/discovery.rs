@@ -1,5 +1,5 @@
 //! Agent Discovery Protocol for DAA MCP
-//! 
+//!
 //! This module implements a distributed discovery protocol that allows agents
 //! to find and communicate with each other through the MCP interface.
 
@@ -56,15 +56,9 @@ pub enum DiscoveryMessage {
         timestamp: u64,
     },
     /// Agent is going offline
-    Goodbye {
-        agent_id: String,
-        timestamp: u64,
-    },
+    Goodbye { agent_id: String, timestamp: u64 },
     /// Heartbeat to maintain presence
-    Heartbeat {
-        agent_id: String,
-        timestamp: u64,
-    },
+    Heartbeat { agent_id: String, timestamp: u64 },
 }
 
 /// Filter for discovery queries
@@ -143,16 +137,15 @@ pub struct DiscoveryProtocol {
 
 impl DiscoveryProtocol {
     /// Create a new discovery protocol instance
-    pub async fn new(
-        config: DiscoveryConfig,
-        server_state: Arc<McpServerState>,
-    ) -> Result<Self> {
+    pub async fn new(config: DiscoveryConfig, server_state: Arc<McpServerState>) -> Result<Self> {
         let bind_addr = SocketAddr::new(config.bind_address, config.port);
-        let socket = UdpSocket::bind(bind_addr).await
+        let socket = UdpSocket::bind(bind_addr)
+            .await
             .map_err(|e| DaaMcpError::Network(e))?;
 
         // Join multicast group
-        socket.join_multicast_v4(config.multicast_address, Ipv4Addr::UNSPECIFIED)
+        socket
+            .join_multicast_v4(config.multicast_address, Ipv4Addr::UNSPECIFIED)
             .map_err(|e| DaaMcpError::Network(e))?;
 
         let local_agent_id = Uuid::new_v4().to_string();
@@ -260,7 +253,11 @@ impl DiscoveryProtocol {
             queries.remove(&query_id);
         }
 
-        debug!("Discovery query {} returned {} agents", query_id, agents.len());
+        debug!(
+            "Discovery query {} returned {} agents",
+            query_id,
+            agents.len()
+        );
         Ok(agents)
     }
 
@@ -370,14 +367,14 @@ impl DiscoveryProtocol {
                     _ = cleanup_interval.tick() => {
                         let now = current_timestamp();
                         let ttl_seconds = agent_ttl.as_secs();
-                        
+
                         let mut agents = discovered_agents.write().await;
                         let initial_count = agents.len();
-                        
+
                         agents.retain(|_, agent| {
                             now - agent.last_seen < ttl_seconds
                         });
-                        
+
                         let removed_count = initial_count - agents.len();
                         if removed_count > 0 {
                             debug!("Cleaned up {} stale agents", removed_count);
@@ -426,7 +423,7 @@ impl DiscoveryProtocol {
                         mcp_endpoint,
                         last_seen: timestamp,
                         availability: AgentAvailability::Available,
-                        load_factor: 0.5, // Default value
+                        load_factor: 0.5,         // Default value
                         response_time_avg: 100.0, // Default value
                     };
 
@@ -444,7 +441,7 @@ impl DiscoveryProtocol {
                 if requester_id != local_agent_id {
                     // Respond with matching local agents
                     let agents = server_state.agents.read().await;
-                    
+
                     for (agent_id, agent) in agents.iter() {
                         if Self::matches_filter(agent, &filter) {
                             let response = DiscoveryMessage::Response {
@@ -456,7 +453,10 @@ impl DiscoveryProtocol {
                                     agent_type: agent.agent_type.clone(),
                                     capabilities: agent.capabilities.clone(),
                                     endpoint: agent.endpoint.clone().unwrap_or_default(),
-                                    mcp_endpoint: Some(format!("http://localhost:{}/mcp", config.port)),
+                                    mcp_endpoint: Some(format!(
+                                        "http://localhost:{}/mcp",
+                                        config.port
+                                    )),
                                     last_seen: current_timestamp(),
                                     availability: match agent.status {
                                         crate::AgentStatus::Running => AgentAvailability::Available,
@@ -464,7 +464,7 @@ impl DiscoveryProtocol {
                                         crate::AgentStatus::Error => AgentAvailability::Maintenance,
                                         _ => AgentAvailability::Available,
                                     },
-                                    load_factor: 0.3, // Mock value
+                                    load_factor: 0.3,         // Mock value
                                     response_time_avg: 120.0, // Mock value
                                 },
                                 timestamp: current_timestamp(),
@@ -490,7 +490,10 @@ impl DiscoveryProtocol {
                 }
             }
 
-            DiscoveryMessage::Goodbye { agent_id, timestamp: _ } => {
+            DiscoveryMessage::Goodbye {
+                agent_id,
+                timestamp: _,
+            } => {
                 if agent_id != local_agent_id {
                     let mut agents = discovered_agents.write().await;
                     agents.remove(&agent_id);
@@ -498,7 +501,10 @@ impl DiscoveryProtocol {
                 }
             }
 
-            DiscoveryMessage::Heartbeat { agent_id, timestamp } => {
+            DiscoveryMessage::Heartbeat {
+                agent_id,
+                timestamp,
+            } => {
                 if agent_id != local_agent_id {
                     let mut agents = discovered_agents.write().await;
                     if let Some(agent) = agents.get_mut(&agent_id) {
@@ -544,13 +550,13 @@ impl DiscoveryProtocol {
                 "mcp_resources".to_string(),
                 "mcp_prompts".to_string(),
             ],
-            endpoint: format!("http://{}:{}", 
-                self.server_state.config.bind_address, 
-                self.server_state.config.port
+            endpoint: format!(
+                "http://{}:{}",
+                self.server_state.config.bind_address, self.server_state.config.port
             ),
-            mcp_endpoint: Some(format!("http://{}:{}/mcp", 
-                self.server_state.config.bind_address, 
-                self.server_state.config.port
+            mcp_endpoint: Some(format!(
+                "http://{}:{}/mcp",
+                self.server_state.config.bind_address, self.server_state.config.port
             )),
             timestamp: current_timestamp(),
             ttl: self.config.agent_ttl.as_secs(),
@@ -572,12 +578,12 @@ impl DiscoveryProtocol {
         let data = serde_json::to_vec(message)
             .map_err(|e| DaaMcpError::Protocol(format!("Failed to serialize message: {}", e)))?;
 
-        let multicast_addr = SocketAddr::new(
-            IpAddr::V4(self.config.multicast_address),
-            self.config.port,
-        );
+        let multicast_addr =
+            SocketAddr::new(IpAddr::V4(self.config.multicast_address), self.config.port);
 
-        self.socket.send_to(&data, multicast_addr).await
+        self.socket
+            .send_to(&data, multicast_addr)
+            .await
             .map_err(|e| DaaMcpError::Network(e))?;
 
         debug!("Sent discovery message to {}", multicast_addr);
@@ -654,15 +660,17 @@ impl DiscoveryUtils {
         required_capabilities: &[String],
     ) -> Vec<AgentDiscoveryInfo> {
         agents.sort_by(|a, b| {
-            let score_a = Self::compatibility_score(a, required_capabilities) 
+            let score_a = Self::compatibility_score(a, required_capabilities)
                 - a.load_factor * 0.3
                 - (a.response_time_avg / 1000.0) * 0.1;
-            
+
             let score_b = Self::compatibility_score(b, required_capabilities)
                 - b.load_factor * 0.3
                 - (b.response_time_avg / 1000.0) * 0.1;
 
-            score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+            score_b
+                .partial_cmp(&score_a)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         agents

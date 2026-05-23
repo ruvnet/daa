@@ -3,7 +3,7 @@
 use anyhow::Result;
 use colored::Colorize;
 
-use crate::{CliContext, config::CliConfig};
+use crate::{config::CliConfig, CliContext};
 
 /// Handle the add-rule command
 pub async fn handle_add_rule(
@@ -25,14 +25,17 @@ pub async fn handle_add_rule(
     let rule_id = uuid::Uuid::new_v4().to_string();
 
     if cli.json {
-        println!("{}", serde_json::json!({
-            "status": "added",
-            "rule_id": rule_id,
-            "name": name,
-            "rule_type": rule_type,
-            "params": params,
-            "description": description
-        }));
+        println!(
+            "{}",
+            serde_json::json!({
+                "status": "added",
+                "rule_id": rule_id,
+                "name": name,
+                "rule_type": rule_type,
+                "params": params,
+                "description": description
+            })
+        );
     } else {
         println!("{}", "✓ Rule added successfully".green());
         println!("Rule ID: {}", rule_id);

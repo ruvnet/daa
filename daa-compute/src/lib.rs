@@ -9,13 +9,13 @@ pub mod p2p;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm_training;
 
-#[cfg(target_arch = "wasm32")] 
+#[cfg(target_arch = "wasm32")]
 pub mod wasm_inference;
 
 pub use p2p::{
-    NetworkBehavior, P2PNetwork, SwarmConfig,
     gradient::{AllReduce, GradientMessage},
-    transport::{TransportConfig, create_transport},
+    transport::{create_transport, TransportConfig},
+    NetworkBehavior, P2PNetwork, SwarmConfig,
 };
 
 // WASM exports
@@ -26,7 +26,7 @@ pub use wasm_training::{BrowserTrainer, BrowserTrainingConfig};
 pub use wasm_inference::{BrowserInference, InferenceConfig};
 
 // Re-export common types
-pub use libp2p::{PeerId, Multiaddr};
+pub use libp2p::{Multiaddr, PeerId};
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;

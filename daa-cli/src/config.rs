@@ -9,13 +9,13 @@ use std::path::{Path, PathBuf};
 pub struct CliConfig {
     /// Orchestrator configuration file path
     pub orchestrator_config: Option<PathBuf>,
-    
+
     /// Default output format
     pub default_output_format: OutputFormat,
-    
+
     /// Connection settings
     pub connection: ConnectionConfig,
-    
+
     /// Display preferences
     pub display: DisplayConfig,
 }
@@ -32,13 +32,13 @@ pub enum OutputFormat {
 pub struct ConnectionConfig {
     /// Default API endpoint
     pub api_endpoint: String,
-    
+
     /// Default MCP endpoint
     pub mcp_endpoint: String,
-    
+
     /// Connection timeout in seconds
     pub timeout_seconds: u64,
-    
+
     /// Retry attempts
     pub retry_attempts: usize,
 }
@@ -47,13 +47,13 @@ pub struct ConnectionConfig {
 pub struct DisplayConfig {
     /// Enable colored output by default
     pub colored: bool,
-    
+
     /// Default page size for lists
     pub page_size: usize,
-    
+
     /// Show timestamps in output
     pub show_timestamps: bool,
-    
+
     /// Compact output mode
     pub compact: bool,
 }
@@ -84,27 +84,26 @@ impl CliConfig {
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let content = std::fs::read_to_string(path.as_ref())
             .with_context(|| format!("Failed to read config file: {}", path.as_ref().display()))?;
-        
+
         let config: CliConfig = toml::from_str(&content)
             .with_context(|| format!("Failed to parse config file: {}", path.as_ref().display()))?;
-        
+
         Ok(config)
     }
 
     /// Save configuration to file
     pub fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        let content = toml::to_string_pretty(self)
-            .context("Failed to serialize configuration")?;
-        
+        let content = toml::to_string_pretty(self).context("Failed to serialize configuration")?;
+
         // Create parent directory if it doesn't exist
         if let Some(parent) = path.as_ref().parent() {
             std::fs::create_dir_all(parent)
                 .with_context(|| format!("Failed to create directory: {}", parent.display()))?;
         }
-        
+
         std::fs::write(path.as_ref(), content)
             .with_context(|| format!("Failed to write config file: {}", path.as_ref().display()))?;
-        
+
         Ok(())
     }
 
@@ -131,7 +130,8 @@ impl CliConfig {
     /// Get a configuration value by key (dot notation)
     pub fn get_value(&self, key: &str) -> Result<String> {
         match key {
-            "orchestrator_config" => Ok(self.orchestrator_config
+            "orchestrator_config" => Ok(self
+                .orchestrator_config
                 .as_ref()
                 .map(|p| p.display().to_string())
                 .unwrap_or_else(|| "null".to_string())),
@@ -174,27 +174,33 @@ impl CliConfig {
                 self.connection.mcp_endpoint = value.to_string();
             }
             "connection.timeout_seconds" => {
-                self.connection.timeout_seconds = value.parse()
+                self.connection.timeout_seconds = value
+                    .parse()
                     .with_context(|| format!("Invalid timeout value: {}", value))?;
             }
             "connection.retry_attempts" => {
-                self.connection.retry_attempts = value.parse()
+                self.connection.retry_attempts = value
+                    .parse()
                     .with_context(|| format!("Invalid retry attempts value: {}", value))?;
             }
             "display.colored" => {
-                self.display.colored = value.parse()
+                self.display.colored = value
+                    .parse()
                     .with_context(|| format!("Invalid boolean value: {}", value))?;
             }
             "display.page_size" => {
-                self.display.page_size = value.parse()
+                self.display.page_size = value
+                    .parse()
                     .with_context(|| format!("Invalid page size value: {}", value))?;
             }
             "display.show_timestamps" => {
-                self.display.show_timestamps = value.parse()
+                self.display.show_timestamps = value
+                    .parse()
                     .with_context(|| format!("Invalid boolean value: {}", value))?;
             }
             "display.compact" => {
-                self.display.compact = value.parse()
+                self.display.compact = value
+                    .parse()
                     .with_context(|| format!("Invalid boolean value: {}", value))?;
             }
             _ => anyhow::bail!("Unknown configuration key: {}", key),
@@ -245,10 +251,10 @@ mod tests {
     fn test_config_file_operations() {
         let config = CliConfig::default();
         let temp_file = NamedTempFile::new().unwrap();
-        
+
         // Test saving
         config.to_file(temp_file.path()).unwrap();
-        
+
         // Test loading
         let loaded_config = CliConfig::from_file(temp_file.path()).unwrap();
         assert!(loaded_config.validate().is_ok());
@@ -257,15 +263,20 @@ mod tests {
     #[test]
     fn test_get_set_values() {
         let mut config = CliConfig::default();
-        
+
         // Test getting values
-        assert_eq!(config.get_value("connection.timeout_seconds").unwrap(), "30");
+        assert_eq!(
+            config.get_value("connection.timeout_seconds").unwrap(),
+            "30"
+        );
         assert_eq!(config.get_value("display.colored").unwrap(), "true");
-        
+
         // Test setting values
-        config.set_value("connection.timeout_seconds", "60").unwrap();
+        config
+            .set_value("connection.timeout_seconds", "60")
+            .unwrap();
         assert_eq!(config.connection.timeout_seconds, 60);
-        
+
         config.set_value("display.colored", "false").unwrap();
         assert!(!config.display.colored);
     }
@@ -273,13 +284,15 @@ mod tests {
     #[test]
     fn test_invalid_values() {
         let mut config = CliConfig::default();
-        
+
         // Test invalid timeout
-        assert!(config.set_value("connection.timeout_seconds", "invalid").is_err());
-        
+        assert!(config
+            .set_value("connection.timeout_seconds", "invalid")
+            .is_err());
+
         // Test invalid boolean
         assert!(config.set_value("display.colored", "maybe").is_err());
-        
+
         // Test unknown key
         assert!(config.get_value("unknown.key").is_err());
         assert!(config.set_value("unknown.key", "value").is_err());

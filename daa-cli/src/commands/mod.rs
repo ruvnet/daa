@@ -1,11 +1,11 @@
 //! Command implementations for the DAA CLI
 
+pub mod agent;
+pub mod config;
 pub mod init;
+pub mod logs;
+pub mod network;
+pub mod rules;
 pub mod start;
 pub mod status;
 pub mod stop;
-pub mod rules;
-pub mod config;
-pub mod network;
-pub mod agent;
-pub mod logs;

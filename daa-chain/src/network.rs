@@ -3,12 +3,14 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use tokio::sync::{broadcast, RwLock};
 use serde::{Deserialize, Serialize};
+use tokio::sync::{broadcast, RwLock};
 
-use crate::qudag_stubs::qudag_network::{Network as QuDAGNetwork, NetworkConfig, NetworkEvent, PeerId};
-use crate::qudag_stubs::qudag_protocol::{ProtocolMessage};
 use crate::qudag_stubs::qudag_core::{Block, Transaction};
+use crate::qudag_stubs::qudag_network::{
+    Network as QuDAGNetwork, NetworkConfig, NetworkEvent, PeerId,
+};
+use crate::qudag_stubs::qudag_protocol::ProtocolMessage;
 
 /// Protocol handler trait
 #[async_trait::async_trait]
@@ -20,30 +22,30 @@ pub trait ProtocolHandler: Send + Sync {
     ) -> std::result::Result<Option<ProtocolMessage>, Box<dyn std::error::Error + Send + Sync>>;
 }
 
-use crate::{Result, ChainError};
+use crate::{ChainError, Result};
 
 /// DAA-specific network events
 #[derive(Debug, Clone)]
 pub enum DaaNetworkEvent {
     /// New transaction received from network
     TransactionReceived(Transaction),
-    
+
     /// New block received from network
     BlockReceived(Block),
-    
+
     /// Peer connected
     PeerConnected(PeerId),
-    
+
     /// Peer disconnected
     PeerDisconnected(PeerId),
-    
+
     /// Agent registration broadcast
     AgentRegistered {
         agent_id: String,
         peer_id: PeerId,
         capabilities: Vec<String>,
     },
-    
+
     /// Task broadcast
     TaskBroadcast {
         task_id: String,
@@ -56,13 +58,13 @@ pub enum DaaNetworkEvent {
 pub struct NetworkManager {
     /// Underlying QuDAG network
     network: QuDAGNetwork,
-    
+
     /// Event broadcaster
     event_sender: broadcast::Sender<DaaNetworkEvent>,
-    
+
     /// Connected peers and their capabilities
     peers: Arc<RwLock<HashMap<PeerId, PeerInfo>>>,
-    
+
     /// Protocol handlers
     handlers: HashMap<String, Box<dyn ProtocolHandler + Send + Sync>>,
 }
@@ -80,9 +82,10 @@ pub struct PeerInfo {
 impl NetworkManager {
     /// Create a new network manager
     pub async fn new(config: NetworkConfig) -> Result<Self> {
-        let network = QuDAGNetwork::new(config).await
+        let network = QuDAGNetwork::new(config)
+            .await
             .map_err(|e| ChainError::Network(e))?;
-        
+
         let (event_sender, _) = broadcast::channel(1000);
         let peers = Arc::new(RwLock::new(HashMap::new()));
 
@@ -98,13 +101,13 @@ impl NetworkManager {
     pub async fn start(&mut self) -> Result<()> {
         // Start the underlying QuDAG network
         self.network.start().await.map_err(ChainError::Network)?;
-        
+
         // Register protocol handlers
         self.register_handlers().await?;
-        
+
         // Start event processing
         self.process_network_events().await?;
-        
+
         Ok(())
     }
 
@@ -170,13 +173,19 @@ impl NetworkManager {
     }
 
     /// Send direct message to peer
-    pub async fn send_to_peer(&mut self, peer_id: PeerId, message: DaaProtocolMessage) -> Result<()> {
+    pub async fn send_to_peer(
+        &mut self,
+        peer_id: PeerId,
+        message: DaaProtocolMessage,
+    ) -> Result<()> {
         let serialized = serde_json::to_vec(&message)
             .map_err(|e| ChainError::Network(format!("Serialization failed: {}", e)))?;
-        
-        self.network.send_to_peer(peer_id, serialized).await
+
+        self.network
+            .send_to_peer(peer_id, serialized)
+            .await
             .map_err(|e| ChainError::Network(e))?;
-        
+
         Ok(())
     }
 
@@ -185,14 +194,14 @@ impl NetworkManager {
         // Register DAA-specific protocol handlers
         let handler = DaaProtocolHandler::new(self.event_sender.clone(), self.peers.clone());
         self.handlers.insert("daa".to_string(), Box::new(handler));
-        
+
         Ok(())
     }
 
     /// Process network events from QuDAG
     async fn process_network_events(&mut self) -> Result<()> {
         let mut event_receiver = self.network.subscribe();
-        
+
         tokio::spawn(async move {
             while let Ok(event) = event_receiver.recv().await {
                 match event {
@@ -200,19 +209,19 @@ impl NetworkManager {
                         // Handle peer connection
                         tracing::info!("Peer connected: {}", peer_id);
                     }
-                    
+
                     NetworkEvent::PeerDisconnected(peer_id) => {
                         // Handle peer disconnection
                         tracing::info!("Peer disconnected: {}", peer_id);
                     }
-                    
+
                     NetworkEvent::MessageReceived { peer_id: _, data } => {
                         // Handle incoming protocol messages
                         if let Ok(_message) = serde_json::from_slice::<DaaProtocolMessage>(&data) {
                             // Process DAA protocol message
                         }
                     }
-                    
+
                     _ => {} // Handle other network events
                 }
             }
@@ -225,10 +234,12 @@ impl NetworkManager {
     async fn broadcast_message(&mut self, message: DaaProtocolMessage) -> Result<()> {
         let serialized = serde_json::to_vec(&message)
             .map_err(|e| ChainError::Network(format!("Serialization failed: {}", e)))?;
-        
-        self.network.broadcast(serialized).await
+
+        self.network
+            .broadcast(serialized)
+            .await
             .map_err(|e| ChainError::Network(e))?;
-        
+
         Ok(())
     }
 }
@@ -238,36 +249,33 @@ impl NetworkManager {
 pub enum DaaProtocolMessage {
     /// Transaction message
     Transaction(Transaction),
-    
+
     /// Block message
     Block(Block),
-    
+
     /// Agent registration
     AgentRegistration {
         agent_id: String,
         capabilities: Vec<String>,
     },
-    
+
     /// Task broadcast
     TaskBroadcast {
         task_id: String,
         task_type: String,
         requirements: HashMap<String, String>,
     },
-    
+
     /// Task response
     TaskResponse {
         task_id: String,
         agent_id: String,
         response_data: Vec<u8>,
     },
-    
+
     /// Heartbeat message
-    Heartbeat {
-        agent_id: String,
-        timestamp: u64,
-    },
-    
+    Heartbeat { agent_id: String, timestamp: u64 },
+
     /// Capability advertisement
     CapabilityAdvertisement {
         agent_id: String,
@@ -297,14 +305,21 @@ impl DaaProtocolHandler {
     async fn handle_message(&self, peer_id: PeerId, message: DaaProtocolMessage) -> Result<()> {
         match message {
             DaaProtocolMessage::Transaction(tx) => {
-                let _ = self.event_sender.send(DaaNetworkEvent::TransactionReceived(tx));
+                let _ = self
+                    .event_sender
+                    .send(DaaNetworkEvent::TransactionReceived(tx));
             }
-            
+
             DaaProtocolMessage::Block(block) => {
-                let _ = self.event_sender.send(DaaNetworkEvent::BlockReceived(block));
+                let _ = self
+                    .event_sender
+                    .send(DaaNetworkEvent::BlockReceived(block));
             }
-            
-            DaaProtocolMessage::AgentRegistration { agent_id, capabilities } => {
+
+            DaaProtocolMessage::AgentRegistration {
+                agent_id,
+                capabilities,
+            } => {
                 // Update peer info
                 {
                     let mut peers = self.peers.write().await;
@@ -312,35 +327,45 @@ impl DaaProtocolHandler {
                         peer_info.agent_id = Some(agent_id.clone());
                         peer_info.capabilities = capabilities.clone();
                     } else {
-                        peers.insert(peer_id.clone(), PeerInfo {
-                            peer_id: peer_id.clone(),
-                            agent_id: Some(agent_id.clone()),
-                            capabilities: capabilities.clone(),
-                            last_seen: std::time::SystemTime::now()
-                                .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap()
-                                .as_secs(),
-                            reputation: 1.0,
-                        });
+                        peers.insert(
+                            peer_id.clone(),
+                            PeerInfo {
+                                peer_id: peer_id.clone(),
+                                agent_id: Some(agent_id.clone()),
+                                capabilities: capabilities.clone(),
+                                last_seen: std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_secs(),
+                                reputation: 1.0,
+                            },
+                        );
                     }
                 }
-                
+
                 let _ = self.event_sender.send(DaaNetworkEvent::AgentRegistered {
                     agent_id,
                     peer_id,
                     capabilities,
                 });
             }
-            
-            DaaProtocolMessage::TaskBroadcast { task_id, task_type, requirements } => {
+
+            DaaProtocolMessage::TaskBroadcast {
+                task_id,
+                task_type,
+                requirements,
+            } => {
                 let _ = self.event_sender.send(DaaNetworkEvent::TaskBroadcast {
                     task_id,
                     task_type,
                     requirements,
                 });
             }
-            
-            DaaProtocolMessage::Heartbeat { agent_id, timestamp } => {
+
+            DaaProtocolMessage::Heartbeat {
+                agent_id,
+                timestamp,
+            } => {
                 // Update peer last seen time
                 let mut peers = self.peers.write().await;
                 for peer_info in peers.values_mut() {
@@ -350,7 +375,7 @@ impl DaaProtocolHandler {
                     }
                 }
             }
-            
+
             _ => {
                 // Handle other message types
             }
@@ -366,7 +391,8 @@ impl ProtocolHandler for DaaProtocolHandler {
         &self,
         peer_id: PeerId,
         message: ProtocolMessage,
-    ) -> std::result::Result<Option<ProtocolMessage>, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> std::result::Result<Option<ProtocolMessage>, Box<dyn std::error::Error + Send + Sync>>
+    {
         // Deserialize DAA message
         if let Ok(daa_message) = serde_json::from_slice::<DaaProtocolMessage>(message.data()) {
             if let Err(e) = self.handle_message(peer_id, daa_message).await {
@@ -399,10 +425,10 @@ impl AgentDiscovery {
         let _network = self.network.clone();
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
-            
+
             loop {
                 interval.tick().await;
-                
+
                 // Broadcast capability advertisement request
                 // This would trigger other agents to respond with their capabilities
             }
@@ -432,7 +458,7 @@ mod tests {
     async fn test_peer_info_storage() {
         let config = NetworkConfig::default();
         let mut manager = NetworkManager::new(config).await.unwrap();
-        
+
         let peer_id = PeerId::random();
         let peer_info = PeerInfo {
             peer_id,
@@ -441,9 +467,9 @@ mod tests {
             last_seen: 0,
             reputation: 1.0,
         };
-        
+
         manager.peers.write().await.insert(peer_id, peer_info);
-        
+
         let peers = manager.get_peers().await;
         assert_eq!(peers.len(), 1);
         assert_eq!(peers[0].agent_id.as_ref().unwrap(), "test-agent");

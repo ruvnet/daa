@@ -76,7 +76,13 @@ pub struct RiskFactor {
 }
 
 impl RiskFactor {
-    pub fn new(name: String, description: String, weight: Decimal, score: Decimal, category: RiskCategory) -> Self {
+    pub fn new(
+        name: String,
+        description: String,
+        weight: Decimal,
+        score: Decimal,
+        category: RiskCategory,
+    ) -> Self {
         Self {
             name,
             description,
@@ -95,7 +101,9 @@ impl RiskFactor {
 
     /// Update the risk score
     pub fn update_score(&mut self, new_score: Decimal) {
-        self.score = new_score.min(rust_decimal_macros::dec!(1.0)).max(rust_decimal_macros::dec!(0.0));
+        self.score = new_score
+            .min(rust_decimal_macros::dec!(1.0))
+            .max(rust_decimal_macros::dec!(0.0));
         self.last_updated = Utc::now();
     }
 
@@ -180,19 +188,22 @@ impl RiskAssessment {
             self.recalculate_risk();
             Ok(())
         } else {
-            Err(EconomyError::RiskAssessmentError(format!("Risk factor '{}' not found", name)))
+            Err(EconomyError::RiskAssessmentError(format!(
+                "Risk factor '{}' not found",
+                name
+            )))
         }
     }
 
     /// Recalculate overall risk score
     fn recalculate_risk(&mut self) {
-        let total_weighted_score: Decimal = self.risk_factors.values()
+        let total_weighted_score: Decimal = self
+            .risk_factors
+            .values()
             .map(|factor| factor.weighted_contribution())
             .sum();
 
-        let total_weight: Decimal = self.risk_factors.values()
-            .map(|factor| factor.weight)
-            .sum();
+        let total_weight: Decimal = self.risk_factors.values().map(|factor| factor.weight).sum();
 
         self.overall_score = if total_weight > Decimal::ZERO {
             total_weighted_score / total_weight
@@ -202,16 +213,23 @@ impl RiskAssessment {
 
         self.risk_level = RiskLevel::from_score(self.overall_score);
         self.assessment_time = Utc::now();
-        
-        // Determine if action is required
-        self.action_required = matches!(self.risk_level, RiskLevel::High | RiskLevel::VeryHigh | RiskLevel::Critical);
 
-        debug!("Recalculated risk for {}: {} ({})", self.entity, self.overall_score, self.risk_level);
+        // Determine if action is required
+        self.action_required = matches!(
+            self.risk_level,
+            RiskLevel::High | RiskLevel::VeryHigh | RiskLevel::Critical
+        );
+
+        debug!(
+            "Recalculated risk for {}: {} ({})",
+            self.entity, self.overall_score, self.risk_level
+        );
     }
 
     /// Get risk factors by category
     pub fn get_factors_by_category(&self, category: RiskCategory) -> Vec<&RiskFactor> {
-        self.risk_factors.values()
+        self.risk_factors
+            .values()
             .filter(|factor| factor.category == category)
             .collect()
     }
@@ -255,7 +273,7 @@ impl RiskAssessmentEngine {
             default_factors: HashMap::new(),
             assessment_interval_hours: 24, // Daily assessments by default
         };
-        
+
         engine.initialize_default_factors();
         engine
     }
@@ -316,9 +334,12 @@ impl RiskAssessmentEngine {
             ),
         ];
 
-        self.default_factors.insert(RiskCategory::Market, market_factors);
-        self.default_factors.insert(RiskCategory::Liquidity, liquidity_factors);
-        self.default_factors.insert(RiskCategory::Technical, technical_factors);
+        self.default_factors
+            .insert(RiskCategory::Market, market_factors);
+        self.default_factors
+            .insert(RiskCategory::Liquidity, liquidity_factors);
+        self.default_factors
+            .insert(RiskCategory::Technical, technical_factors);
     }
 
     /// Create new risk assessment
@@ -335,7 +356,7 @@ impl RiskAssessmentEngine {
 
         self.assessments.insert(assessment_id.clone(), assessment);
         info!("Created risk assessment: {}", assessment_id);
-        
+
         Ok(assessment_id)
     }
 
@@ -350,7 +371,11 @@ impl RiskAssessmentEngine {
     }
 
     /// Update risk factor across all assessments
-    pub fn update_global_risk_factor(&mut self, factor_name: &str, score_updater: impl Fn(&str) -> Decimal) -> Result<usize> {
+    pub fn update_global_risk_factor(
+        &mut self,
+        factor_name: &str,
+        score_updater: impl Fn(&str) -> Decimal,
+    ) -> Result<usize> {
         let mut updated_count = 0;
 
         for assessment in self.assessments.values_mut() {
@@ -362,7 +387,10 @@ impl RiskAssessmentEngine {
         }
 
         if updated_count > 0 {
-            info!("Updated risk factor '{}' across {} assessments", factor_name, updated_count);
+            info!(
+                "Updated risk factor '{}' across {} assessments",
+                factor_name, updated_count
+            );
         }
 
         Ok(updated_count)
@@ -370,20 +398,25 @@ impl RiskAssessmentEngine {
 
     /// Get high-risk entities
     pub fn get_high_risk_entities(&self) -> Vec<&RiskAssessment> {
-        self.assessments.values()
+        self.assessments
+            .values()
             .filter(|assessment| assessment.risk_level >= RiskLevel::High)
             .collect()
     }
 
     /// Get entities requiring action
     pub fn get_entities_requiring_action(&self) -> Vec<&RiskAssessment> {
-        self.assessments.values()
+        self.assessments
+            .values()
             .filter(|assessment| assessment.action_required)
             .collect()
     }
 
     /// Calculate portfolio risk
-    pub fn calculate_portfolio_risk(&self, entity_weights: &HashMap<String, Decimal>) -> Result<RiskAssessment> {
+    pub fn calculate_portfolio_risk(
+        &self,
+        entity_weights: &HashMap<String, Decimal>,
+    ) -> Result<RiskAssessment> {
         let mut portfolio_assessment = RiskAssessment::new(
             format!("portfolio_{}", Utc::now().timestamp()),
             "Portfolio".to_string(),
@@ -398,7 +431,7 @@ impl RiskAssessmentEngine {
                     let (total_score, total_weight) = category_scores
                         .entry(factor.category.clone())
                         .or_insert((Decimal::ZERO, Decimal::ZERO));
-                    
+
                     *total_score += factor.score * weight;
                     *total_weight += weight;
                 }
@@ -428,7 +461,9 @@ impl RiskAssessmentEngine {
         let cutoff_time = Utc::now() - chrono::Duration::days(max_age_days);
         let mut removed_count = 0;
 
-        let old_ids: Vec<String> = self.assessments.iter()
+        let old_ids: Vec<String> = self
+            .assessments
+            .iter()
             .filter_map(|(id, assessment)| {
                 if assessment.assessment_time < cutoff_time {
                     Some(id.clone())
@@ -457,7 +492,9 @@ impl RiskAssessmentEngine {
         let mut action_required_count = 0;
 
         for assessment in self.assessments.values() {
-            *level_counts.entry(assessment.risk_level.clone()).or_insert(0) += 1;
+            *level_counts
+                .entry(assessment.risk_level.clone())
+                .or_insert(0) += 1;
             if assessment.action_required {
                 action_required_count += 1;
             }
@@ -525,10 +562,7 @@ mod tests {
 
     #[test]
     fn test_risk_assessment() {
-        let mut assessment = RiskAssessment::new(
-            "test_1".to_string(),
-            "test_entity".to_string(),
-        );
+        let mut assessment = RiskAssessment::new("test_1".to_string(), "test_entity".to_string());
 
         let factor = RiskFactor::new(
             "market_risk".to_string(),
@@ -548,7 +582,7 @@ mod tests {
     fn test_risk_assessment_engine() {
         let mut engine = RiskAssessmentEngine::new();
         let assessment_id = engine.create_assessment("test_entity".to_string()).unwrap();
-        
+
         let assessment = engine.get_assessment(&assessment_id).unwrap();
         assert_eq!(assessment.entity, "test_entity");
         assert!(!assessment.risk_factors.is_empty());
@@ -557,16 +591,22 @@ mod tests {
     #[test]
     fn test_portfolio_risk_calculation() {
         let mut engine = RiskAssessmentEngine::new();
-        
+
         // Create assessments for multiple entities
         let id1 = engine.create_assessment("entity1".to_string()).unwrap();
         let id2 = engine.create_assessment("entity2".to_string()).unwrap();
 
         // Update some risk scores
-        engine.get_assessment_mut(&id1).unwrap()
-            .update_risk_factor("price_volatility", dec!(0.8)).unwrap();
-        engine.get_assessment_mut(&id2).unwrap()
-            .update_risk_factor("price_volatility", dec!(0.4)).unwrap();
+        engine
+            .get_assessment_mut(&id1)
+            .unwrap()
+            .update_risk_factor("price_volatility", dec!(0.8))
+            .unwrap();
+        engine
+            .get_assessment_mut(&id2)
+            .unwrap()
+            .update_risk_factor("price_volatility", dec!(0.4))
+            .unwrap();
 
         // Calculate portfolio risk
         let mut weights = HashMap::new();

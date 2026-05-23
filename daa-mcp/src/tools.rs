@@ -1,5 +1,5 @@
 //! MCP Tools for DAA management
-//! 
+//!
 //! This module defines all the available tools that can be called through
 //! the MCP interface to manage DAA agents, tasks, and coordination.
 
@@ -11,9 +11,8 @@ use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use crate::{
-    AgentConfig, AgentStatus, DaaAgentInfo, DaaTask, DaaMcpError, McpServerState, Result,
+    AgentConfig, AgentStatus, Content, DaaAgentInfo, DaaMcpError, DaaTask, McpServerState, Result,
     SwarmMessage, SwarmMessageType, TaskPriority, TaskResult, TaskStatus, ToolInfo, ToolResult,
-    Content,
 };
 
 /// Get list of all available tools
@@ -104,7 +103,6 @@ pub fn get_available_tools() -> Vec<ToolInfo> {
                 "required": ["agent_id"]
             }),
         },
-
         // Task Management Tools
         ToolInfo {
             name: "create_task".to_string(),
@@ -174,7 +172,6 @@ pub fn get_available_tools() -> Vec<ToolInfo> {
                 }
             }),
         },
-
         // Swarm Coordination Tools
         ToolInfo {
             name: "coordinate_swarm".to_string(),
@@ -216,7 +213,6 @@ pub fn get_available_tools() -> Vec<ToolInfo> {
                 }
             }),
         },
-
         // Discovery and Monitoring Tools
         ToolInfo {
             name: "discover_agents".to_string(),
@@ -289,7 +285,10 @@ pub async fn execute_tool(
         "healthcheck" => healthcheck(state, arguments).await?,
 
         _ => {
-            return Err(DaaMcpError::InvalidTool(format!("Unknown tool: {}", tool_name)));
+            return Err(DaaMcpError::InvalidTool(format!(
+                "Unknown tool: {}",
+                tool_name
+            )));
         }
     };
 
@@ -300,17 +299,20 @@ pub async fn execute_tool(
 
 async fn spawn_agent(state: Arc<McpServerState>, args: Value) -> Result<ToolResult> {
     let config: AgentConfig = serde_json::from_value(args.get("config").unwrap().clone())?;
-    
+
     let agent_id = Uuid::new_v4().to_string();
     let now = chrono::Utc::now();
-    
+
     let agent_info = DaaAgentInfo {
         id: agent_id.clone(),
         name: config.name.clone(),
         agent_type: config.agent_type.clone(),
         status: AgentStatus::Starting,
         capabilities: config.capabilities.clone(),
-        endpoint: Some(format!("http://localhost:300{}", rand::random::<u8>() % 100 + 1)),
+        endpoint: Some(format!(
+            "http://localhost:300{}",
+            rand::random::<u8>() % 100 + 1
+        )),
         created_at: now,
         last_seen: now,
         metadata: config.metadata.clone(),
@@ -328,27 +330,31 @@ async fn spawn_agent(state: Arc<McpServerState>, args: Value) -> Result<ToolResu
     Ok(ToolResult {
         content: Some(vec![Content {
             content_type: "text".to_string(),
-            text: format!("Successfully spawned agent '{}' with ID: {}", config.name, agent_id),
+            text: format!(
+                "Successfully spawned agent '{}' with ID: {}",
+                config.name, agent_id
+            ),
         }]),
         is_error: Some(false),
     })
 }
 
 async fn stop_agent(state: Arc<McpServerState>, args: Value) -> Result<ToolResult> {
-    let agent_id = args.get("agent_id")
+    let agent_id = args
+        .get("agent_id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| DaaMcpError::Protocol("Missing agent_id".to_string()))?;
 
     let mut agents = state.agents.write().await;
-    
+
     if let Some(agent) = agents.get_mut(agent_id) {
         agent.status = AgentStatus::Stopping;
         info!("Stopping agent: {}", agent_id);
-        
+
         // TODO: Actually stop the agent process
-        
+
         agent.status = AgentStatus::Stopped;
-        
+
         Ok(ToolResult {
             content: Some(vec![Content {
                 content_type: "text".to_string(),
@@ -362,16 +368,17 @@ async fn stop_agent(state: Arc<McpServerState>, args: Value) -> Result<ToolResul
 }
 
 async fn pause_agent(state: Arc<McpServerState>, args: Value) -> Result<ToolResult> {
-    let agent_id = args.get("agent_id")
+    let agent_id = args
+        .get("agent_id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| DaaMcpError::Protocol("Missing agent_id".to_string()))?;
 
     let mut agents = state.agents.write().await;
-    
+
     if let Some(agent) = agents.get_mut(agent_id) {
         agent.status = AgentStatus::Paused;
         info!("Paused agent: {}", agent_id);
-        
+
         Ok(ToolResult {
             content: Some(vec![Content {
                 content_type: "text".to_string(),
@@ -385,17 +392,18 @@ async fn pause_agent(state: Arc<McpServerState>, args: Value) -> Result<ToolResu
 }
 
 async fn resume_agent(state: Arc<McpServerState>, args: Value) -> Result<ToolResult> {
-    let agent_id = args.get("agent_id")
+    let agent_id = args
+        .get("agent_id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| DaaMcpError::Protocol("Missing agent_id".to_string()))?;
 
     let mut agents = state.agents.write().await;
-    
+
     if let Some(agent) = agents.get_mut(agent_id) {
         agent.status = AgentStatus::Running;
         agent.last_seen = chrono::Utc::now();
         info!("Resumed agent: {}", agent_id);
-        
+
         Ok(ToolResult {
             content: Some(vec![Content {
                 content_type: "text".to_string(),
@@ -410,29 +418,28 @@ async fn resume_agent(state: Arc<McpServerState>, args: Value) -> Result<ToolRes
 
 async fn list_agents(state: Arc<McpServerState>, args: Value) -> Result<ToolResult> {
     let agents = state.agents.read().await;
-    
+
     let mut filtered_agents: Vec<&DaaAgentInfo> = agents.values().collect();
-    
+
     // Apply filters if provided
     if let Some(filter) = args.get("filter") {
         if let Some(status) = filter.get("status").and_then(|v| v.as_str()) {
-            filtered_agents.retain(|agent| {
-                match status {
-                    "running" => matches!(agent.status, AgentStatus::Running),
-                    "paused" => matches!(agent.status, AgentStatus::Paused),
-                    "stopped" => matches!(agent.status, AgentStatus::Stopped),
-                    "error" => matches!(agent.status, AgentStatus::Error),
-                    _ => true,
-                }
+            filtered_agents.retain(|agent| match status {
+                "running" => matches!(agent.status, AgentStatus::Running),
+                "paused" => matches!(agent.status, AgentStatus::Paused),
+                "stopped" => matches!(agent.status, AgentStatus::Stopped),
+                "error" => matches!(agent.status, AgentStatus::Error),
+                _ => true,
             });
         }
-        
+
         if let Some(agent_type) = filter.get("agent_type").and_then(|v| v.as_str()) {
             filtered_agents.retain(|agent| agent.agent_type == agent_type);
         }
     }
 
-    let agent_list: Vec<Value> = filtered_agents.iter()
+    let agent_list: Vec<Value> = filtered_agents
+        .iter()
         .map(|agent| serde_json::to_value(agent).unwrap())
         .collect();
 
@@ -449,12 +456,13 @@ async fn list_agents(state: Arc<McpServerState>, args: Value) -> Result<ToolResu
 }
 
 async fn get_agent_info(state: Arc<McpServerState>, args: Value) -> Result<ToolResult> {
-    let agent_id = args.get("agent_id")
+    let agent_id = args
+        .get("agent_id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| DaaMcpError::Protocol("Missing agent_id".to_string()))?;
 
     let agents = state.agents.read().await;
-    
+
     if let Some(agent) = agents.get(agent_id) {
         Ok(ToolResult {
             content: Some(vec![Content {
@@ -472,24 +480,31 @@ async fn get_agent_info(state: Arc<McpServerState>, args: Value) -> Result<ToolR
 
 async fn create_task(state: Arc<McpServerState>, args: Value) -> Result<ToolResult> {
     let task_id = Uuid::new_v4().to_string();
-    
+
     let task = DaaTask {
         id: task_id.clone(),
-        task_type: args.get("task_type")
+        task_type: args
+            .get("task_type")
             .and_then(|v| v.as_str())
             .ok_or_else(|| DaaMcpError::Protocol("Missing task_type".to_string()))?
             .to_string(),
-        description: args.get("description")
+        description: args
+            .get("description")
             .and_then(|v| v.as_str())
             .ok_or_else(|| DaaMcpError::Protocol("Missing description".to_string()))?
             .to_string(),
-        parameters: args.get("parameters")
+        parameters: args
+            .get("parameters")
             .and_then(|v| v.as_object())
             .cloned()
             .unwrap_or_default()
             .into_iter()
             .collect(),
-        priority: match args.get("priority").and_then(|v| v.as_str()).unwrap_or("medium") {
+        priority: match args
+            .get("priority")
+            .and_then(|v| v.as_str())
+            .unwrap_or("medium")
+        {
             "low" => TaskPriority::Low,
             "medium" => TaskPriority::Medium,
             "high" => TaskPriority::High,
@@ -497,13 +512,23 @@ async fn create_task(state: Arc<McpServerState>, args: Value) -> Result<ToolResu
             _ => TaskPriority::Medium,
         },
         timeout: args.get("timeout").and_then(|v| v.as_u64()),
-        dependencies: args.get("dependencies")
+        dependencies: args
+            .get("dependencies")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default(),
-        assigned_agents: args.get("assigned_agents")
+        assigned_agents: args
+            .get("assigned_agents")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default(),
     };
 
@@ -522,11 +547,13 @@ async fn create_task(state: Arc<McpServerState>, args: Value) -> Result<ToolResu
 }
 
 async fn assign_task(state: Arc<McpServerState>, args: Value) -> Result<ToolResult> {
-    let task_id = args.get("task_id")
+    let task_id = args
+        .get("task_id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| DaaMcpError::Protocol("Missing task_id".to_string()))?;
 
-    let agent_ids: Vec<String> = args.get("agent_ids")
+    let agent_ids: Vec<String> = args
+        .get("agent_ids")
         .and_then(|v| v.as_array())
         .ok_or_else(|| DaaMcpError::Protocol("Missing agent_ids".to_string()))?
         .iter()
@@ -534,30 +561,38 @@ async fn assign_task(state: Arc<McpServerState>, args: Value) -> Result<ToolResu
         .collect();
 
     let mut tasks = state.tasks.write().await;
-    
+
     if let Some(task) = tasks.get_mut(task_id) {
         task.assigned_agents = agent_ids.clone();
         info!("Assigned task {} to agents: {:?}", task_id, agent_ids);
-        
+
         Ok(ToolResult {
             content: Some(vec![Content {
                 content_type: "text".to_string(),
-                text: format!("Successfully assigned task {} to {} agents", task_id, agent_ids.len()),
+                text: format!(
+                    "Successfully assigned task {} to {} agents",
+                    task_id,
+                    agent_ids.len()
+                ),
             }]),
             is_error: Some(false),
         })
     } else {
-        Err(DaaMcpError::Protocol(format!("Task not found: {}", task_id)))
+        Err(DaaMcpError::Protocol(format!(
+            "Task not found: {}",
+            task_id
+        )))
     }
 }
 
 async fn cancel_task(state: Arc<McpServerState>, args: Value) -> Result<ToolResult> {
-    let task_id = args.get("task_id")
+    let task_id = args
+        .get("task_id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| DaaMcpError::Protocol("Missing task_id".to_string()))?;
 
     let mut results = state.task_results.write().await;
-    
+
     let cancel_result = TaskResult {
         task_id: task_id.to_string(),
         agent_id: "system".to_string(),
@@ -568,9 +603,9 @@ async fn cancel_task(state: Arc<McpServerState>, args: Value) -> Result<ToolResu
         completed_at: Some(chrono::Utc::now()),
         metrics: HashMap::new(),
     };
-    
+
     results.insert(task_id.to_string(), cancel_result);
-    
+
     info!("Cancelled task: {}", task_id);
 
     Ok(ToolResult {
@@ -583,22 +618,23 @@ async fn cancel_task(state: Arc<McpServerState>, args: Value) -> Result<ToolResu
 }
 
 async fn get_task_status(state: Arc<McpServerState>, args: Value) -> Result<ToolResult> {
-    let task_id = args.get("task_id")
+    let task_id = args
+        .get("task_id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| DaaMcpError::Protocol("Missing task_id".to_string()))?;
 
     let tasks = state.tasks.read().await;
     let results = state.task_results.read().await;
-    
+
     if let Some(task) = tasks.get(task_id) {
         let result = results.get(task_id);
-        
+
         let status_info = json!({
             "task": task,
             "result": result,
             "has_result": result.is_some()
         });
-        
+
         Ok(ToolResult {
             content: Some(vec![Content {
                 content_type: "application/json".to_string(),
@@ -607,16 +643,19 @@ async fn get_task_status(state: Arc<McpServerState>, args: Value) -> Result<Tool
             is_error: Some(false),
         })
     } else {
-        Err(DaaMcpError::Protocol(format!("Task not found: {}", task_id)))
+        Err(DaaMcpError::Protocol(format!(
+            "Task not found: {}",
+            task_id
+        )))
     }
 }
 
 async fn list_tasks(state: Arc<McpServerState>, args: Value) -> Result<ToolResult> {
     let tasks = state.tasks.read().await;
     let results = state.task_results.read().await;
-    
+
     let mut task_list: Vec<Value> = Vec::new();
-    
+
     for (task_id, task) in tasks.iter() {
         let result = results.get(task_id);
         task_list.push(json!({
@@ -654,27 +693,31 @@ async fn list_tasks(state: Arc<McpServerState>, args: Value) -> Result<ToolResul
 // Swarm Coordination Tool Implementations
 
 async fn coordinate_swarm(state: Arc<McpServerState>, args: Value) -> Result<ToolResult> {
-    let objective = args.get("objective")
+    let objective = args
+        .get("objective")
         .and_then(|v| v.as_str())
         .ok_or_else(|| DaaMcpError::Protocol("Missing objective".to_string()))?;
 
-    let agent_types: Vec<String> = args.get("agent_types")
+    let agent_types: Vec<String> = args
+        .get("agent_types")
         .and_then(|v| v.as_array())
         .ok_or_else(|| DaaMcpError::Protocol("Missing agent_types".to_string()))?
         .iter()
         .filter_map(|v| v.as_str().map(String::from))
         .collect();
 
-    let max_agents = args.get("max_agents")
+    let max_agents = args
+        .get("max_agents")
         .and_then(|v| v.as_u64())
         .unwrap_or(10) as usize;
 
     // Find suitable agents
     let agents = state.agents.read().await;
     let mut selected_agents = Vec::new();
-    
+
     for agent_type in &agent_types {
-        let type_agents: Vec<_> = agents.values()
+        let type_agents: Vec<_> = agents
+            .values()
             .filter(|a| a.agent_type == *agent_type && matches!(a.status, AgentStatus::Running))
             .take(max_agents / agent_types.len())
             .collect();
@@ -717,7 +760,11 @@ async fn coordinate_swarm(state: Arc<McpServerState>, args: Value) -> Result<Too
     let mut messages = state.swarm_messages.write().await;
     messages.push(message);
 
-    info!("Coordinated swarm with {} agents for objective: {}", selected_agents.len(), objective);
+    info!(
+        "Coordinated swarm with {} agents for objective: {}",
+        selected_agents.len(),
+        objective
+    );
 
     Ok(ToolResult {
         content: Some(vec![Content {
@@ -741,15 +788,25 @@ async fn coordinate_swarm(state: Arc<McpServerState>, args: Value) -> Result<Too
 async fn send_swarm_message(state: Arc<McpServerState>, args: Value) -> Result<ToolResult> {
     let message = SwarmMessage {
         id: Uuid::new_v4().to_string(),
-        from_agent: args.get("from_agent")
+        from_agent: args
+            .get("from_agent")
             .and_then(|v| v.as_str())
             .ok_or_else(|| DaaMcpError::Protocol("Missing from_agent".to_string()))?
             .to_string(),
-        to_agents: args.get("to_agents")
+        to_agents: args
+            .get("to_agents")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default(),
-        message_type: match args.get("message_type").and_then(|v| v.as_str()).unwrap_or("coordination") {
+        message_type: match args
+            .get("message_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("coordination")
+        {
             "task_assignment" => SwarmMessageType::TaskAssignment,
             "task_update" => SwarmMessageType::TaskUpdate,
             "state_sync" => SwarmMessageType::StateSync,
@@ -759,7 +816,8 @@ async fn send_swarm_message(state: Arc<McpServerState>, args: Value) -> Result<T
             "discovery" => SwarmMessageType::Discovery,
             _ => SwarmMessageType::Coordination,
         },
-        payload: args.get("payload")
+        payload: args
+            .get("payload")
             .cloned()
             .ok_or_else(|| DaaMcpError::Protocol("Missing payload".to_string()))?,
         timestamp: chrono::Utc::now(),
@@ -769,7 +827,11 @@ async fn send_swarm_message(state: Arc<McpServerState>, args: Value) -> Result<T
     let mut messages = state.swarm_messages.write().await;
     messages.push(message.clone());
 
-    info!("Sent swarm message from {} to {} agents", message.from_agent, message.to_agents.len());
+    info!(
+        "Sent swarm message from {} to {} agents",
+        message.from_agent,
+        message.to_agents.len()
+    );
 
     Ok(ToolResult {
         content: Some(vec![Content {
@@ -782,10 +844,10 @@ async fn send_swarm_message(state: Arc<McpServerState>, args: Value) -> Result<T
 
 async fn get_swarm_status(state: Arc<McpServerState>, args: Value) -> Result<ToolResult> {
     let swarm_id = args.get("swarm_id").and_then(|v| v.as_str());
-    
+
     let messages = state.swarm_messages.read().await;
     let agents = state.agents.read().await;
-    
+
     let mut swarm_info = json!({
         "total_agents": agents.len(),
         "active_agents": agents.values().filter(|a| matches!(a.status, AgentStatus::Running)).count(),
@@ -793,10 +855,11 @@ async fn get_swarm_status(state: Arc<McpServerState>, args: Value) -> Result<Too
     });
 
     if let Some(id) = swarm_id {
-        let swarm_messages: Vec<_> = messages.iter()
+        let swarm_messages: Vec<_> = messages
+            .iter()
             .filter(|m| m.payload.get("swarm_id").and_then(|v| v.as_str()) == Some(id))
             .collect();
-        
+
         swarm_info["swarm_messages"] = json!(swarm_messages.len());
         swarm_info["swarm_id"] = json!(id);
     }
@@ -813,48 +876,73 @@ async fn get_swarm_status(state: Arc<McpServerState>, args: Value) -> Result<Too
 // Discovery and Monitoring Tool Implementations
 
 async fn discover_agents(state: Arc<McpServerState>, args: Value) -> Result<ToolResult> {
-    let required_capabilities: Vec<String> = args.get("required_capabilities")
+    let required_capabilities: Vec<String> = args
+        .get("required_capabilities")
         .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_default();
 
-    let preferred_capabilities: Vec<String> = args.get("preferred_capabilities")
+    let preferred_capabilities: Vec<String> = args
+        .get("preferred_capabilities")
         .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_default();
 
-    let max_results = args.get("max_results")
+    let max_results = args
+        .get("max_results")
         .and_then(|v| v.as_u64())
         .unwrap_or(10) as usize;
 
     let agents = state.agents.read().await;
-    
-    let mut matching_agents: Vec<_> = agents.values()
+
+    let mut matching_agents: Vec<_> = agents
+        .values()
         .filter(|agent| {
             // Check required capabilities
-            required_capabilities.iter().all(|cap| agent.capabilities.contains(cap))
+            required_capabilities
+                .iter()
+                .all(|cap| agent.capabilities.contains(cap))
         })
         .collect();
 
     // Sort by preferred capabilities (agents with more preferred capabilities first)
     matching_agents.sort_by(|a, b| {
-        let a_preferred = a.capabilities.iter().filter(|cap| preferred_capabilities.contains(cap)).count();
-        let b_preferred = b.capabilities.iter().filter(|cap| preferred_capabilities.contains(cap)).count();
+        let a_preferred = a
+            .capabilities
+            .iter()
+            .filter(|cap| preferred_capabilities.contains(cap))
+            .count();
+        let b_preferred = b
+            .capabilities
+            .iter()
+            .filter(|cap| preferred_capabilities.contains(cap))
+            .count();
         b_preferred.cmp(&a_preferred)
     });
 
     matching_agents.truncate(max_results);
 
-    let discovered = matching_agents.iter()
-        .map(|agent| json!({
-            "id": agent.id,
-            "name": agent.name,
-            "type": agent.agent_type,
-            "status": agent.status,
-            "capabilities": agent.capabilities,
-            "endpoint": agent.endpoint,
-            "last_seen": agent.last_seen
-        }))
+    let discovered = matching_agents
+        .iter()
+        .map(|agent| {
+            json!({
+                "id": agent.id,
+                "name": agent.name,
+                "type": agent.agent_type,
+                "status": agent.status,
+                "capabilities": agent.capabilities,
+                "endpoint": agent.endpoint,
+                "last_seen": agent.last_seen
+            })
+        })
         .collect::<Vec<_>>();
 
     Ok(ToolResult {
@@ -918,7 +1006,8 @@ async fn get_system_metrics(state: Arc<McpServerState>, _args: Value) -> Result<
 }
 
 async fn healthcheck(state: Arc<McpServerState>, args: Value) -> Result<ToolResult> {
-    let deep_check = args.get("deep_check")
+    let deep_check = args
+        .get("deep_check")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
@@ -935,7 +1024,10 @@ async fn healthcheck(state: Arc<McpServerState>, args: Value) -> Result<ToolResu
     });
 
     // Check agent health
-    let error_agents = agents.values().filter(|a| matches!(a.status, AgentStatus::Error)).count();
+    let error_agents = agents
+        .values()
+        .filter(|a| matches!(a.status, AgentStatus::Error))
+        .count();
     if error_agents > 0 {
         health_status["components"]["agent_manager"] = json!("degraded");
         if error_agents > agents.len() / 2 {

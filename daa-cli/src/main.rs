@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use std::path::PathBuf;
-use tracing::{info, error};
+use tracing::{error, info};
 
 mod commands;
 mod config;
@@ -24,7 +24,9 @@ pub struct CliContext {
 /// DAA CLI - Decentralized Autonomous Application Command Line Interface
 #[derive(Parser)]
 #[command(name = "daa")]
-#[command(about = "A CLI for managing Decentralized Autonomous Applications with QuDAG integration")]
+#[command(
+    about = "A CLI for managing Decentralized Autonomous Applications with QuDAG integration"
+)]
 #[command(version)]
 pub struct Cli {
     /// Configuration file path
@@ -54,11 +56,11 @@ pub enum Commands {
         /// Directory to initialize
         #[arg(short, long)]
         directory: Option<PathBuf>,
-        
+
         /// Configuration template to use
         #[arg(short, long, default_value = "default")]
         template: String,
-        
+
         /// Force overwrite existing configuration
         #[arg(short, long)]
         force: bool,
@@ -69,7 +71,7 @@ pub enum Commands {
         /// Run in daemon mode
         #[arg(short, long)]
         daemon: bool,
-        
+
         /// PID file location (for daemon mode)
         #[arg(long)]
         pid_file: Option<PathBuf>,
@@ -80,11 +82,11 @@ pub enum Commands {
         /// Show detailed status
         #[arg(short, long)]
         detailed: bool,
-        
+
         /// Watch mode (continuous updates)
         #[arg(short, long)]
         watch: bool,
-        
+
         /// Update interval in seconds for watch mode
         #[arg(long, default_value = "5")]
         interval: u64,
@@ -95,7 +97,7 @@ pub enum Commands {
         /// Force stop (kill process)
         #[arg(short, long)]
         force: bool,
-        
+
         /// Grace period in seconds before force kill
         #[arg(long, default_value = "30")]
         grace_period: u64,
@@ -106,15 +108,15 @@ pub enum Commands {
         /// Rule name/identifier
         #[arg(short, long)]
         name: String,
-        
+
         /// Rule type
         #[arg(short, long)]
         rule_type: String,
-        
+
         /// Rule parameters (JSON format)
         #[arg(short, long)]
         params: Option<String>,
-        
+
         /// Rule description
         #[arg(short, long)]
         description: Option<String>,
@@ -143,15 +145,15 @@ pub enum Commands {
         /// Number of lines to show
         #[arg(short, long, default_value = "100")]
         lines: usize,
-        
+
         /// Follow log output
         #[arg(short, long)]
         follow: bool,
-        
+
         /// Filter by log level
         #[arg(long)]
         level: Option<String>,
-        
+
         /// Component to show logs for
         #[arg(long)]
         component: Option<String>,
@@ -162,7 +164,7 @@ pub enum Commands {
 pub enum ConfigAction {
     /// Show current configuration
     Show,
-    
+
     /// Set a configuration value
     Set {
         /// Configuration key (dot notation)
@@ -170,16 +172,16 @@ pub enum ConfigAction {
         /// Configuration value
         value: String,
     },
-    
+
     /// Get a configuration value
     Get {
         /// Configuration key (dot notation)
         key: String,
     },
-    
+
     /// Validate configuration
     Validate,
-    
+
     /// Reset configuration to defaults
     Reset {
         /// Confirm reset without prompt
@@ -192,20 +194,20 @@ pub enum ConfigAction {
 pub enum NetworkAction {
     /// Show network status
     Status,
-    
+
     /// Connect to QuDAG network
     Connect {
         /// Specific node to connect to
         #[arg(short, long)]
         node: Option<String>,
     },
-    
+
     /// Disconnect from QuDAG network
     Disconnect,
-    
+
     /// List connected peers
     Peers,
-    
+
     /// Show network statistics
     Stats,
 }
@@ -214,38 +216,38 @@ pub enum NetworkAction {
 pub enum AgentAction {
     /// List all agents
     List,
-    
+
     /// Show agent details
     Show {
         /// Agent ID
         agent_id: String,
     },
-    
+
     /// Create a new agent
     Create {
         /// Agent name
         #[arg(short, long)]
         name: String,
-        
+
         /// Agent type
         #[arg(short, long)]
         agent_type: String,
-        
+
         /// Agent capabilities (comma-separated)
         #[arg(short = 'C', long)]
         capabilities: Option<String>,
     },
-    
+
     /// Stop an agent
     Stop {
         /// Agent ID
         agent_id: String,
-        
+
         /// Force stop
         #[arg(short, long)]
         force: bool,
     },
-    
+
     /// Restart an agent
     Restart {
         /// Agent ID
@@ -271,43 +273,67 @@ async fn main() -> Result<()> {
 
     // Build a lightweight context struct so command handlers don't need the full Cli.
     // This avoids Rust borrow-after-partial-move when we destructure cli.command.
-    let cli_ctx = CliContext { verbose, json, no_color, config: config_path };
+    let cli_ctx = CliContext {
+        verbose,
+        json,
+        no_color,
+        config: config_path,
+    };
 
     // Handle commands
     match cli.command {
-        Commands::Init { directory, template, force } => {
-            commands::init::handle_init(directory, template, force, &cli_ctx).await
-        }
+        Commands::Init {
+            directory,
+            template,
+            force,
+        } => commands::init::handle_init(directory, template, force, &cli_ctx).await,
         Commands::Start { daemon, pid_file } => {
             commands::start::handle_start(daemon, pid_file, &config, &cli_ctx).await
         }
-        Commands::Status { detailed, watch, interval } => {
-            commands::status::handle_status(detailed, watch, interval, &config, &cli_ctx).await
+        Commands::Status {
+            detailed,
+            watch,
+            interval,
+        } => commands::status::handle_status(detailed, watch, interval, &config, &cli_ctx).await,
+        Commands::Stop {
+            force,
+            grace_period,
+        } => commands::stop::handle_stop(force, grace_period, &config, &cli_ctx).await,
+        Commands::AddRule {
+            name,
+            rule_type,
+            params,
+            description,
+        } => {
+            commands::rules::handle_add_rule(
+                name,
+                rule_type,
+                params,
+                description,
+                &config,
+                &cli_ctx,
+            )
+            .await
         }
-        Commands::Stop { force, grace_period } => {
-            commands::stop::handle_stop(force, grace_period, &config, &cli_ctx).await
-        }
-        Commands::AddRule { name, rule_type, params, description } => {
-            commands::rules::handle_add_rule(name, rule_type, params, description, &config, &cli_ctx).await
-        }
-        Commands::Config { action } => {
-            handle_config_command(action, &config, &cli_ctx).await
-        }
+        Commands::Config { action } => handle_config_command(action, &config, &cli_ctx).await,
         Commands::Network { action } => {
             commands::network::handle_network(action, &config, &cli_ctx).await
         }
         Commands::Agent { action } => {
             commands::agent::handle_agent(action, &config, &cli_ctx).await
         }
-        Commands::Logs { lines, follow, level, component } => {
-            commands::logs::handle_logs(lines, follow, level, component, &config, &cli_ctx).await
-        }
+        Commands::Logs {
+            lines,
+            follow,
+            level,
+            component,
+        } => commands::logs::handle_logs(lines, follow, level, component, &config, &cli_ctx).await,
     }
 }
 
 fn init_logging(cli: &Cli) -> Result<()> {
     let level = if cli.verbose { "debug" } else { "info" };
-    
+
     let subscriber = tracing_subscriber::fmt()
         .with_env_filter(format!("daa={},daa_orchestrator={}", level, level))
         .with_target(false)
@@ -324,7 +350,11 @@ fn init_logging(cli: &Cli) -> Result<()> {
     Ok(())
 }
 
-async fn handle_config_command(action: ConfigAction, config: &CliConfig, cli: &CliContext) -> Result<()> {
+async fn handle_config_command(
+    action: ConfigAction,
+    config: &CliConfig,
+    cli: &CliContext,
+) -> Result<()> {
     match action {
         ConfigAction::Show => {
             if cli.json {
@@ -358,31 +388,35 @@ async fn handle_config_command(action: ConfigAction, config: &CliConfig, cli: &C
             let config_path = utils::get_default_config_path()?;
             new_config.to_file(&config_path)?;
             if cli.json {
-                println!("{}", serde_json::json!({ "key": key, "value": value, "status": "updated" }));
+                println!(
+                    "{}",
+                    serde_json::json!({ "key": key, "value": value, "status": "updated" })
+                );
             } else {
                 println!("Updated {}: {}", key, value);
                 println!("Configuration saved to: {}", config_path.display());
             }
         }
-        ConfigAction::Validate => {
-            match config.validate() {
-                Ok(_) => {
-                    if cli.json {
-                        println!("{}", serde_json::json!({ "status": "valid" }));
-                    } else {
-                        println!("Configuration is valid");
-                    }
-                }
-                Err(e) => {
-                    if cli.json {
-                        println!("{}", serde_json::json!({ "status": "invalid", "error": e.to_string() }));
-                    } else {
-                        println!("Configuration is invalid: {}", e);
-                    }
-                    std::process::exit(1);
+        ConfigAction::Validate => match config.validate() {
+            Ok(_) => {
+                if cli.json {
+                    println!("{}", serde_json::json!({ "status": "valid" }));
+                } else {
+                    println!("Configuration is valid");
                 }
             }
-        }
+            Err(e) => {
+                if cli.json {
+                    println!(
+                        "{}",
+                        serde_json::json!({ "status": "invalid", "error": e.to_string() })
+                    );
+                } else {
+                    println!("Configuration is invalid: {}", e);
+                }
+                std::process::exit(1);
+            }
+        },
         ConfigAction::Reset { yes } => {
             if !yes {
                 use std::io::{self, Write};
@@ -424,8 +458,11 @@ async fn load_config(cli: &Cli) -> Result<CliConfig> {
         if cli.verbose {
             println!(
                 "{}",
-                format!("No configuration file found at {}, using defaults", config_path.display())
-                    .yellow()
+                format!(
+                    "No configuration file found at {}, using defaults",
+                    config_path.display()
+                )
+                .yellow()
             );
         }
         Ok(CliConfig::default())
