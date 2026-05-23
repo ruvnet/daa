@@ -1,0 +1,68 @@
+# cargo-audit configuration for the DAA workspace.
+#
+# Ignored advisories MUST have a justification comment. Re-evaluate when
+# the upstream dependency ships a fix.
+
+[advisories]
+ignore = [
+    # ------------------------------------------------------------------
+    # Vulnerabilities (no upstream fix available)
+    # ------------------------------------------------------------------
+
+    # hickory-proto 0.25.2 — CPU exhaustion via O(n²) name compression.
+    # Affects hickory-proto pulled transitively through libp2p-mdns (used
+    # by daa-compute). libp2p 0.56 (latest released) still pins
+    # hickory-proto = "0.25.2". No fix is available until libp2p-mdns
+    # upgrades to hickory-proto >= 0.26.1. Remove once libp2p ships that
+    # upgrade.
+    "RUSTSEC-2026-0119",
+
+    # hickory-proto 0.25.2 — NSEC3 closest-encloser unbounded loop.
+    # Same root cause as RUSTSEC-2026-0119: transitively pulled via
+    # libp2p-mdns in daa-compute. No fixed version is available upstream.
+    # Remove alongside RUSTSEC-2026-0119 when libp2p-mdns is updated.
+    "RUSTSEC-2026-0118",
+
+    # rsa 0.9.x — Marvin Attack (timing side-channel on RSA decryption).
+    # No fixed upgrade is available from the upstream `rsa` crate. The
+    # crate is pulled transitively via sqlx-mysql (a sqlx feature we do
+    # not actively use in production). We do not expose an RSA decryption
+    # oracle; TLS connections use rustls with Ed25519/X25519 suites.
+    # Remove when the `rsa` crate ships a constant-time implementation.
+    "RUSTSEC-2023-0071",
+
+    # ------------------------------------------------------------------
+    # Unmaintained notices (informational, not exploitable vulnerabilities)
+    # ------------------------------------------------------------------
+
+    # rustls-pemfile 1.0.4 — pulled transitively via reqwest 0.11 in the
+    # published daa-ai 0.2.1 on crates.io. The workspace now uses path
+    # dependencies that resolve to reqwest 0.12 (which uses rustls-pemfile
+    # 2.x). This entry covers any residual lock-file reference until the
+    # Cargo.lock is fully regenerated in CI.
+    "RUSTSEC-2025-0134",
+
+    # bincode 1.3.3 — unmaintained notice. Pulled transitively via
+    # webrtc / libp2p-webrtc in daa-compute. No security issue; awaiting
+    # upstream migration.
+    "RUSTSEC-2025-0141",
+
+    # instant 0.1.x — unmaintained, pulled transitively via parking_lot
+    # (older version) through jsonrpc-http-server in daa-mcp.
+    "RUSTSEC-2024-0384",
+
+    # net2 — deprecated, pulled transitively via jsonrpc-http-server.
+    "RUSTSEC-2020-0016",
+
+    # number_prefix — unmaintained, pulled transitively via indicatif in
+    # daa-cli.
+    "RUSTSEC-2025-0119",
+
+    # paste — unmaintained proc-macro, pulled transitively via
+    # netlink-packet-core / if-watch / libp2p in daa-compute.
+    "RUSTSEC-2024-0436",
+
+    # proc-macro-error — unmaintained proc-macro, pulled transitively via
+    # tabled_derive in daa-cli.
+    "RUSTSEC-2024-0370",
+]

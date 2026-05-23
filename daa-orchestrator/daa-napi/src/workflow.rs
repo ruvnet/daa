@@ -159,9 +159,7 @@ impl WorkflowEngineWrapper {
     /// ```
     #[napi(constructor)]
     pub fn new(config: Option<WorkflowConfigJs>) -> Result<Self> {
-        let rust_config = config
-            .map(|c| c.to_rust_config())
-            .unwrap_or_default();
+        let rust_config = config.map(|c| c.to_rust_config()).unwrap_or_default();
 
         let engine = WorkflowEngine::new(rust_config);
 

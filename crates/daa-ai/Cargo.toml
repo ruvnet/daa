@@ -32,3 +32,9 @@ daa-rules.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
 tracing-subscriber.workspace = true
 mockall.workspace = true
+
+[package.metadata.cargo-machete]
+# qudag-mcp is used for MCP protocol integration; the primary usage is via
+# trait impls and type aliases that cargo-machete cannot resolve through
+# workspace-re-exported types.
+ignored = ["qudag-mcp"]

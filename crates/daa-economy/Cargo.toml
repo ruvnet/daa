@@ -29,3 +29,10 @@ rust_decimal = { version = "1.33", features = ["serde-with-str"] }
 [dev-dependencies]
 tokio-test = "0.4"
 env_logger = "0.10"
+
+[package.metadata.cargo-machete]
+# serde_json is used in the QuDAG exchange integration layer for
+# serializing/deserializing transaction payloads passed through the
+# qudag_exchange path dependency. cargo-machete does not trace into
+# external path dependencies.
+ignored = ["serde_json"]

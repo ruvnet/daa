@@ -32,3 +32,9 @@ rand = "0.8"
 [dev-dependencies]
 tokio-test = "0.4"
 env_logger = "0.10"
+
+[package.metadata.cargo-machete]
+# sha2 is used transitively for block hashing utilities that may be
+# invoked through the QuDAG integration layer. cargo-machete does not
+# trace through indirect re-exports in external path dependencies.
+ignored = ["sha2"]
