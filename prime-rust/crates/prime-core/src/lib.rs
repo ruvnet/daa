@@ -1,8 +1,8 @@
 //! Core shared structures and protocol definitions for Prime distributed ML
 
+pub mod error;
 pub mod protocol;
 pub mod types;
-pub mod error;
 
 pub use error::{Error, Result};
 pub use types::*;

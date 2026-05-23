@@ -12,7 +12,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use daa_prime_coordinator::{
-    CoordinatorNode as RustCoordinator, CoordinatorConfig as RustCoordinatorConfig, NodeInfo,
+    CoordinatorConfig as RustCoordinatorConfig, CoordinatorNode as RustCoordinator, NodeInfo,
 };
 
 use crate::types::NodeInfoJs;

@@ -45,7 +45,7 @@ fn test_train_command() {
 fn test_config_init() {
     let temp_dir = tempdir().unwrap();
     let config_path = temp_dir.path().join("config.toml");
-    
+
     let mut cmd = Command::cargo_bin("prime").unwrap();
     cmd.arg("config")
         .arg("init")
@@ -53,7 +53,7 @@ fn test_config_init() {
         .arg(config_path.to_str().unwrap())
         .assert()
         .success();
-    
+
     assert!(config_path.exists());
 }
 

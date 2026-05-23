@@ -70,10 +70,11 @@ impl RoutingTable {
         }
 
         let distance = self.distance(&peer);
-        let bucket = self.buckets
+        let bucket = self
+            .buckets
             .entry(distance)
             .or_insert_with(|| KBucket::new(self.k_bucket_size));
-        
+
         bucket.add_peer(peer);
     }
 
@@ -86,15 +87,15 @@ impl RoutingTable {
 
     pub fn find_closest(&self, target: &PeerId, count: usize) -> Vec<PeerId> {
         let mut closest = Vec::new();
-        
+
         // Get target distance
         let target_distance = self.distance(target);
-        
+
         // Search buckets starting from target distance
         for i in 0..160 {
             for direction in &[0i32, 1, -1] {
                 let bucket_idx = (target_distance as i32 + i as i32 * direction) as u32;
-                
+
                 if let Some(bucket) = self.buckets.get(&bucket_idx) {
                     for peer in bucket.get_peers() {
                         if !closest.contains(peer) {
@@ -107,7 +108,7 @@ impl RoutingTable {
                 }
             }
         }
-        
+
         closest
     }
 
@@ -115,14 +116,14 @@ impl RoutingTable {
         // Calculate XOR distance (simplified)
         let local_bytes = self.local_peer.to_bytes();
         let peer_bytes = peer.to_bytes();
-        
+
         for i in 0..local_bytes.len().min(peer_bytes.len()) {
             let xor = local_bytes[i] ^ peer_bytes[i];
             if xor != 0 {
                 return (i as u32) * 8 + (8 - xor.leading_zeros());
             }
         }
-        
+
         0
     }
 }
@@ -140,13 +141,13 @@ mod tests {
         let peer2 = PeerId::random();
         let peer3 = PeerId::random();
         let peer4 = PeerId::random();
-        
+
         assert!(bucket.add_peer(peer1));
         assert!(bucket.add_peer(peer2));
         assert!(bucket.add_peer(peer3));
         assert!(bucket.is_full());
         assert!(!bucket.add_peer(peer4)); // Should fail, bucket full
-        
+
         bucket.remove_peer(&peer2);
         assert!(!bucket.is_full());
         assert!(bucket.add_peer(peer4)); // Should succeed now
@@ -156,13 +157,13 @@ mod tests {
     fn test_routing_table_basic() {
         let local_peer = PeerId::random();
         let mut table = RoutingTable::new(local_peer, 20);
-        
+
         let peer1 = PeerId::random();
         let peer2 = PeerId::random();
-        
+
         table.add_peer(peer1);
         table.add_peer(peer2);
-        
+
         let closest = table.find_closest(&peer1, 10);
         assert!(closest.contains(&peer1));
     }
@@ -173,16 +174,16 @@ mod tests {
     fn test_find_closest_with_count(count: usize) {
         let local_peer = PeerId::random();
         let mut table = RoutingTable::new(local_peer, 20);
-        
+
         // Add many peers
         let peers: Vec<PeerId> = (0..50).map(|_| PeerId::random()).collect();
         for peer in &peers {
             table.add_peer(peer.clone());
         }
-        
+
         let target = PeerId::random();
         let closest = table.find_closest(&target, count);
-        
+
         assert!(closest.len() <= count);
         assert!(closest.len() <= peers.len());
     }
@@ -195,28 +196,28 @@ mod tests {
         ) {
             let local_peer = PeerId::random();
             let mut table = RoutingTable::new(local_peer, k_bucket_size);
-            
+
             let peers: Vec<PeerId> = (0..peer_count)
                 .map(|_| PeerId::random())
                 .collect();
-            
+
             // Add all peers
             for peer in &peers {
                 table.add_peer(peer.clone());
             }
-            
+
             // Verify we can find peers
             let found = table.find_closest(&peers[0], peer_count);
             assert!(!found.is_empty());
             assert!(found.len() <= peer_count);
-            
+
             // Verify no duplicates
             let mut unique = found.clone();
             unique.sort();
             unique.dedup();
             assert_eq!(found.len(), unique.len());
         }
-        
+
         #[test]
         fn test_k_bucket_replacement_policy(
             operations in prop::collection::vec(
@@ -229,7 +230,7 @@ mod tests {
         ) {
             let mut bucket = KBucket::new(10);
             let mut peers = Vec::new();
-            
+
             for (i, is_add) in operations.iter().enumerate() {
                 if *is_add {
                     let peer = PeerId::random();
@@ -239,7 +240,7 @@ mod tests {
                     let idx = i % peers.len();
                     bucket.remove_peer(&peers[idx]);
                 }
-                
+
                 // Verify invariants
                 assert!(bucket.peers.len() <= bucket.max_size);
             }

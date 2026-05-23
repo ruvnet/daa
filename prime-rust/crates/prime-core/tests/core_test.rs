@@ -8,10 +8,10 @@ async fn test_model_metadata_serialization() {
         parameters: 1_000_000,
         architecture: "transformer".to_string(),
     };
-    
+
     let serialized = serde_json::to_string(&metadata).unwrap();
     let deserialized: ModelMetadata = serde_json::from_str(&serialized).unwrap();
-    
+
     assert_eq!(metadata, deserialized);
 }
 
@@ -30,7 +30,7 @@ async fn test_training_config_validation() {
         epochs: 10,
         gradient_accumulation_steps: 4,
     };
-    
+
     assert!(config.validate().is_ok());
 }
 
@@ -42,6 +42,6 @@ async fn test_invalid_training_config() {
         epochs: 10,
         gradient_accumulation_steps: 4,
     };
-    
+
     assert!(config.validate().is_err());
 }

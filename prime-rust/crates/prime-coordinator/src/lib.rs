@@ -72,18 +72,12 @@ pub struct CoordinatorNode {
 
 impl CoordinatorNode {
     /// Create a new coordinator
-    pub async fn new(
-        _node_id: String,
-        config: CoordinatorConfig,
-    ) -> Result<Self> {
+    pub async fn new(_node_id: String, config: CoordinatorConfig) -> Result<Self> {
         let state = Arc::new(RwLock::new(CoordinatorState::default()));
-        
-        Ok(Self {
-            state,
-            config,
-        })
+
+        Ok(Self { state, config })
     }
-    
+
     /// Get current coordinator status
     pub async fn get_status(&self) -> Result<CoordinatorStatus> {
         let state = self.state.read().await;
@@ -93,15 +87,17 @@ impl CoordinatorNode {
             current_round: state.current_round,
         })
     }
-    
+
     /// Add a node to the coordinator
     pub async fn add_node(&self, node_info: NodeInfo) -> Result<()> {
         let mut state = self.state.write().await;
-        state.active_nodes.insert(node_info.node_id.clone(), node_info);
+        state
+            .active_nodes
+            .insert(node_info.node_id.clone(), node_info);
         tracing::info!("Added node, total active: {}", state.active_nodes.len());
         Ok(())
     }
-    
+
     /// Start the coordinator (stub implementation)
     pub async fn start(self) -> Result<()> {
         tracing::info!("Starting coordinator node (stub implementation)");
@@ -124,26 +120,30 @@ mod tests {
     #[tokio::test]
     async fn test_coordinator_creation() {
         let config = CoordinatorConfig::default();
-        let coordinator = CoordinatorNode::new("test-coordinator".to_string(), config).await.unwrap();
+        let coordinator = CoordinatorNode::new("test-coordinator".to_string(), config)
+            .await
+            .unwrap();
         let status = coordinator.get_status().await.unwrap();
-        
+
         assert_eq!(status.active_nodes, 0);
         assert_eq!(status.pending_tasks, 0);
         assert_eq!(status.current_round, 0);
     }
-    
+
     #[tokio::test]
     async fn test_add_node() {
         let config = CoordinatorConfig::default();
-        let coordinator = CoordinatorNode::new("test-coordinator".to_string(), config).await.unwrap();
-        
+        let coordinator = CoordinatorNode::new("test-coordinator".to_string(), config)
+            .await
+            .unwrap();
+
         let node_info = NodeInfo {
             node_id: "test-node".to_string(),
             node_type: "trainer".to_string(),
             last_heartbeat: 12345,
             reliability_score: 0.9,
         };
-        
+
         coordinator.add_node(node_info).await.unwrap();
         let status = coordinator.get_status().await.unwrap();
         assert_eq!(status.active_nodes, 1);
