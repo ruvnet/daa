@@ -4,5 +4,19 @@
     "@qudag/mcp-sse": "^0.1.0",
     "@qudag/mcp-stdio": "^0.1.0",
     "@qudag/napi-core": "^0.1.0"
+  },
+  "overrides": {
+    "protobufjs": ">=7.5.5",
+    "jws": ">=3.2.3",
+    "path-to-regexp": ">=0.1.13",
+    "fast-uri": ">=3.1.1",
+    "uuid": ">=11.1.1",
+    "axios": ">=1.15.0",
+    "@modelcontextprotocol/sdk": ">=1.25.2",
+    "ajv": ">=8.18.0",
+    "js-yaml": ">=4.1.1",
+    "qs": ">=6.15.2",
+    "body-parser": ">=2.2.1",
+    "express": ">=5.1.0"
   }
 }

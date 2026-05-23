@@ -142,7 +142,7 @@ jobs:
 
     - name: Upload artifacts
       if: '!contains(matrix.target, ''wasm'')'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: daa-cli-${{ matrix.target }}
         path: artifacts/*
@@ -190,7 +190,7 @@ jobs:
         tags: |
           type=ref,event=branch
           type=ref,event=pr
-          type=sha,prefix={{branch}}-
+          type=sha,prefix=sha-
           type=raw,value=latest,enable={{is_default_branch}}
 
     - name: Build and push
@@ -247,7 +247,7 @@ jobs:
         cp target/release/daa-cli artifacts/daa-cli-alpine-x86_64
 
     - name: Upload Alpine artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: daa-cli-alpine-x86_64
         path: artifacts/daa-cli-alpine-x86_64
@@ -264,7 +264,7 @@ jobs:
     
     steps:
     - name: Download artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: daa-cli-${{ matrix.os == 'ubuntu-20.04' && 'x86_64-unknown-linux-gnu' || matrix.os == 'ubuntu-22.04' && 'x86_64-unknown-linux-gnu' || matrix.os == 'macos-12' && 'x86_64-apple-darwin' || matrix.os == 'macos-13' && 'x86_64-apple-darwin' || matrix.os == 'windows-2019' && 'x86_64-pc-windows-msvc' || 'x86_64-pc-windows-msvc' }}
 
@@ -308,7 +308,7 @@ jobs:
         cargo bench --workspace
 
     - name: Upload benchmark results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: benchmarks-${{ matrix.os }}
         path: target/criterion/

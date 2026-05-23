@@ -35,3 +35,9 @@ default = []
 # qudag = ["qudag-crypto", "qudag-exchange"]
 # exchange = ["qudag-exchange"]
 
+[package.metadata.cargo-machete]
+# async-trait and dashmap are used indirectly via trait objects defined in
+# downstream crates and re-exported from this crate. cargo-machete cannot
+# detect usage through re-exports or blanket impls.
+ignored = ["async-trait", "dashmap"]
+

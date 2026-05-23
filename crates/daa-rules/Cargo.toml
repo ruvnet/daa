@@ -24,3 +24,9 @@ testing = ["mockall"]
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }
 tracing-subscriber.workspace = true
+
+[package.metadata.cargo-machete]
+# mockall is an optional dependency behind the `testing` feature flag.
+# cargo-machete does not track feature-gated optional deps that are only
+# activated by downstream crates at test time.
+ignored = ["mockall"]

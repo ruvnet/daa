@@ -246,7 +246,7 @@ impl P2PNetwork {
     /// Handle Identify events
     async fn handle_identify_event(&mut self, event: IdentifyEvent) -> Result<()> {
         match event {
-            IdentifyEvent::Received { peer_id, info } => {
+            IdentifyEvent::Received { peer_id, info, .. } => {
                 debug!("Identified peer {}: {:?}", peer_id, info.protocol_version);
 
                 // Add addresses to Kademlia
