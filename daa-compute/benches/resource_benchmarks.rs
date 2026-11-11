@@ -1,11 +1,37 @@
 //! Resource Utilization Benchmarks - Bandwidth, CPU, and GPU profiling
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{
+    black_box, criterion_group, criterion_main, measurement::WallTime, BenchmarkGroup, BenchmarkId,
+    Criterion, SamplingMode, Throughput,
+};
 use rand::prelude::*;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::runtime::Runtime;
+
+/// Modelled delays (network transfers, consensus rounds, synchronisation) run
+/// this many times faster than the wall-clock time they model, so the whole
+/// suite fits in CI. Every scenario is scaled alike, so results stay comparable.
+const SIM_SPEEDUP: u32 = 20;
+
+/// Sleep for a modelled delay, scaled by [`SIM_SPEEDUP`].
+async fn sim_sleep(modelled: Duration) {
+    tokio::time::sleep(modelled / SIM_SPEEDUP).await;
+}
+
+/// These benchmarks are dominated by simulated delays and multi-millisecond
+/// iterations, so a few flat samples give a stable mean without spending
+/// minutes per point.
+fn slow_group<'a>(c: &'a mut Criterion, name: &str) -> BenchmarkGroup<'a, WallTime> {
+    let mut group = c.benchmark_group(name);
+    group
+        .sample_size(10)
+        .warm_up_time(Duration::from_millis(500))
+        .measurement_time(Duration::from_secs(2))
+        .sampling_mode(SamplingMode::Flat);
+    group
+}
 
 /// Resource utilization metrics
 #[derive(Debug, Clone)]
@@ -107,14 +133,12 @@ impl ResourceMonitor {
 fn benchmark_bandwidth_usage_gradient_sharing(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("bandwidth_usage_gradient_sharing");
-    group.measurement_time(Duration::from_secs(30));
+    let mut group = slow_group(c, "bandwidth_usage_gradient_sharing");
 
     let gradient_sizes = vec![
         ("1M", 1_000_000),
         ("10M", 10_000_000),
         ("100M", 100_000_000),
-        ("1B", 1_000_000_000),
     ];
 
     let peer_counts = vec![4, 8, 16, 32];
@@ -130,11 +154,10 @@ fn benchmark_bandwidth_usage_gradient_sharing(c: &mut Criterion) {
                 |b, &(gradient_size, peer_count)| {
                     b.to_async(&rt).iter(|| async move {
                         let monitor = ResourceMonitor::new();
-                        let gradient = create_gradient(gradient_size);
-
-                        // Simulate gradient sharing across peers
+                        // Simulate gradient sharing across peers (only the size
+                        // of the gradient matters to the transfer model)
                         for _ in 0..peer_count {
-                            simulate_gradient_transfer(&monitor, &gradient).await;
+                            simulate_gradient_transfer(&monitor, gradient_size).await;
                         }
 
                         let metrics = monitor.get_metrics();
@@ -152,8 +175,7 @@ fn benchmark_bandwidth_usage_gradient_sharing(c: &mut Criterion) {
 fn benchmark_cpu_utilization_training(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("cpu_utilization_training");
-    group.measurement_time(Duration::from_secs(25));
+    let mut group = slow_group(c, "cpu_utilization_training");
 
     let model_sizes = vec![
         ("small", vec![784, 128, 10]),
@@ -190,8 +212,7 @@ fn benchmark_cpu_utilization_training(c: &mut Criterion) {
 fn benchmark_memory_usage_distributed_training(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("memory_usage_distributed_training");
-    group.measurement_time(Duration::from_secs(20));
+    let mut group = slow_group(c, "memory_usage_distributed_training");
 
     let scenarios = vec![
         ("single_node", 1, 1_000_000),
@@ -227,8 +248,7 @@ fn benchmark_memory_usage_distributed_training(c: &mut Criterion) {
 fn benchmark_gpu_utilization_training(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("gpu_utilization_training");
-    group.measurement_time(Duration::from_secs(25));
+    let mut group = slow_group(c, "gpu_utilization_training");
 
     let gpu_scenarios = vec![
         ("single_gpu", 1, vec![784, 2048, 1024, 10]),
@@ -268,8 +288,7 @@ fn benchmark_gpu_utilization_training(c: &mut Criterion) {
 fn benchmark_network_latency_consensus(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("network_latency_consensus");
-    group.measurement_time(Duration::from_secs(30));
+    let mut group = slow_group(c, "network_latency_consensus");
 
     let latency_scenarios = vec![
         ("lan", 1),         // 1ms LAN
@@ -311,8 +330,7 @@ fn benchmark_network_latency_consensus(c: &mut Criterion) {
 fn benchmark_bandwidth_compression_efficiency(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("bandwidth_compression_efficiency");
-    group.measurement_time(Duration::from_secs(20));
+    let mut group = slow_group(c, "bandwidth_compression_efficiency");
 
     let compression_levels = vec![("none", 1.0), ("low", 0.7), ("medium", 0.5), ("high", 0.3)];
 
@@ -348,8 +366,7 @@ fn benchmark_bandwidth_compression_efficiency(c: &mut Criterion) {
 fn benchmark_resource_usage_p2p_discovery(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("resource_usage_p2p_discovery");
-    group.measurement_time(Duration::from_secs(25));
+    let mut group = slow_group(c, "resource_usage_p2p_discovery");
 
     let network_sizes = vec![10, 50, 100, 500, 1000];
 
@@ -378,21 +395,16 @@ fn benchmark_resource_usage_p2p_discovery(c: &mut Criterion) {
 
 // Helper functions for resource simulation
 
-fn create_gradient(size: usize) -> Vec<f32> {
-    let mut rng = rand::thread_rng();
-    (0..size).map(|_| rng.gen_range(-0.01..0.01)).collect()
-}
-
-async fn simulate_gradient_transfer(monitor: &ResourceMonitor, gradient: &[f32]) {
-    let bytes_transferred = gradient.len() * 4; // 4 bytes per f32
+async fn simulate_gradient_transfer(monitor: &ResourceMonitor, gradient_len: usize) {
+    let bytes_transferred = gradient_len * 4; // 4 bytes per f32
     monitor.record_bandwidth(bytes_transferred as u64);
 
     // Simulate network transfer time
     let transfer_time = Duration::from_micros((bytes_transferred / 1000) as u64);
-    tokio::time::sleep(transfer_time).await;
+    sim_sleep(transfer_time).await;
 
     // Simulate CPU work for serialization/compression
-    monitor.record_cpu_work(gradient.len() as u64);
+    monitor.record_cpu_work(gradient_len as u64);
 }
 
 async fn simulate_training_workload(
@@ -422,7 +434,7 @@ async fn simulate_training_workload(
         monitor.record_cpu_work(backward_ops as u64);
 
         // Simulate computation time
-        tokio::time::sleep(Duration::from_micros(100)).await;
+        sim_sleep(Duration::from_micros(100)).await;
     }
 }
 
@@ -442,7 +454,7 @@ async fn simulate_distributed_memory_usage(
     monitor.record_memory_usage(total_with_buffers as u64);
 
     // Simulate memory allocation time
-    tokio::time::sleep(Duration::from_millis(10)).await;
+    sim_sleep(Duration::from_millis(10)).await;
 }
 
 async fn simulate_gpu_training_workload(
@@ -468,7 +480,7 @@ async fn simulate_gpu_training_workload(
         monitor.record_gpu_work(gpu_ops as u64);
 
         // GPU computation time
-        tokio::time::sleep(Duration::from_micros(50)).await;
+        sim_sleep(Duration::from_micros(50)).await;
     }
 }
 
@@ -485,7 +497,7 @@ async fn simulate_consensus_with_latency(
         monitor.record_bandwidth(message_size);
 
         // Network latency
-        tokio::time::sleep(Duration::from_millis(latency_ms)).await;
+        sim_sleep(Duration::from_millis(latency_ms)).await;
 
         // CPU work for message verification
         monitor.record_cpu_work(1000);
@@ -507,11 +519,11 @@ async fn simulate_compressed_transfer(
 
     // Compression time
     let compression_time = Duration::from_micros((original_size / 1000) as u64);
-    tokio::time::sleep(compression_time).await;
+    sim_sleep(compression_time).await;
 
     // Transfer time
     let transfer_time = Duration::from_micros(compressed_size / 1000);
-    tokio::time::sleep(transfer_time).await;
+    sim_sleep(transfer_time).await;
 }
 
 async fn simulate_p2p_discovery(monitor: &ResourceMonitor, network_size: usize) {
@@ -526,7 +538,7 @@ async fn simulate_p2p_discovery(monitor: &ResourceMonitor, network_size: usize) 
         monitor.record_cpu_work(100);
 
         // Network round trip
-        tokio::time::sleep(Duration::from_millis(10)).await;
+        sim_sleep(Duration::from_millis(10)).await;
     }
 
     // Memory usage for peer tables

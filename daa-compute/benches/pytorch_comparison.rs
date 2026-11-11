@@ -1,8 +1,34 @@
 //! PyTorch Distributed vs DAA Performance Comparison Benchmarks
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{
+    black_box, criterion_group, criterion_main, measurement::WallTime, BenchmarkGroup, BenchmarkId,
+    Criterion, SamplingMode, Throughput,
+};
 use std::time::Duration;
 use tokio::runtime::Runtime;
+
+/// Modelled delays (network transfers, consensus rounds, synchronisation) run
+/// this many times faster than the wall-clock time they model, so the whole
+/// suite fits in CI. Every scenario is scaled alike, so results stay comparable.
+const SIM_SPEEDUP: u32 = 20;
+
+/// Sleep for a modelled delay, scaled by [`SIM_SPEEDUP`].
+async fn sim_sleep(modelled: Duration) {
+    tokio::time::sleep(modelled / SIM_SPEEDUP).await;
+}
+
+/// These benchmarks are dominated by simulated delays and multi-millisecond
+/// iterations, so a few flat samples give a stable mean without spending
+/// minutes per point.
+fn slow_group<'a>(c: &'a mut Criterion, name: &str) -> BenchmarkGroup<'a, WallTime> {
+    let mut group = c.benchmark_group(name);
+    group
+        .sample_size(10)
+        .warm_up_time(Duration::from_millis(500))
+        .measurement_time(Duration::from_secs(2))
+        .sampling_mode(SamplingMode::Flat);
+    group
+}
 
 /// Simulated PyTorch distributed training metrics
 #[derive(Debug, Clone)]
@@ -42,8 +68,7 @@ pub struct ComparisonResult {
 fn benchmark_training_time_comparison(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("training_time_comparison");
-    group.measurement_time(Duration::from_secs(40));
+    let mut group = slow_group(c, "training_time_comparison");
 
     let scenarios = vec![
         ("small_model", vec![784, 128, 10], 32, 4),
@@ -94,8 +119,7 @@ fn benchmark_training_time_comparison(c: &mut Criterion) {
 fn benchmark_communication_overhead_comparison(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("communication_overhead_comparison");
-    group.measurement_time(Duration::from_secs(35));
+    let mut group = slow_group(c, "communication_overhead_comparison");
 
     let node_counts = vec![2, 4, 8, 16, 32, 64];
     let model_size = vec![784, 512, 256, 10]; // Fixed model size
@@ -126,9 +150,7 @@ fn benchmark_communication_overhead_comparison(c: &mut Criterion) {
 fn benchmark_scalability_comparison(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("scalability_comparison");
-    group.measurement_time(Duration::from_secs(45));
-    group.sample_size(10);
+    let mut group = slow_group(c, "scalability_comparison");
 
     let scale_scenarios = vec![
         ("small_scale", 8),
@@ -160,8 +182,7 @@ fn benchmark_scalability_comparison(c: &mut Criterion) {
 fn benchmark_fault_tolerance_comparison(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("fault_tolerance_comparison");
-    group.measurement_time(Duration::from_secs(30));
+    let mut group = slow_group(c, "fault_tolerance_comparison");
 
     let fault_scenarios = vec![
         ("no_faults", 0),
@@ -197,8 +218,7 @@ fn benchmark_fault_tolerance_comparison(c: &mut Criterion) {
 fn benchmark_bandwidth_efficiency_comparison(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("bandwidth_efficiency_comparison");
-    group.measurement_time(Duration::from_secs(25));
+    let mut group = slow_group(c, "bandwidth_efficiency_comparison");
 
     let bandwidth_scenarios = vec![
         ("high_bandwidth", 1000.0),  // 1 Gbps
@@ -242,8 +262,7 @@ fn benchmark_bandwidth_efficiency_comparison(c: &mut Criterion) {
 fn benchmark_convergence_speed_comparison(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("convergence_speed_comparison");
-    group.measurement_time(Duration::from_secs(35));
+    let mut group = slow_group(c, "convergence_speed_comparison");
 
     let convergence_scenarios = vec![
         ("easy_task", 0.1),    // Easy convergence
@@ -278,8 +297,7 @@ fn benchmark_convergence_speed_comparison(c: &mut Criterion) {
 fn benchmark_heterogeneous_network_comparison(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("heterogeneous_network_comparison");
-    group.measurement_time(Duration::from_secs(40));
+    let mut group = slow_group(c, "heterogeneous_network_comparison");
 
     let heterogeneity_levels = vec![
         ("homogeneous", 0.0),   // All nodes same capability
@@ -325,7 +343,7 @@ async fn simulate_pytorch_training(
     let communication_overhead = simulate_pytorch_allreduce_overhead(param_count, num_nodes);
 
     // Simulate training time
-    tokio::time::sleep(Duration::from_millis((base_training_time / 100.0) as u64)).await;
+    sim_sleep(Duration::from_millis((base_training_time / 100.0) as u64)).await;
 
     PyTorchMetrics {
         training_time_ms: base_training_time + communication_overhead,
@@ -355,7 +373,7 @@ async fn simulate_daa_training(
     let communication_overhead = simulate_daa_gradient_sharing_overhead(param_count, num_nodes);
 
     // Simulate training time
-    tokio::time::sleep(Duration::from_millis((base_training_time / 100.0) as u64)).await;
+    sim_sleep(Duration::from_millis((base_training_time / 100.0) as u64)).await;
 
     DaaMetrics {
         training_time_ms: base_training_time + communication_overhead + consensus_overhead,
@@ -380,7 +398,7 @@ async fn simulate_pytorch_communication(layers: &[usize], num_nodes: usize) -> f
     let rounds = (num_nodes as f64).log2().ceil();
     let comm_time = param_count as f64 * rounds * 0.001; // 1 microsecond per parameter per round
 
-    tokio::time::sleep(Duration::from_micros((comm_time / 10.0) as u64)).await;
+    sim_sleep(Duration::from_micros((comm_time / 10.0) as u64)).await;
     comm_time
 }
 
@@ -399,7 +417,7 @@ async fn simulate_daa_communication(layers: &[usize], num_nodes: usize) -> f64 {
     let comm_time =
         param_count as f64 * (local_rounds + global_rounds) * 0.0007 * compression_factor;
 
-    tokio::time::sleep(Duration::from_micros((comm_time / 10.0) as u64)).await;
+    sim_sleep(Duration::from_micros((comm_time / 10.0) as u64)).await;
     comm_time
 }
 
@@ -409,7 +427,7 @@ async fn measure_pytorch_scalability(node_count: usize) -> f64 {
     let comm_penalty = (node_count as f64).log2() * 0.1; // Log scaling penalty
     let efficiency = base_efficiency / (1.0 + comm_penalty);
 
-    tokio::time::sleep(Duration::from_millis(10)).await;
+    sim_sleep(Duration::from_millis(10)).await;
     efficiency
 }
 
@@ -420,7 +438,7 @@ async fn measure_daa_scalability(node_count: usize) -> f64 {
     let consensus_penalty = (node_count as f64).log2() * 0.03; // Consensus overhead
     let efficiency = base_efficiency / (1.0 + consensus_penalty - p2p_benefit);
 
-    tokio::time::sleep(Duration::from_millis(10)).await;
+    sim_sleep(Duration::from_millis(10)).await;
     efficiency.max(0.1) // Minimum efficiency
 }
 
@@ -433,7 +451,7 @@ async fn simulate_pytorch_with_faults(node_count: usize, fault_percentage: u32) 
 
     let resilience_score = reduced_throughput / restart_penalty;
 
-    tokio::time::sleep(Duration::from_millis(5)).await;
+    sim_sleep(Duration::from_millis(5)).await;
     resilience_score.max(0.1)
 }
 
@@ -450,7 +468,7 @@ async fn simulate_daa_with_faults(node_count: usize, fault_percentage: u32) -> f
 
     let resilience_score = p2p_resilience * consensus_penalty;
 
-    tokio::time::sleep(Duration::from_millis(5)).await;
+    sim_sleep(Duration::from_millis(5)).await;
     resilience_score.max(0.1)
 }
 
@@ -469,7 +487,7 @@ async fn simulate_pytorch_bandwidth_usage(
     let data_per_round = (param_count * 4) as f64 / (1024.0 * 1024.0); // MB
     let rounds_per_second = bandwidth_mbps / (data_per_round * node_count as f64);
 
-    tokio::time::sleep(Duration::from_millis(5)).await;
+    sim_sleep(Duration::from_millis(5)).await;
     rounds_per_second
 }
 
@@ -490,7 +508,7 @@ async fn simulate_daa_bandwidth_usage(
     let effective_bandwidth = bandwidth_mbps * 1.2; // Better utilization
     let rounds_per_second = effective_bandwidth / (data_per_round * (node_count as f64 / 2.0)); // Local aggregation
 
-    tokio::time::sleep(Duration::from_millis(5)).await;
+    sim_sleep(Duration::from_millis(5)).await;
     rounds_per_second
 }
 
@@ -501,7 +519,7 @@ async fn simulate_pytorch_convergence(layers: &[usize], target_loss: f64) -> (f6
     let total_time = base_convergence_time * distributed_penalty;
     let epochs = estimate_convergence_epochs(layers.iter().sum::<usize>());
 
-    tokio::time::sleep(Duration::from_millis(10)).await;
+    sim_sleep(Duration::from_millis(10)).await;
     (total_time, epochs)
 }
 
@@ -512,7 +530,7 @@ async fn simulate_daa_convergence(layers: &[usize], target_loss: f64) -> (f64, u
     let total_time = base_convergence_time * p2p_benefit;
     let epochs = estimate_convergence_epochs(layers.iter().sum::<usize>());
 
-    tokio::time::sleep(Duration::from_millis(10)).await;
+    sim_sleep(Duration::from_millis(10)).await;
     (total_time, epochs)
 }
 
@@ -521,7 +539,7 @@ async fn simulate_pytorch_heterogeneous(variance: f64) -> f64 {
     let slowdown_factor = 1.0 + variance * 2.0; // High penalty for heterogeneity
     let efficiency = 1.0 / slowdown_factor;
 
-    tokio::time::sleep(Duration::from_millis(5)).await;
+    sim_sleep(Duration::from_millis(5)).await;
     efficiency
 }
 
@@ -530,7 +548,7 @@ async fn simulate_daa_heterogeneous(variance: f64) -> f64 {
     let slowdown_factor = 1.0 + variance * 0.5; // Lower penalty
     let efficiency = 1.0 / slowdown_factor;
 
-    tokio::time::sleep(Duration::from_millis(5)).await;
+    sim_sleep(Duration::from_millis(5)).await;
     efficiency
 }
 
