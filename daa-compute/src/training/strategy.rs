@@ -1,14 +1,13 @@
-use super::{ModelInterface, TrainingMetrics};
-use crate::{DiLoCoConfig, ElasticDeviceMesh, FederatedSGD, GradientAggregator, RoundCoordinator};
+use super::{DataLoader, ModelInterface, TrainingMetrics};
+use crate::{DiLoCoConfig, ElasticDeviceMesh, GradientAggregator, RoundCoordinator};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use tokio::time::{interval, Duration};
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
 pub struct TrainingStrategy {
     config: DiLoCoConfig,
     mesh: Arc<RwLock<ElasticDeviceMesh>>,
-    federated_sgd: Arc<FederatedSGD>,
     aggregator: Arc<GradientAggregator>,
     coordinator: Arc<RoundCoordinator>,
 }
@@ -16,14 +15,12 @@ pub struct TrainingStrategy {
 impl TrainingStrategy {
     pub async fn new(config: DiLoCoConfig) -> anyhow::Result<Self> {
         let mesh = Arc::new(RwLock::new(ElasticDeviceMesh::new().await?));
-        let federated_sgd = Arc::new(FederatedSGD::new(config.clone()).await?);
         let aggregator = Arc::new(GradientAggregator::new(config.gradient_compression).await?);
         let coordinator = Arc::new(RoundCoordinator::new(mesh.clone()).await?);
 
         Ok(Self {
             config,
             mesh,
-            federated_sgd,
             aggregator,
             coordinator,
         })
@@ -35,23 +32,28 @@ impl TrainingStrategy {
         model: Arc<RwLock<dyn ModelInterface>>,
         data_loader: Arc<dyn DataLoader>,
     ) -> anyhow::Result<()> {
-        info!("Starting DiLoCo distributed training with {} local epochs", self.config.local_epochs);
-        
+        info!(
+            "Starting DiLoCo distributed training with {} local epochs",
+            self.config.local_epochs
+        );
+
         let (tx_metrics, mut rx_metrics) = mpsc::channel::<TrainingMetrics>(100);
-        
-        // Spawn metrics aggregation task
-        let metrics_handle = tokio::spawn(async move {
+
+        // Spawn metrics aggregation task; it ends when `tx_metrics` is dropped
+        tokio::spawn(async move {
             while let Some(metrics) = rx_metrics.recv().await {
                 info!(
                     "Training metrics - Loss: {:.4}, Accuracy: {:.2}%, Gradients norm: {:.4}",
-                    metrics.loss, metrics.accuracy * 100.0, metrics.gradients_norm
+                    metrics.loss,
+                    metrics.accuracy * 100.0,
+                    metrics.gradients_norm
                 );
             }
         });
 
         let mut round = 0u64;
         let mut sync_timer = interval(Duration::from_secs(self.config.max_local_time_minutes * 60));
-        
+
         loop {
             // Check if we should sync based on time or epochs
             let should_sync = tokio::select! {
@@ -104,24 +106,24 @@ impl TrainingStrategy {
         metrics_tx: &mpsc::Sender<TrainingMetrics>,
     ) -> anyhow::Result<()> {
         let mut local_steps = 0;
-        
+
         while local_steps < self.config.local_epochs {
             // Get next batch
             let batch = data_loader.next_batch().await?;
-            
+
             // Forward pass
             let mut model_guard = model.write().await;
             let output = model_guard.forward(&batch.data);
-            
+
             // Calculate loss (simplified)
             let loss = self.calculate_loss(&output, &batch.labels);
-            
+
             // Backward pass
             let gradient = model_guard.backward(loss);
-            
+
             // Apply gradient locally
             model_guard.apply_gradient(&gradient);
-            
+
             // Send metrics
             let metrics = TrainingMetrics {
                 loss,
@@ -129,17 +131,17 @@ impl TrainingStrategy {
                 gradients_norm: self.calculate_gradient_norm(&gradient),
                 communication_bytes: 0, // No communication during local training
             };
-            
+
             let _ = metrics_tx.send(metrics).await;
-            
+
             local_steps += 1;
-            
+
             // Yield to allow other tasks to run
             if local_steps % 10 == 0 {
                 tokio::task::yield_now().await;
             }
         }
-        
+
         Ok(())
     }
 
@@ -150,45 +152,46 @@ impl TrainingStrategy {
         round: u64,
     ) -> anyhow::Result<u64> {
         info!("Starting global synchronization for round {}", round);
-        
+
         // Get current model parameters
         let current_params = {
             let model_guard = model.read().await;
             model_guard.get_parameters()
         };
-        
+
         // Perform federated averaging through coordinator
-        let (aggregated_params, comm_bytes) = self.coordinator
+        let (aggregated_params, comm_bytes) = self
+            .coordinator
             .coordinate_round(round, current_params, &self.aggregator)
             .await?;
-        
+
         // Update local model with aggregated parameters
         {
             let mut model_guard = model.write().await;
             model_guard.set_parameters(aggregated_params);
         }
-        
+
         Ok(comm_bytes)
     }
 
     /// Handle elastic membership changes
     async fn handle_elastic_membership(&self) -> anyhow::Result<()> {
         let mut mesh_guard = self.mesh.write().await;
-        
+
         // Check for new nodes
         let new_nodes = mesh_guard.check_new_nodes().await?;
         for node in new_nodes {
             info!("New node joined: {}", node.id);
             mesh_guard.add_node(node).await?;
         }
-        
+
         // Check for failed nodes
         let failed_nodes = mesh_guard.check_failed_nodes().await?;
         for node_id in failed_nodes {
             warn!("Node failed: {}", node_id);
             mesh_guard.remove_node(&node_id).await?;
         }
-        
+
         Ok(())
     }
 
@@ -207,15 +210,18 @@ impl TrainingStrategy {
 
     fn calculate_loss(&self, output: &[f32], labels: &[f32]) -> f32 {
         // Simplified MSE loss
-        output.iter()
+        output
+            .iter()
             .zip(labels.iter())
             .map(|(o, l)| (o - l).powi(2))
-            .sum::<f32>() / output.len() as f32
+            .sum::<f32>()
+            / output.len() as f32
     }
 
     fn calculate_accuracy(&self, output: &[f32], labels: &[f32]) -> f32 {
         // Simplified accuracy calculation
-        let correct = output.iter()
+        let correct = output
+            .iter()
             .zip(labels.iter())
             .filter(|(o, l)| (o.round() - l.round()).abs() < f32::EPSILON)
             .count();
@@ -223,20 +229,11 @@ impl TrainingStrategy {
     }
 
     fn calculate_gradient_norm(&self, gradient: &super::Gradient) -> f32 {
-        gradient.values.iter()
+        gradient
+            .values
+            .iter()
             .map(|v| v.powi(2))
             .sum::<f32>()
             .sqrt()
     }
-}
-
-#[async_trait::async_trait]
-pub trait DataLoader: Send + Sync {
-    async fn next_batch(&self) -> anyhow::Result<DataBatch>;
-}
-
-#[derive(Debug)]
-pub struct DataBatch {
-    pub data: Vec<f32>,
-    pub labels: Vec<f32>,
 }

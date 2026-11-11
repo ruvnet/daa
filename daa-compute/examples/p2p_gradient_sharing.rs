@@ -4,31 +4,37 @@
 //! for distributed AI training with gradient aggregation.
 
 use anyhow::Result;
-use daa_compute::{GradientMessage, P2PNetwork, SwarmConfig};
+use daa_compute::{P2PNetwork, SwarmConfig};
 use libp2p::{Multiaddr, PeerId};
-use tokio;
-use tracing::{info, Level};
-use tracing_subscriber;
+use tracing::{info, warn, Level};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize logging
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
+    // `cloud` and `edge` run the node profiles below; the default is a demo node
+    #[cfg(not(target_arch = "wasm32"))]
+    match std::env::args().nth(1).as_deref() {
+        Some("cloud") => return cloud::run_cloud_node().await,
+        Some("edge") => return edge::run_edge_node().await,
+        _ => {}
+    }
+
     // Create swarm configuration
-    let mut config = SwarmConfig::default();
-
-    // Add bootstrap nodes (these would be well-known nodes in production)
-    config.bootstrap_nodes = vec![(
-        "12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp".parse::<PeerId>()?,
-        "/ip4/104.131.131.82/tcp/4001".parse::<Multiaddr>()?,
-    )];
-
-    // Enable all features
-    config.enable_mdns = true;
-    config.enable_nat_traversal = true;
-    config.enable_relay = true;
-    config.compression_level = 3; // Zstd level 3 for good balance
+    let config = SwarmConfig {
+        // Add bootstrap nodes (these would be well-known nodes in production)
+        bootstrap_nodes: vec![(
+            "12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp".parse::<PeerId>()?,
+            "/ip4/104.131.131.82/tcp/4001".parse::<Multiaddr>()?,
+        )],
+        // Enable all features
+        enable_mdns: true,
+        enable_nat_traversal: true,
+        enable_relay: true,
+        compression_level: 3, // Zstd level 3 for good balance
+        ..SwarmConfig::default()
+    };
 
     // Create P2P network
     let mut network = P2PNetwork::new(config).await?;
@@ -42,9 +48,11 @@ async fn main() -> Result<()> {
     let gradient = compute_gradient();
     info!("Computed local gradient with {} parameters", gradient.len());
 
-    // Broadcast gradient to network
-    network.broadcast_gradient(gradient).await?;
-    info!("Broadcasted gradient to network");
+    // Broadcast gradient to network (gossipsub refuses while no peer is subscribed)
+    match network.broadcast_gradient(gradient).await {
+        Ok(()) => info!("Broadcasted gradient to network"),
+        Err(e) => warn!("Gradient not broadcast yet: {}", e),
+    }
 
     // Run network event loop in background
     let network_handle = tokio::spawn(async move {
@@ -58,6 +66,7 @@ async fn main() -> Result<()> {
 
     // In production, you would wait for enough peers to contribute
     // and then retrieve the aggregated gradient
+    network_handle.abort();
 
     info!("Gradient sharing example completed");
 
@@ -120,7 +129,6 @@ mod browser {
 #[cfg(not(target_arch = "wasm32"))]
 mod cloud {
     use super::*;
-    use daa_compute::gradient::{AllReduceAlgorithm, GradientManager};
 
     pub async fn run_cloud_node() -> Result<()> {
         let config = SwarmConfig {

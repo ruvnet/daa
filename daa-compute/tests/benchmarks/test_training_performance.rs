@@ -1,13 +1,11 @@
 //! Performance benchmarks for distributed training components
 
+use crate::common::net;
 use anyhow::Result;
 use daa_compute::p2p::compression::{CompressionMethod, GradientCompressor};
 use daa_compute::protocols::aggregation::{AggregationStrategy, GradientAggregator};
-use daa_compute::training::{Gradient, ModelParameters, TrainingMetrics};
-use daa_compute::{P2PNetwork, SwarmConfig};
-use std::collections::HashMap;
+use daa_compute::training::Gradient;
 use std::time::{Duration, Instant};
-use tokio;
 
 #[cfg(test)]
 mod benchmarks {
@@ -127,16 +125,10 @@ mod benchmarks {
             ("Zstd-1", CompressionMethod::Zstd { level: 1 }),
             ("Zstd-3", CompressionMethod::Zstd { level: 3 }),
             ("Zstd-9", CompressionMethod::Zstd { level: 9 }),
-            ("TopK-100", CompressionMethod::TopK { k: 100 }),
-            ("TopK-1000", CompressionMethod::TopK { k: 1000 }),
-            (
-                "Quantization-4",
-                CompressionMethod::Quantization { bits: 4 },
-            ),
-            (
-                "Quantization-8",
-                CompressionMethod::Quantization { bits: 8 },
-            ),
+            ("Lz4-1", CompressionMethod::Lz4 { level: 1 }),
+            ("Lz4-9", CompressionMethod::Lz4 { level: 9 }),
+            ("Snappy", CompressionMethod::Snappy),
+            ("Int8-only", CompressionMethod::None),
         ];
 
         let gradient_data = vec![0.1_f32; 50000]; // 50K parameters
@@ -210,21 +202,13 @@ mod benchmarks {
 
     #[tokio::test]
     async fn benchmark_network_throughput() -> Result<()> {
-        let mut config1 = SwarmConfig::default();
-        config1.listen_addresses = vec!["/ip4/127.0.0.1/tcp/6000".parse()?];
+        let mut network1 = net::loopback_network().await?;
+        let mut network2 = net::loopback_network().await?;
+        net::connect_star(&mut network1, &mut [&mut network2]).await?;
+        let mut networks = [&mut network1, &mut network2];
 
-        let mut config2 = SwarmConfig::default();
-        config2.listen_addresses = vec!["/ip4/127.0.0.1/tcp/6001".parse()?];
-
-        let network1 = P2PNetwork::new(config1).await?;
-        let network2 = P2PNetwork::new(config2).await?;
-
-        // Connect networks
-        let addr1 = network1.get_listen_addresses().await?;
-        let peer_id1 = network1.local_peer_id();
-        network2.connect_to_peer(peer_id1, addr1[0].clone()).await?;
-
-        tokio::time::sleep(Duration::from_millis(500)).await;
+        // Wait until the receiver is subscribed so every publish is delivered
+        net::broadcast(&mut networks, 1, vec![0.0]).await?;
 
         // Benchmark gradient broadcasting
         let num_gradients = 100;
@@ -233,16 +217,30 @@ mod benchmarks {
         let start = Instant::now();
 
         for i in 0..num_gradients {
-            let gradient = create_test_gradient(&format!("throughput_{}", i), gradient_size, i);
-            network2.broadcast_gradient(gradient).await?;
+            let gradient =
+                create_test_gradient(&format!("throughput_{}", i), gradient_size, i as u64);
+            networks[1].broadcast_gradient(gradient.values).await?;
         }
 
         let send_duration = start.elapsed();
 
-        // Wait for all messages to be received
-        tokio::time::sleep(Duration::from_millis(1000)).await;
-
-        let received = network1.get_received_gradients().await?;
+        // Wait until the receiver holds a benchmark gradient rather than the
+        // warm-up one (it keeps the latest gradient per peer and round)
+        let deadline = Instant::now() + net::DEADLINE;
+        let received = loop {
+            let received = networks[0].received_gradients().await;
+            if received
+                .iter()
+                .any(|(_, values)| values.len() == gradient_size)
+            {
+                break received;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "benchmark gradients not received"
+            );
+            net::pump(&mut networks, Duration::from_millis(50)).await?;
+        };
 
         let throughput = num_gradients as f64 / send_duration.as_secs_f64();
         let data_rate = (num_gradients * gradient_size * 4) as f64
@@ -257,7 +255,7 @@ mod benchmarks {
 
         // Should achieve reasonable throughput
         assert!(throughput > 10.0); // At least 10 gradients per second
-        assert!(received.len() > 0);
+        assert!(!received.is_empty());
 
         Ok(())
     }
@@ -318,9 +316,6 @@ mod benchmarks {
 
     #[tokio::test]
     async fn benchmark_memory_usage() -> Result<()> {
-        use std::alloc::{GlobalAlloc, Layout, System};
-        use std::sync::atomic::{AtomicUsize, Ordering};
-
         // This is a simplified memory tracking - in practice you'd use more sophisticated tools
 
         let large_gradient_size = 1000000; // 1M parameters
@@ -355,7 +350,8 @@ mod benchmarks {
         Ok(())
     }
 
-    #[tokio::test]
+    // Aggregation is CPU-bound, so tasks only overlap on a multi-threaded runtime.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn benchmark_concurrent_aggregation() -> Result<()> {
         let num_concurrent = 10;
         let gradients_per_task = 20;
@@ -422,8 +418,8 @@ mod benchmarks {
 
         let compression_methods = vec![
             CompressionMethod::Zstd { level: 3 },
-            CompressionMethod::TopK { k: 6 }, // Keep top 6 out of 8
-            CompressionMethod::Quantization { bits: 8 },
+            CompressionMethod::Lz4 { level: 4 },
+            CompressionMethod::None, // int8 quantisation only
         ];
 
         for method in compression_methods {

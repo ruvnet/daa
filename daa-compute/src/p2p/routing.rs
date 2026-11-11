@@ -85,12 +85,15 @@ mod peer_id_serde {
     }
 }
 
+/// Cached multi-hop paths keyed by (source, destination).
+type RouteCache = HashMap<(PeerId, PeerId), Vec<PeerId>>;
+
 /// Router manages message routing in the P2P network
 pub struct Router {
     local_peer_id: PeerId,
     routing_table: Arc<RwLock<HashMap<PeerId, RouteEntry>>>,
     pending_messages: Arc<RwLock<HashMap<String, RoutedMessage>>>,
-    route_cache: Arc<RwLock<HashMap<(PeerId, PeerId), Vec<PeerId>>>>,
+    route_cache: Arc<RwLock<RouteCache>>,
 }
 
 impl Router {
@@ -137,7 +140,7 @@ impl Router {
     fn find_direct_route(&self, destination: &PeerId) -> Result<Vec<PeerId>> {
         let table = self.routing_table.read();
         if table.contains_key(destination) {
-            Ok(vec![destination.clone()])
+            Ok(vec![*destination])
         } else {
             Err(anyhow!("No direct route to destination"))
         }

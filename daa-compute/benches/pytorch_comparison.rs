@@ -1,8 +1,7 @@
 //! PyTorch Distributed vs DAA Performance Comparison Benchmarks
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use rand::prelude::*;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tokio::runtime::Runtime;
 
 /// Simulated PyTorch distributed training metrics
@@ -68,8 +67,8 @@ fn benchmark_training_time_comparison(c: &mut Criterion) {
                 b.to_async(&rt).iter(|| async move {
                     // Run both PyTorch and DAA simulations
                     let pytorch_result =
-                        simulate_pytorch_training(&layers, *batch_size, *num_nodes).await;
-                    let daa_result = simulate_daa_training(&layers, *batch_size, *num_nodes).await;
+                        simulate_pytorch_training(layers, *batch_size, *num_nodes).await;
+                    let daa_result = simulate_daa_training(layers, *batch_size, *num_nodes).await;
 
                     let comparison = ComparisonResult {
                         pytorch_metrics: pytorch_result.clone(),
@@ -100,6 +99,7 @@ fn benchmark_communication_overhead_comparison(c: &mut Criterion) {
 
     let node_counts = vec![2, 4, 8, 16, 32, 64];
     let model_size = vec![784, 512, 256, 10]; // Fixed model size
+    let model_size = &model_size;
 
     for node_count in node_counts {
         group.throughput(Throughput::Elements(node_count as u64));
@@ -109,9 +109,8 @@ fn benchmark_communication_overhead_comparison(c: &mut Criterion) {
             &node_count,
             |b, &node_count| {
                 b.to_async(&rt).iter(|| async move {
-                    let pytorch_comm =
-                        simulate_pytorch_communication(&model_size, node_count).await;
-                    let daa_comm = simulate_daa_communication(&model_size, node_count).await;
+                    let pytorch_comm = simulate_pytorch_communication(model_size, node_count).await;
+                    let daa_comm = simulate_daa_communication(model_size, node_count).await;
 
                     let overhead_ratio = daa_comm / pytorch_comm;
                     black_box((pytorch_comm, daa_comm, overhead_ratio))
@@ -132,21 +131,20 @@ fn benchmark_scalability_comparison(c: &mut Criterion) {
     group.sample_size(10);
 
     let scale_scenarios = vec![
-        ("small_scale", 8, vec![784, 256, 10]),
-        ("medium_scale", 32, vec![784, 512, 256, 10]),
-        ("large_scale", 128, vec![784, 1024, 512, 10]),
-        ("xlarge_scale", 512, vec![784, 2048, 1024, 10]),
+        ("small_scale", 8),
+        ("medium_scale", 32),
+        ("large_scale", 128),
+        ("xlarge_scale", 512),
     ];
 
-    for (scale_name, node_count, layers) in scale_scenarios {
+    for (scale_name, node_count) in scale_scenarios {
         group.bench_with_input(
             BenchmarkId::new("scale", scale_name),
-            &(node_count, layers),
-            |b, (node_count, layers)| {
+            &node_count,
+            |b, &node_count| {
                 b.to_async(&rt).iter(|| async move {
-                    let pytorch_scalability =
-                        measure_pytorch_scalability(layers, *node_count).await;
-                    let daa_scalability = measure_daa_scalability(layers, *node_count).await;
+                    let pytorch_scalability = measure_pytorch_scalability(node_count).await;
+                    let daa_scalability = measure_daa_scalability(node_count).await;
 
                     let scalability_ratio = daa_scalability / pytorch_scalability;
                     black_box((pytorch_scalability, daa_scalability, scalability_ratio))
@@ -173,7 +171,6 @@ fn benchmark_fault_tolerance_comparison(c: &mut Criterion) {
     ];
 
     let node_count = 20;
-    let model_layers = vec![784, 512, 10];
 
     for (fault_name, fault_percentage) in fault_scenarios {
         group.bench_with_input(
@@ -182,10 +179,9 @@ fn benchmark_fault_tolerance_comparison(c: &mut Criterion) {
             |b, &fault_percentage| {
                 b.to_async(&rt).iter(|| async move {
                     let pytorch_resilience =
-                        simulate_pytorch_with_faults(&model_layers, node_count, fault_percentage)
-                            .await;
+                        simulate_pytorch_with_faults(node_count, fault_percentage).await;
                     let daa_resilience =
-                        simulate_daa_with_faults(&model_layers, node_count, fault_percentage).await;
+                        simulate_daa_with_faults(node_count, fault_percentage).await;
 
                     let resilience_ratio = daa_resilience / pytorch_resilience;
                     black_box((pytorch_resilience, daa_resilience, resilience_ratio))
@@ -212,6 +208,7 @@ fn benchmark_bandwidth_efficiency_comparison(c: &mut Criterion) {
     ];
 
     let model_layers = vec![784, 512, 256, 10];
+    let model_layers = &model_layers;
     let node_count = 8;
 
     for (bandwidth_name, bandwidth_mbps) in bandwidth_scenarios {
@@ -225,10 +222,10 @@ fn benchmark_bandwidth_efficiency_comparison(c: &mut Criterion) {
             |b, &bandwidth_mbps| {
                 b.to_async(&rt).iter(|| async move {
                     let pytorch_efficiency =
-                        simulate_pytorch_bandwidth_usage(&model_layers, node_count, bandwidth_mbps)
+                        simulate_pytorch_bandwidth_usage(model_layers, node_count, bandwidth_mbps)
                             .await;
                     let daa_efficiency =
-                        simulate_daa_bandwidth_usage(&model_layers, node_count, bandwidth_mbps)
+                        simulate_daa_bandwidth_usage(model_layers, node_count, bandwidth_mbps)
                             .await;
 
                     let efficiency_ratio = daa_efficiency / pytorch_efficiency;
@@ -249,24 +246,23 @@ fn benchmark_convergence_speed_comparison(c: &mut Criterion) {
     group.measurement_time(Duration::from_secs(35));
 
     let convergence_scenarios = vec![
-        ("easy_task", 0.1, 10),    // Easy convergence, 10 epochs
-        ("medium_task", 0.05, 50), // Medium convergence, 50 epochs
-        ("hard_task", 0.01, 200),  // Hard convergence, 200 epochs
+        ("easy_task", 0.1),    // Easy convergence
+        ("medium_task", 0.05), // Medium convergence
+        ("hard_task", 0.01),   // Hard convergence
     ];
 
     let model_layers = vec![784, 256, 10];
-    let node_count = 8;
+    let model_layers = &model_layers;
 
-    for (task_name, target_loss, expected_epochs) in convergence_scenarios {
+    for (task_name, target_loss) in convergence_scenarios {
         group.bench_with_input(
             BenchmarkId::new("task", task_name),
-            &(target_loss, expected_epochs),
-            |b, &(target_loss, expected_epochs)| {
+            &target_loss,
+            |b, &target_loss| {
                 b.to_async(&rt).iter(|| async move {
                     let pytorch_convergence =
-                        simulate_pytorch_convergence(&model_layers, node_count, target_loss).await;
-                    let daa_convergence =
-                        simulate_daa_convergence(&model_layers, node_count, target_loss).await;
+                        simulate_pytorch_convergence(model_layers, target_loss).await;
+                    let daa_convergence = simulate_daa_convergence(model_layers, target_loss).await;
 
                     let convergence_ratio = pytorch_convergence.0 / daa_convergence.0; // Time ratio
                     black_box((pytorch_convergence, daa_convergence, convergence_ratio))
@@ -292,19 +288,14 @@ fn benchmark_heterogeneous_network_comparison(c: &mut Criterion) {
         ("high_hetero", 0.9),   // 90% capability variance
     ];
 
-    let model_layers = vec![784, 512, 256, 10];
-    let node_count = 16;
-
     for (hetero_name, variance) in heterogeneity_levels {
         group.bench_with_input(
             BenchmarkId::new("heterogeneity", hetero_name),
             &variance,
             |b, &variance| {
                 b.to_async(&rt).iter(|| async move {
-                    let pytorch_perf =
-                        simulate_pytorch_heterogeneous(&model_layers, node_count, variance).await;
-                    let daa_perf =
-                        simulate_daa_heterogeneous(&model_layers, node_count, variance).await;
+                    let pytorch_perf = simulate_pytorch_heterogeneous(variance).await;
+                    let daa_perf = simulate_daa_heterogeneous(variance).await;
 
                     let performance_ratio = daa_perf / pytorch_perf;
                     black_box((pytorch_perf, daa_perf, performance_ratio))
@@ -369,7 +360,7 @@ async fn simulate_daa_training(
     DaaMetrics {
         training_time_ms: base_training_time + communication_overhead + consensus_overhead,
         communication_overhead_ms: communication_overhead,
-        memory_usage_mb: (param_count * 4 * 1.5) as f64 / (1024.0 * 1024.0), // More efficient memory usage
+        memory_usage_mb: (param_count * 4) as f64 * 1.5 / (1024.0 * 1024.0), // More efficient memory usage
         bandwidth_utilization_mbps: (param_count * 4 * num_nodes) as f64 / (1024.0 * 1024.0) * 0.7, // Better compression
         convergence_epochs: estimate_convergence_epochs(param_count),
         throughput_samples_per_sec: (batch_size * num_nodes) as f64 / (base_training_time / 1000.0),
@@ -412,13 +403,7 @@ async fn simulate_daa_communication(layers: &[usize], num_nodes: usize) -> f64 {
     comm_time
 }
 
-async fn measure_pytorch_scalability(layers: &[usize], node_count: usize) -> f64 {
-    let param_count: usize = layers
-        .windows(2)
-        .map(|pair| pair[0] * pair[1])
-        .sum::<usize>()
-        + layers[1..].iter().sum::<usize>();
-
+async fn measure_pytorch_scalability(node_count: usize) -> f64 {
     // PyTorch scalability degrades with communication overhead
     let base_efficiency = 1.0;
     let comm_penalty = (node_count as f64).log2() * 0.1; // Log scaling penalty
@@ -428,13 +413,7 @@ async fn measure_pytorch_scalability(layers: &[usize], node_count: usize) -> f64
     efficiency
 }
 
-async fn measure_daa_scalability(layers: &[usize], node_count: usize) -> f64 {
-    let param_count: usize = layers
-        .windows(2)
-        .map(|pair| pair[0] * pair[1])
-        .sum::<usize>()
-        + layers[1..].iter().sum::<usize>();
-
+async fn measure_daa_scalability(node_count: usize) -> f64 {
     // DAA has better scalability due to P2P architecture
     let base_efficiency = 1.0;
     let p2p_benefit = (node_count as f64).log2() * 0.05; // Smaller penalty
@@ -445,11 +424,7 @@ async fn measure_daa_scalability(layers: &[usize], node_count: usize) -> f64 {
     efficiency.max(0.1) // Minimum efficiency
 }
 
-async fn simulate_pytorch_with_faults(
-    layers: &[usize],
-    node_count: usize,
-    fault_percentage: u32,
-) -> f64 {
+async fn simulate_pytorch_with_faults(node_count: usize, fault_percentage: u32) -> f64 {
     let failed_nodes = (node_count * fault_percentage as usize) / 100;
 
     // PyTorch needs to restart training when nodes fail
@@ -462,15 +437,11 @@ async fn simulate_pytorch_with_faults(
     resilience_score.max(0.1)
 }
 
-async fn simulate_daa_with_faults(
-    layers: &[usize],
-    node_count: usize,
-    fault_percentage: u32,
-) -> f64 {
+async fn simulate_daa_with_faults(node_count: usize, fault_percentage: u32) -> f64 {
     let failed_nodes = (node_count * fault_percentage as usize) / 100;
 
     // DAA can continue with failed nodes due to P2P nature
-    let p2p_resilience = 0.9; // High resilience
+    let p2p_resilience: f64 = 0.9; // High resilience
     let consensus_penalty = if failed_nodes as f64 / node_count as f64 > 0.33 {
         0.5
     } else {
@@ -523,11 +494,7 @@ async fn simulate_daa_bandwidth_usage(
     rounds_per_second
 }
 
-async fn simulate_pytorch_convergence(
-    layers: &[usize],
-    node_count: usize,
-    target_loss: f64,
-) -> (f64, u32) {
+async fn simulate_pytorch_convergence(layers: &[usize], target_loss: f64) -> (f64, u32) {
     let base_convergence_time = estimate_convergence_time(layers.len(), target_loss);
     let distributed_penalty = 1.1; // Slight penalty for distributed training
 
@@ -538,11 +505,7 @@ async fn simulate_pytorch_convergence(
     (total_time, epochs)
 }
 
-async fn simulate_daa_convergence(
-    layers: &[usize],
-    node_count: usize,
-    target_loss: f64,
-) -> (f64, u32) {
+async fn simulate_daa_convergence(layers: &[usize], target_loss: f64) -> (f64, u32) {
     let base_convergence_time = estimate_convergence_time(layers.len(), target_loss);
     let p2p_benefit = 0.95; // Slight benefit from better gradient diversity
 
@@ -553,7 +516,7 @@ async fn simulate_daa_convergence(
     (total_time, epochs)
 }
 
-async fn simulate_pytorch_heterogeneous(layers: &[usize], node_count: usize, variance: f64) -> f64 {
+async fn simulate_pytorch_heterogeneous(variance: f64) -> f64 {
     // PyTorch synchronous training is bottlenecked by slowest node
     let slowdown_factor = 1.0 + variance * 2.0; // High penalty for heterogeneity
     let efficiency = 1.0 / slowdown_factor;
@@ -562,7 +525,7 @@ async fn simulate_pytorch_heterogeneous(layers: &[usize], node_count: usize, var
     efficiency
 }
 
-async fn simulate_daa_heterogeneous(layers: &[usize], node_count: usize, variance: f64) -> f64 {
+async fn simulate_daa_heterogeneous(variance: f64) -> f64 {
     // DAA can handle heterogeneity better with asynchronous updates
     let slowdown_factor = 1.0 + variance * 0.5; // Lower penalty
     let efficiency = 1.0 / slowdown_factor;
