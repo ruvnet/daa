@@ -159,6 +159,9 @@ jobs:
     needs: build-and-test
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write
+      id-token: write
 
     steps:
     - name: Checkout code
@@ -192,10 +195,33 @@ jobs:
       working-directory: qudag/qudag-napi
       run: npm run artifacts
 
+    # The npm token comes from GCP Secret Manager through keyless Workload
+    # Identity Federation (provider daa-ci, service account ci-daa). It only
+    # authenticates for this workflow on main or tags; no GitHub secret is used.
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: projects/186366152200/locations/global/workloadIdentityPools/github-ruvnet-ci/providers/daa-ci
+        service_account: ci-daa@cognitum-20260110.iam.gserviceaccount.com
+
+    - name: Fetch npm token
+      id: gsm
+      uses: google-github-actions/get-secretmanager-secrets@v2
+      with:
+        secrets: |-
+          npm:cognitum-20260110/NPM_TOKEN
+
+    # Fails the job early if the token is missing or rejected.
+    - name: Verify npm credentials
+      working-directory: qudag/qudag-napi
+      env:
+        NODE_AUTH_TOKEN: ${{ steps.gsm.outputs.npm }}
+      run: npm whoami
+
     - name: Publish to npm
       working-directory: qudag/qudag-napi
       env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        NODE_AUTH_TOKEN: ${{ steps.gsm.outputs.npm }}
       run: |
         # Set version from tag or input
         if [[ "${{ github.event_name }}" == "push" ]]; then
@@ -208,7 +234,7 @@ jobs:
         npm publish --access public
 
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       if: github.event_name == 'push'
       with:
         tag_name: ${{ github.ref_name }}
