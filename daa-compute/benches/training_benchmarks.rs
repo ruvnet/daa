@@ -1,9 +1,42 @@
 //! Training Convergence Speed Benchmarks
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{
+    black_box, criterion_group, criterion_main, measurement::WallTime, BenchmarkGroup, BenchmarkId,
+    Criterion, SamplingMode, Throughput,
+};
 use rand::prelude::*;
 use std::time::Duration;
 use tokio::runtime::Runtime;
+
+/// Modelled delays (network transfers, consensus rounds, synchronisation) run
+/// this many times faster than the wall-clock time they model, so the whole
+/// suite fits in CI. Every scenario is scaled alike, so results stay comparable.
+const SIM_SPEEDUP: u32 = 20;
+
+/// Epoch budget for "train to convergence". Random-label data rarely reaches the
+/// target loss, so this bounds each run (the time per epoch is what differs).
+const MAX_EPOCHS: usize = 3;
+
+/// Epochs per run in the batch-size benchmark.
+const BATCH_EPOCHS: usize = 2;
+
+/// Sleep for a modelled delay, scaled by [`SIM_SPEEDUP`].
+async fn sim_sleep(modelled: Duration) {
+    tokio::time::sleep(modelled / SIM_SPEEDUP).await;
+}
+
+/// These benchmarks are dominated by simulated delays and multi-millisecond
+/// iterations, so a few flat samples give a stable mean without spending
+/// minutes per point.
+fn slow_group<'a>(c: &'a mut Criterion, name: &str) -> BenchmarkGroup<'a, WallTime> {
+    let mut group = c.benchmark_group(name);
+    group
+        .sample_size(10)
+        .warm_up_time(Duration::from_millis(500))
+        .measurement_time(Duration::from_secs(2))
+        .sampling_mode(SamplingMode::Flat);
+    group
+}
 
 /// Represents a simple neural network model for benchmarking
 #[derive(Clone)]
@@ -102,8 +135,7 @@ impl BenchmarkModel {
 fn benchmark_training_convergence_model_size(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("training_convergence_model_size");
-    group.measurement_time(Duration::from_secs(30));
+    let mut group = slow_group(c, "training_convergence_model_size");
 
     let model_configs = vec![
         ("small", vec![784, 128, 10]),              // Small model
@@ -126,7 +158,7 @@ fn benchmark_training_convergence_model_size(c: &mut Criterion) {
             |b, layers| {
                 b.to_async(&rt).iter(|| async move {
                     let mut model = BenchmarkModel::new(layers.clone(), 0.001);
-                    let dataset = generate_training_data(1000, layers[0], *layers.last().unwrap());
+                    let dataset = generate_training_data(100, layers[0], *layers.last().unwrap());
 
                     let convergence_time = train_to_convergence(&mut model, &dataset, 0.01).await;
                     black_box(convergence_time)
@@ -142,8 +174,7 @@ fn benchmark_training_convergence_model_size(c: &mut Criterion) {
 fn benchmark_distributed_vs_single_training(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("distributed_vs_single_training");
-    group.measurement_time(Duration::from_secs(45));
+    let mut group = slow_group(c, "distributed_vs_single_training");
 
     let node_counts = vec![1, 2, 4, 8, 16];
     let model_layers = vec![784, 512, 256, 10];
@@ -157,7 +188,7 @@ fn benchmark_distributed_vs_single_training(c: &mut Criterion) {
             &node_count,
             |b, &node_count| {
                 b.to_async(&rt).iter(|| async move {
-                    let dataset = generate_training_data(5000, 784, 10);
+                    let dataset = generate_training_data(200, 784, 10);
 
                     let convergence_time = if node_count == 1 {
                         train_single_node(model_layers, &dataset).await
@@ -177,8 +208,7 @@ fn benchmark_distributed_vs_single_training(c: &mut Criterion) {
 fn benchmark_training_batch_sizes(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("training_batch_sizes");
-    group.measurement_time(Duration::from_secs(25));
+    let mut group = slow_group(c, "training_batch_sizes");
 
     let batch_sizes = vec![32, 64, 128, 256, 512];
     let model_layers = vec![784, 256, 10];
@@ -193,7 +223,7 @@ fn benchmark_training_batch_sizes(c: &mut Criterion) {
             |b, &batch_size| {
                 b.to_async(&rt).iter(|| async move {
                     let mut model = BenchmarkModel::new(model_layers.clone(), 0.001);
-                    let dataset = generate_training_data(2000, 784, 10);
+                    let dataset = generate_training_data(512, 784, 10);
 
                     let convergence_time =
                         train_with_batch_size(&mut model, &dataset, batch_size).await;
@@ -210,8 +240,7 @@ fn benchmark_training_batch_sizes(c: &mut Criterion) {
 fn benchmark_gradient_sync_frequency(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("gradient_sync_frequency");
-    group.measurement_time(Duration::from_secs(30));
+    let mut group = slow_group(c, "gradient_sync_frequency");
 
     // Sync frequencies: every N batches
     let sync_frequencies = vec![1, 5, 10, 50, 100];
@@ -225,7 +254,7 @@ fn benchmark_gradient_sync_frequency(c: &mut Criterion) {
             &sync_freq,
             |b, &sync_freq| {
                 b.to_async(&rt).iter(|| async move {
-                    let dataset = generate_training_data(2000, 784, 10);
+                    let dataset = generate_training_data(320, 784, 10);
 
                     let convergence_time =
                         train_with_sync_frequency(model_layers, &dataset, node_count, sync_freq)
@@ -243,8 +272,7 @@ fn benchmark_gradient_sync_frequency(c: &mut Criterion) {
 fn benchmark_learning_rate_impact(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("learning_rate_impact");
-    group.measurement_time(Duration::from_secs(20));
+    let mut group = slow_group(c, "learning_rate_impact");
 
     let learning_rates = vec![0.0001, 0.001, 0.01, 0.1, 0.5];
     let model_layers = vec![784, 256, 10];
@@ -257,7 +285,7 @@ fn benchmark_learning_rate_impact(c: &mut Criterion) {
             |b, &lr| {
                 b.to_async(&rt).iter(|| async move {
                     let mut model = BenchmarkModel::new(model_layers.clone(), lr);
-                    let dataset = generate_training_data(1000, 784, 10);
+                    let dataset = generate_training_data(100, 784, 10);
 
                     let convergence_time = train_to_convergence(&mut model, &dataset, 0.01).await;
                     black_box(convergence_time)
@@ -273,8 +301,7 @@ fn benchmark_learning_rate_impact(c: &mut Criterion) {
 fn benchmark_communication_overhead(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("communication_overhead");
-    group.measurement_time(Duration::from_secs(35));
+    let mut group = slow_group(c, "communication_overhead");
 
     let model_layers = vec![784, 512, 256, 10];
     let model_layers = &model_layers;
@@ -317,9 +344,7 @@ fn benchmark_communication_overhead(c: &mut Criterion) {
 fn benchmark_federated_learning_convergence(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("federated_learning_convergence");
-    group.measurement_time(Duration::from_secs(40));
-    group.sample_size(10);
+    let mut group = slow_group(c, "federated_learning_convergence");
 
     let model_layers = vec![784, 128, 10];
     let model_layers = &model_layers;
@@ -334,7 +359,7 @@ fn benchmark_federated_learning_convergence(c: &mut Criterion) {
             |b, &client_count| {
                 b.to_async(&rt).iter(|| async move {
                     // Each client has a smaller local dataset
-                    let local_dataset_size = 100;
+                    let local_dataset_size = 50;
 
                     let convergence_time =
                         simulate_federated_learning(model_layers, client_count, local_dataset_size)
@@ -375,9 +400,7 @@ async fn train_to_convergence(
 ) -> Duration {
     let start = std::time::Instant::now();
     let mut epoch = 0;
-    let max_epochs = 1000;
-
-    while epoch < max_epochs {
+    while epoch < MAX_EPOCHS {
         let mut total_loss = 0.0;
 
         for (input, target) in dataset {
@@ -402,7 +425,7 @@ async fn train_to_convergence(
 
         // Simulate some computation time
         if epoch % 10 == 0 {
-            tokio::time::sleep(Duration::from_micros(100)).await;
+            sim_sleep(Duration::from_micros(100)).await;
         }
     }
 
@@ -453,7 +476,7 @@ async fn train_distributed(
     }
 
     // Simulate gradient aggregation time
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    sim_sleep(Duration::from_millis(50)).await;
 
     start.elapsed()
 }
@@ -465,7 +488,7 @@ async fn train_with_batch_size(
 ) -> Duration {
     let start = std::time::Instant::now();
 
-    for epoch in 0..20 {
+    for _epoch in 0..BATCH_EPOCHS {
         for batch in dataset.chunks(batch_size) {
             // Accumulate gradients over batch
             let mut weight_grads = vec![0.0; model.weights.len()];
@@ -492,11 +515,6 @@ async fn train_with_batch_size(
 
             model.apply_gradients(&weight_grads, &bias_grads);
         }
-
-        // Early stopping simulation
-        if epoch > 10 {
-            break;
-        }
     }
 
     start.elapsed()
@@ -516,7 +534,7 @@ async fn train_with_sync_frequency(
 
     for (batch_idx, _batch) in batches.iter().enumerate() {
         // Local training step
-        tokio::time::sleep(Duration::from_micros(100)).await;
+        sim_sleep(Duration::from_micros(100)).await;
 
         // Synchronize every sync_frequency batches
         if batch_idx % sync_frequency == 0 {
@@ -527,7 +545,7 @@ async fn train_with_sync_frequency(
                 .sum::<usize>()
                 + layers[1..].iter().sum::<usize>();
             let sync_time = Duration::from_millis((param_count * node_count) as u64 / 1000);
-            tokio::time::sleep(sync_time).await;
+            sim_sleep(sync_time).await;
         }
     }
 
@@ -547,18 +565,18 @@ async fn simulate_gradient_communication(
             // All-reduce: log(nodes) communication rounds
             let rounds = (node_count as f32).log2().ceil() as usize;
             for _ in 0..rounds {
-                tokio::time::sleep(Duration::from_micros((gradient_size / 1000) as u64)).await;
+                sim_sleep(Duration::from_micros((gradient_size / 1000) as u64)).await;
             }
         }
         "parameter_server" => {
             // Parameter server: 2 communication rounds (send + receive)
-            tokio::time::sleep(Duration::from_micros((gradient_size * 2 / 1000) as u64)).await;
+            sim_sleep(Duration::from_micros((gradient_size * 2 / 1000) as u64)).await;
         }
         "ring_all_reduce" => {
             // Ring all-reduce: 2*(nodes-1) communication steps
             let steps = 2 * (node_count - 1);
             for _ in 0..steps {
-                tokio::time::sleep(Duration::from_micros(
+                sim_sleep(Duration::from_micros(
                     (gradient_size / node_count / 1000) as u64,
                 ))
                 .await;
@@ -566,12 +584,12 @@ async fn simulate_gradient_communication(
         }
         "hierarchical" => {
             // Hierarchical: local reduce + global reduce
-            tokio::time::sleep(Duration::from_micros((gradient_size / 2000) as u64)).await; // Local
-            tokio::time::sleep(Duration::from_micros((gradient_size / 4000) as u64)).await;
+            sim_sleep(Duration::from_micros((gradient_size / 2000) as u64)).await; // Local
+            sim_sleep(Duration::from_micros((gradient_size / 4000) as u64)).await;
             // Global
         }
         _ => {
-            tokio::time::sleep(Duration::from_micros((gradient_size / 1000) as u64)).await;
+            sim_sleep(Duration::from_micros((gradient_size / 1000) as u64)).await;
         }
     }
 
@@ -586,7 +604,7 @@ async fn simulate_federated_learning(
     let start = std::time::Instant::now();
 
     // Simulate federated learning rounds
-    let rounds = 10;
+    let rounds = 3;
 
     for _round in 0..rounds {
         // Client selection (subset of clients participate)
@@ -631,7 +649,7 @@ async fn simulate_federated_learning(
             + layers[1..].iter().sum::<usize>();
         let aggregation_time =
             Duration::from_millis((param_count * participating_clients) as u64 / 10000);
-        tokio::time::sleep(aggregation_time).await;
+        sim_sleep(aggregation_time).await;
     }
 
     start.elapsed()

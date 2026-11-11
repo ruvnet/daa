@@ -1,9 +1,35 @@
 //! Consensus Finalization Time Benchmarks
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{
+    black_box, criterion_group, criterion_main, measurement::WallTime, BenchmarkGroup, BenchmarkId,
+    Criterion, SamplingMode, Throughput,
+};
 use rand::prelude::*;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::runtime::Runtime;
+
+/// Modelled delays (network transfers, consensus rounds, synchronisation) run
+/// this many times faster than the wall-clock time they model, so the whole
+/// suite fits in CI. Every scenario is scaled alike, so results stay comparable.
+const SIM_SPEEDUP: u32 = 20;
+
+/// Sleep for a modelled delay, scaled by [`SIM_SPEEDUP`].
+async fn sim_sleep(modelled: Duration) {
+    tokio::time::sleep(modelled / SIM_SPEEDUP).await;
+}
+
+/// These benchmarks are dominated by simulated delays and multi-millisecond
+/// iterations, so a few flat samples give a stable mean without spending
+/// minutes per point.
+fn slow_group<'a>(c: &'a mut Criterion, name: &str) -> BenchmarkGroup<'a, WallTime> {
+    let mut group = c.benchmark_group(name);
+    group
+        .sample_size(10)
+        .warm_up_time(Duration::from_millis(500))
+        .measurement_time(Duration::from_secs(2))
+        .sampling_mode(SamplingMode::Flat);
+    group
+}
 
 // Simulated consensus structures (since we don't have access to daa-chain directly)
 #[derive(Debug, Clone)]
@@ -53,8 +79,7 @@ pub struct Transaction {
 fn benchmark_consensus_finalization_by_validator_count(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("consensus_finalization_validator_count");
-    group.measurement_time(Duration::from_secs(30));
+    let mut group = slow_group(c, "consensus_finalization_validator_count");
 
     // Test different validator set sizes
     let validator_counts = vec![4, 7, 13, 25, 50, 100];
@@ -88,8 +113,7 @@ fn benchmark_consensus_finalization_by_validator_count(c: &mut Criterion) {
 fn benchmark_consensus_finalization_by_tx_count(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("consensus_finalization_tx_count");
-    group.measurement_time(Duration::from_secs(20));
+    let mut group = slow_group(c, "consensus_finalization_tx_count");
 
     let validator_count = 13; // Fixed validator set
     let tx_counts = vec![10, 50, 100, 500, 1000, 5000];
@@ -119,8 +143,7 @@ fn benchmark_consensus_finalization_by_tx_count(c: &mut Criterion) {
 fn benchmark_consensus_network_conditions(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("consensus_network_conditions");
-    group.measurement_time(Duration::from_secs(25));
+    let mut group = slow_group(c, "consensus_network_conditions");
 
     let scenarios = vec![
         ("ideal", 0.0, 5),       // 0% loss, 5ms latency
@@ -158,8 +181,7 @@ fn benchmark_consensus_network_conditions(c: &mut Criterion) {
 fn benchmark_consensus_byzantine_tolerance(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("consensus_byzantine_tolerance");
-    group.measurement_time(Duration::from_secs(30));
+    let mut group = slow_group(c, "consensus_byzantine_tolerance");
 
     let validator_count = 25;
     let byzantine_percentages = vec![0, 10, 20, 33]; // Up to 33% byzantine (theoretical maximum)
@@ -188,8 +210,7 @@ fn benchmark_consensus_byzantine_tolerance(c: &mut Criterion) {
 fn benchmark_consensus_round_timing(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("consensus_round_timing");
-    group.measurement_time(Duration::from_secs(20));
+    let mut group = slow_group(c, "consensus_round_timing");
 
     // Different round durations in milliseconds
     let round_durations = vec![1000, 3000, 5000, 10000, 15000]; // 1s to 15s
@@ -217,9 +238,7 @@ fn benchmark_consensus_round_timing(c: &mut Criterion) {
 fn benchmark_parallel_consensus(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
 
-    let mut group = c.benchmark_group("parallel_consensus");
-    group.measurement_time(Duration::from_secs(30));
-    group.sample_size(10);
+    let mut group = slow_group(c, "parallel_consensus");
 
     let block_counts = vec![1, 2, 4, 8, 16];
 
@@ -340,7 +359,7 @@ async fn simulate_consensus_rounds(validators: &[ValidatorInfo], block: &Block) 
     // Simulate the typical consensus phases: Proposal -> Prevote -> Precommit -> Commit
 
     // Phase 1: Proposal (leader proposes block)
-    tokio::time::sleep(proposal_delay(block)).await;
+    sim_sleep(proposal_delay(block)).await;
 
     // Phase 2: Prevote (validators vote on proposal)
     simulate_voting_phase(validators).await;
@@ -360,11 +379,11 @@ async fn simulate_voting_phase(validators: &[ValidatorInfo]) -> Duration {
 
     // Simulate network delay for vote collection
     let network_delay = Duration::from_millis(rand::thread_rng().gen_range(50..200));
-    tokio::time::sleep(network_delay).await;
+    sim_sleep(network_delay).await;
 
     // Simulate vote processing time (scales with validator count)
     let processing_time = Duration::from_millis(validators.len() as u64 * 2);
-    tokio::time::sleep(processing_time).await;
+    sim_sleep(processing_time).await;
 
     start.elapsed()
 }
@@ -381,18 +400,18 @@ async fn simulate_consensus_with_network_conditions(
     let base_delay = Duration::from_millis(latency_ms);
 
     // Proposal phase with network delay
-    tokio::time::sleep(base_delay + proposal_delay(block)).await;
+    sim_sleep(base_delay + proposal_delay(block)).await;
 
     // Each voting phase is affected by network conditions
     // Prevote, precommit and commit
     for _phase in 0..3 {
         // Network delay
-        tokio::time::sleep(base_delay).await;
+        sim_sleep(base_delay).await;
 
         // Packet loss simulation (retransmissions)
         if rand::thread_rng().gen::<f64>() < packet_loss {
             // Simulate retransmission delay
-            tokio::time::sleep(Duration::from_millis(latency_ms * 2)).await;
+            sim_sleep(Duration::from_millis(latency_ms * 2)).await;
         }
 
         simulate_voting_phase(validators).await;
@@ -423,11 +442,11 @@ async fn simulate_consensus_with_round_timing(round_duration: Duration) -> Durat
     let phase_duration = round_duration / 4;
 
     // Proposal phase
-    tokio::time::sleep(phase_duration).await;
+    sim_sleep(phase_duration).await;
 
     // Voting phases
     for _ in 0..3 {
-        tokio::time::sleep(phase_duration).await;
+        sim_sleep(phase_duration).await;
     }
 
     start.elapsed()
