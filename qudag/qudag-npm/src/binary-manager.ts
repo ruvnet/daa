@@ -103,7 +103,7 @@ async function downloadBinary(): Promise<void> {
       }
     });
     
-    const totalLength = parseInt(response.headers['content-length'] || '0', 10);
+    const totalLength = parseInt(String(response.headers['content-length'] ?? '0'), 10);
     
     // Create progress bar
     const progressBar = new ProgressBar('Downloading [:bar] :percent :etas', {
