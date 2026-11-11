@@ -1,8 +1,7 @@
 //! P2P Network Latency and Throughput Benchmarks
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use daa_compute::{GradientMessage, P2PNetwork, SwarmConfig};
-use libp2p::{Multiaddr, PeerId};
+use daa_compute::{P2PNetwork, SwarmConfig};
 use rand::prelude::*;
 use std::time::Duration;
 use tokio::runtime::Runtime;

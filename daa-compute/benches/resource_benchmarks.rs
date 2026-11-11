@@ -42,6 +42,12 @@ pub struct ResourceMonitor {
     start_time: Instant,
 }
 
+impl Default for ResourceMonitor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ResourceMonitor {
     pub fn new() -> Self {
         Self {
@@ -308,16 +314,11 @@ fn benchmark_bandwidth_compression_efficiency(c: &mut Criterion) {
     let mut group = c.benchmark_group("bandwidth_compression_efficiency");
     group.measurement_time(Duration::from_secs(20));
 
-    let compression_levels = vec![
-        ("none", 0, 1.0),
-        ("low", 3, 0.7),
-        ("medium", 6, 0.5),
-        ("high", 9, 0.3),
-    ];
+    let compression_levels = vec![("none", 1.0), ("low", 0.7), ("medium", 0.5), ("high", 0.3)];
 
     let data_sizes = vec![1_000_000, 10_000_000, 100_000_000]; // 1MB, 10MB, 100MB
 
-    for (comp_name, comp_level, compression_ratio) in compression_levels {
+    for (comp_name, compression_ratio) in compression_levels {
         for data_size in &data_sizes {
             let compressed_size = (*data_size as f64 * compression_ratio) as u64;
             group.throughput(Throughput::Bytes(compressed_size));
@@ -509,7 +510,7 @@ async fn simulate_compressed_transfer(
     tokio::time::sleep(compression_time).await;
 
     // Transfer time
-    let transfer_time = Duration::from_micros((compressed_size / 1000) as u64);
+    let transfer_time = Duration::from_micros(compressed_size / 1000);
     tokio::time::sleep(transfer_time).await;
 }
 

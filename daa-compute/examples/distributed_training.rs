@@ -6,7 +6,6 @@ use daa_compute::{
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{info, Level};
-use tracing_subscriber;
 
 /// Example model implementation
 struct SimpleModel {
@@ -38,13 +37,9 @@ impl ModelInterface for SimpleModel {
         // Simple linear layer
         let mut output = vec![0.0; self.output_size];
 
-        for i in 0..self.output_size {
-            for j in 0..self.input_size {
-                if j < input.len() {
-                    let weight_idx = i * self.input_size + j;
-                    output[i] += self.weights[weight_idx] * input[j];
-                }
-            }
+        for (i, out) in output.iter_mut().enumerate() {
+            let row = &self.weights[i * self.input_size..(i + 1) * self.input_size];
+            *out += row.iter().zip(input).map(|(w, x)| w * x).sum::<f32>();
         }
 
         // Apply softmax
@@ -131,7 +126,7 @@ impl DataLoader for ExampleDataLoader {
             .collect();
 
         let labels: Vec<f32> = (0..self.batch_size)
-            .map(|_| rng.gen_range(0.0..10.0).floor())
+            .map(|_| rng.gen_range(0.0f32..10.0).floor())
             .collect();
 
         Ok(DataBatch { data, labels })
@@ -162,7 +157,7 @@ async fn main() -> anyhow::Result<()> {
     };
 
     // Create training strategy
-    let mut strategy = TrainingStrategy::new(config.clone()).await?;
+    let strategy = TrainingStrategy::new(config.clone()).await?;
 
     // Create model
     let model = Arc::new(RwLock::new(SimpleModel::new(10, 10)));
@@ -208,7 +203,7 @@ async fn main() -> anyhow::Result<()> {
     ];
 
     // Add nodes to mesh
-    let mut mesh_guard = Arc::new(RwLock::new(mesh));
+    let mesh_guard = Arc::new(RwLock::new(mesh));
     for node in nodes {
         mesh_guard.write().await.add_node(node).await?;
     }
@@ -218,29 +213,13 @@ async fn main() -> anyhow::Result<()> {
         config.local_epochs
     );
 
-    // Run training for a few rounds
-    let training_handle = tokio::spawn(async move {
-        // In a real scenario, this would run until convergence
-        // For demo, we'll simulate a few rounds
-
-        for round in 0..5 {
-            info!("Training round {}", round);
-
-            // Simulate local training
-            tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-
-            // Log simulated metrics
-            info!(
-                "Round {} complete - Loss: 0.{}, Accuracy: {}%",
-                round,
-                9 - round,
-                80 + round * 2
-            );
-        }
-    });
-
-    // Wait for training to complete
-    training_handle.await?;
+    // Run DiLoCo training for a bounded demo period; `train` otherwise keeps
+    // alternating local epochs and global syncs until it is stopped.
+    let demo_period = tokio::time::Duration::from_secs(10);
+    match tokio::time::timeout(demo_period, strategy.train(model, data_loader)).await {
+        Ok(result) => result?,
+        Err(_) => info!("Demo training period of {:?} finished", demo_period),
+    }
 
     info!("Distributed training example completed successfully");
     info!(

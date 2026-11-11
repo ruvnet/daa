@@ -2,10 +2,7 @@
 
 use anyhow::{anyhow, Result};
 use libp2p::{
-    gossipsub::{
-        Behaviour as Gossipsub, Event as GossipsubEvent, IdentTopic, MessageAuthenticity,
-        ValidationMode,
-    },
+    gossipsub::{Behaviour as Gossipsub, Event as GossipsubEvent, IdentTopic, MessageAuthenticity},
     identify::{Behaviour as Identify, Config as IdentifyConfig, Event as IdentifyEvent},
     kad::{store::MemoryStore, Behaviour as Kademlia, Event as KademliaEvent},
     ping::{Behaviour as Ping, Event as PingEvent},
@@ -38,7 +35,7 @@ impl NetworkBehavior {
         // Gossipsub
         let gossipsub = {
             let message_authenticity = MessageAuthenticity::Signed(local_key.clone());
-            let mut gossipsub_config = config.gossipsub_config.clone();
+            let gossipsub_config = config.gossipsub_config.clone();
             // Note: In libp2p 0.53, validation_mode and message_id are set differently
             // For now we'll use the default config and customize after construction
 
@@ -73,6 +70,8 @@ impl NetworkBehavior {
 }
 
 /// Composed event type
+// Events are moved straight out of the swarm and matched once; boxing would only add allocations.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum ComposedEvent {
     Kademlia(KademliaEvent),
