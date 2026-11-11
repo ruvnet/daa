@@ -155,6 +155,9 @@ jobs:
     needs: [pre-release-checks, build-artifacts]
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
     if: github.event.inputs.dry_run != 'true'
     
     steps:
@@ -167,13 +170,37 @@ jobs:
     - name: Setup Rust cache
       uses: Swatinem/rust-cache@v2
 
-    - name: Login to crates.io
-      run: |
-        cargo login ${{ secrets.CARGO_REGISTRY_TOKEN }}
+    # The crates.io token comes from GCP Secret Manager through keyless Workload
+    # Identity Federation (provider daa-ci, service account ci-daa). It only
+    # authenticates for this workflow on main or tags; no GitHub secret is used.
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: projects/186366152200/locations/global/workloadIdentityPools/github-ruvnet-ci/providers/daa-ci
+        service_account: ci-daa@cognitum-20260110.iam.gserviceaccount.com
 
+    - name: Fetch crates.io token
+      id: gsm
+      uses: google-github-actions/get-secretmanager-secrets@v2
+      with:
+        secrets: |-
+          cargo:cognitum-20260110/CARGO_REGISTRY_TOKEN
+
+    - name: Export crates.io token
+      run: echo "CARGO_REGISTRY_TOKEN=${{ steps.gsm.outputs.cargo }}" >> "$GITHUB_ENV"
+
+    # Fails the job early if the token is missing or rejected.
     - name: Verify crates.io credentials
       run: |
-        cargo owner --list daa-rules || echo "Package not yet published"
+        status=$(curl -sS -o /dev/null -w "%{http_code}" \
+          -H "Authorization: $CARGO_REGISTRY_TOKEN" \
+          -H "User-Agent: daa-release-ci" \
+          https://crates.io/api/v1/me)
+        if [ "$status" != "200" ]; then
+          echo "crates.io rejected the token (HTTP $status)"
+          exit 1
+        fi
+        echo "crates.io token is valid"
 
     - name: Publish crates in dependency order
       run: |
@@ -285,7 +312,7 @@ jobs:
         echo "EOF" >> $GITHUB_OUTPUT
 
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: v${{ needs.pre-release-checks.outputs.version }}
         name: DAA SDK v${{ needs.pre-release-checks.outputs.version }}
