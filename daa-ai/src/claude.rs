@@ -1,6 +1,6 @@
 //! Claude AI integration
 
-use crate::{AIError, Result};
+use crate::Result;
 use serde::{Deserialize, Serialize};
 
 /// Claude API configuration
@@ -33,6 +33,9 @@ impl Default for ClaudeConfig {
 /// Claude API client
 pub struct ClaudeClient {
     config: ClaudeConfig,
+    // Not read until `execute_task` issues real API calls; built eagerly so a
+    // bad timeout/TLS setup fails in `new` rather than on first use.
+    #[allow(dead_code)]
     client: reqwest::Client,
 }
 
@@ -46,10 +49,15 @@ impl ClaudeClient {
         Ok(Self { config, client })
     }
 
+    /// Client configuration
+    pub fn config(&self) -> &ClaudeConfig {
+        &self.config
+    }
+
     /// Execute a task using Claude
     pub async fn execute_task(
         &self,
-        agent: &crate::agents::Agent,
+        _agent: &crate::agents::Agent,
         task: &crate::tasks::Task,
     ) -> Result<crate::tasks::TaskResult> {
         // Implementation would make actual Claude API calls

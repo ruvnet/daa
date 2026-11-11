@@ -30,6 +30,11 @@ impl MarketManager {
         Ok(Self { config })
     }
 
+    /// Market maker configuration
+    pub fn config(&self) -> &MarketMakerConfig {
+        &self.config
+    }
+
     /// Initialize market maker
     pub async fn initialize(&mut self) -> Result<()> {
         tracing::info!("Market manager initialized");

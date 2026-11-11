@@ -439,11 +439,14 @@ impl TradingEngine {
             )));
         }
 
-        // Cancel the order
-        order.cancel()?;
+        // Release the funds still reserved for the unfilled part of the order
+        // before marking it cancelled, so a failed unlock leaves it active.
+        let snapshot = order.clone();
+        self.unlock_order_funds(&snapshot)?;
 
-        // Unlock funds
-        // Funds unlocking handled elsewhere
+        if let Some(order) = self.orders.get_mut(order_id) {
+            order.cancel()?;
+        }
 
         info!("Cancelled order: {}", order_id);
         Ok(())
@@ -487,15 +490,13 @@ impl TradingEngine {
                 if order.symbol == symbol && order.is_active() {
                     let should_fill = match order.order_type {
                         OrderType::Limit => match order.side {
-                            OrderSide::Buy => order.price.map_or(false, |p| price <= p),
-                            OrderSide::Sell => order.price.map_or(false, |p| price >= p),
+                            OrderSide::Buy => order.price.is_some_and(|p| price <= p),
+                            OrderSide::Sell => order.price.is_some_and(|p| price >= p),
                         },
-                        OrderType::StopLoss => {
-                            order.stop_price.map_or(false, |p| match order.side {
-                                OrderSide::Buy => price >= p,
-                                OrderSide::Sell => price <= p,
-                            })
-                        }
+                        OrderType::StopLoss => order.stop_price.is_some_and(|p| match order.side {
+                            OrderSide::Buy => price >= p,
+                            OrderSide::Sell => price <= p,
+                        }),
                         _ => false,
                     };
 
@@ -677,7 +678,9 @@ impl TradingEngine {
             OrderSide::Buy => {
                 // Decrease quote currency (USD), increase base currency
                 if let Some(quote_balance) = self.balances.get_mut("USD") {
-                    quote_balance.unlock_funds(execution.net_value())?;
+                    // Release the gross amount reserved by `lock_order_funds`; the fee
+                    // is paid from free balance by the debit below.
+                    quote_balance.unlock_funds(execution.total_value())?;
                     quote_balance
                         .update_balance(quote_balance.total_balance - execution.net_value());
                 }
@@ -754,16 +757,6 @@ impl TradingEngine {
             total_volume,
             total_fees,
         }
-    }
-
-    fn unlock_order_funds_by_id(&mut self, order_id: &str) -> Result<()> {
-        if let Some(order) = self.orders.get(order_id) {
-            if order.filled_quantity > Decimal::ZERO {
-                return Ok(());
-            }
-            // Funds already unlocked
-        }
-        Ok(())
     }
 }
 
@@ -910,11 +903,19 @@ mod tests {
         engine.place_order(order).unwrap();
         assert!(engine.get_order("test_cancel").unwrap().is_active());
 
+        let usd = &engine.get_account_balance().unwrap()["USD"];
+        assert_eq!(usd.locked_balance, dec!(40000.0));
+
         // Cancel the order
         engine.cancel_order("test_cancel").unwrap();
         assert_eq!(
             engine.get_order("test_cancel").unwrap().status,
             OrderStatus::Cancelled
         );
+
+        // Cancelling releases the reserved quote funds
+        let usd = &engine.get_account_balance().unwrap()["USD"];
+        assert_eq!(usd.locked_balance, Decimal::ZERO);
+        assert_eq!(usd.free_balance, dec!(100000.0));
     }
 }

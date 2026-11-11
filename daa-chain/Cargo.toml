@@ -11,27 +11,27 @@ keywords = ["daa", "blockchain", "autonomous", "agents", "ai"]
 categories = ["cryptography", "web-programming"]
 
 [dependencies]
-tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
-anyhow = "1.0"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 tracing = "0.1"
 hex = "0.4"
 async-trait = "0.1"
-futures = "0.3"
-dashmap = "5.5"
-sha2 = "0.10"
 blake3 = "1.5"
 ed25519-dalek = "2.0"
-daa-rules = { version = "0.2.0", optional = true }
+daa-rules = { version = "0.2.0", path = "../daa-rules", optional = true }
 
 # QuDAG dependencies - commented out until published
 # qudag-crypto = { version = "0.1", optional = true }
 # qudag-network = { version = "0.1", optional = true }
 # qudag-protocol = { version = "0.1", optional = true }
 # qudag-dag = { version = "0.1", optional = true }
+
+[dev-dependencies]
+ed25519-dalek = { version = "2.0", features = ["rand_core"] }
+rand = "0.8"
+tempfile = "3.8"
 
 [features]
 default = []
@@ -41,3 +41,14 @@ rules-bridge = ["daa-rules"]
 # network = ["qudag-network"]
 # consensus = ["qudag-dag"]
 
+# tokio's "full" feature set pulls mio (net/process), which does not build for
+# wasm32. On wasm only the runtime-agnostic pieces this crate uses are enabled.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { version = "1.0", features = ["full"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+tokio = { version = "1.0", features = ["sync", "macros", "rt", "time"] }
+
+# uuid v4 needs a randomness source on wasm32-unknown-unknown (browser/JS hosts).
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+uuid = { version = "1.0", features = ["js"] }

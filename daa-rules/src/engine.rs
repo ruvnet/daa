@@ -8,7 +8,7 @@ use tokio::sync::RwLock;
 use crate::actions::ActionExecutor;
 use crate::conditions::ConditionEvaluator;
 use crate::context::ExecutionContext;
-use crate::{Result, Rule, RuleResult, RulesError};
+use crate::{Result, Rule, RuleResult};
 
 /// Main rules engine
 pub struct RuleEngine {

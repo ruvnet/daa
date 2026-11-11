@@ -50,6 +50,10 @@ impl AgentManager {
         }
     }
 
+    pub fn config(&self) -> &AgentConfig {
+        &self.config
+    }
+
     pub async fn spawn_agent(
         &mut self,
         agent_type: AgentType,

@@ -3,10 +3,9 @@
 
 use std::collections::HashMap;
 
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::qudag_stubs::qudag_core::{Block, Hash, Transaction};
+use crate::qudag_stubs::qudag_core::Block;
 use daa_rules::{ExecutionContext, Rule, RuleEngine, RuleResult};
 
 use crate::transaction::{DaaTransaction, TransactionType};
@@ -227,7 +226,7 @@ impl RulesBridge {
                 .await?
             {
                 // Execute rule through rules engine
-                let rule_def = self.convert_to_rule_engine_rule(&rule)?;
+                let rule_def = self.convert_to_rule_engine_rule(rule)?;
                 let result = self
                     .rule_engine
                     .execute_rule(&rule_def, &mut execution_context)
@@ -235,12 +234,18 @@ impl RulesBridge {
                     .map_err(|e| ChainError::Storage(format!("Rule execution failed: {}", e)))?;
 
                 match result {
-                    RuleResult::Allow => continue,
+                    RuleResult::Allow | RuleResult::Skipped => continue,
                     RuleResult::Deny(reason) => {
                         return Ok(ExecutionResult::Denied(reason));
                     }
                     RuleResult::Modified(data) => {
                         return Ok(ExecutionResult::Modified(data));
+                    }
+                    RuleResult::Failed(error) => {
+                        return Err(ChainError::Storage(format!(
+                            "Rule execution failed: {}",
+                            error
+                        )));
                     }
                 }
             }
@@ -299,9 +304,11 @@ impl RulesBridge {
 
                 RuleCondition::Custom(condition_type, params) => {
                     // Delegate to rules engine for custom conditions
-                    let rule_condition =
-                        daa_rules::RuleCondition::Custom(condition_type.clone(), params.clone());
-                    let mut exec_context = self.create_execution_context(context)?;
+                    let rule_condition = daa_rules::RuleCondition::Custom {
+                        condition_type: condition_type.clone(),
+                        parameters: params.clone(),
+                    };
+                    let exec_context = self.create_execution_context(context)?;
                     let result = self
                         .rule_engine
                         .evaluate_condition(&rule_condition, &exec_context)
@@ -330,7 +337,7 @@ impl RulesBridge {
         &self,
         conditions: &[RuleCondition],
         block: &Block,
-        context: &ChainExecutionContext,
+        _context: &ChainExecutionContext,
     ) -> Result<bool> {
         for condition in conditions {
             match condition {
@@ -355,7 +362,7 @@ impl RulesBridge {
     async fn execute_actions(
         &self,
         actions: &[RuleAction],
-        transaction: &DaaTransaction,
+        _transaction: &DaaTransaction,
         context: &ChainExecutionContext,
     ) -> Result<ActionResult> {
         for action in actions {
@@ -389,8 +396,10 @@ impl RulesBridge {
 
                 RuleAction::Custom(action_type, params) => {
                     // Delegate to rules engine
-                    let rule_action =
-                        daa_rules::RuleAction::Custom(action_type.clone(), params.clone());
+                    let rule_action = daa_rules::RuleAction::Custom {
+                        action_type: action_type.clone(),
+                        parameters: params.clone(),
+                    };
                     let mut exec_context = self.create_execution_context(context)?;
                     self.rule_engine
                         .execute_action(&rule_action, &mut exec_context)
@@ -409,8 +418,8 @@ impl RulesBridge {
     async fn execute_block_actions(
         &self,
         actions: &[RuleAction],
-        block: &Block,
-        context: &ChainExecutionContext,
+        _block: &Block,
+        _context: &ChainExecutionContext,
     ) -> Result<ActionResult> {
         // Similar to execute_actions but for block context
         for action in actions {
