@@ -1,9 +1,10 @@
 //! End-to-end tests for DAA orchestrator initialization
 
-use daa_orchestrator::{
-    AiConfig, ApiConfig, AutonomyConfig, DaaOrchestrator, ExchangeConfig, HealthCheckConfig,
-    LoggingConfig, McpConfig, OrchestratorConfig, QuDAGConfig, RulesConfig,
+use daa_orchestrator::config::{
+    AiConfig, ApiConfig, AutonomyConfig, ExchangeConfig, HealthCheckConfig, LoggingConfig,
+    McpConfig, OrchestratorConfig as SystemConfig, QuDAGConfig, RulesConfig,
 };
+use daa_orchestrator::{DaaOrchestrator, IntegrationConfig, OrchestratorConfig};
 use std::time::Duration;
 use tokio::time::timeout;
 
@@ -34,7 +35,7 @@ async fn test_orchestrator_basic_initialization() {
 /// Test orchestrator initialization with custom configuration
 #[tokio::test]
 async fn test_orchestrator_custom_config_initialization() {
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         name: "test-orchestrator".to_string(),
         autonomy: AutonomyConfig {
             enabled: true,
@@ -108,7 +109,7 @@ async fn test_orchestrator_custom_config_initialization() {
     assert!(config.validate().is_ok(), "Custom configuration is invalid");
 
     // Test orchestrator creation with custom config
-    let orchestrator = DaaOrchestrator::new(config).await;
+    let orchestrator = DaaOrchestrator::new(OrchestratorConfig::default()).await;
     assert!(
         orchestrator.is_ok(),
         "Failed to create orchestrator with custom config"
@@ -128,6 +129,7 @@ async fn test_orchestrator_custom_config_initialization() {
 #[tokio::test]
 async fn test_orchestrator_initialization_timeout() {
     let config = OrchestratorConfig::default();
+
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
 
     // Test initialization with timeout
@@ -140,6 +142,7 @@ async fn test_orchestrator_initialization_timeout() {
 #[tokio::test]
 async fn test_orchestrator_statistics() {
     let config = OrchestratorConfig::default();
+
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
 
@@ -165,6 +168,7 @@ async fn test_orchestrator_statistics() {
 #[tokio::test]
 async fn test_component_initialization_order() {
     let config = OrchestratorConfig::default();
+
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
 
     // Initialize and verify no errors
@@ -182,16 +186,31 @@ async fn test_component_initialization_order() {
 /// Test orchestrator with disabled integrations
 #[tokio::test]
 async fn test_orchestrator_disabled_integrations() {
-    let mut config = OrchestratorConfig::default();
+    let mut system_config = SystemConfig::default();
 
-    // Disable all integrations
-    config.autonomy.enabled = false;
-    config.qudag.enabled = false;
-    config.mcp.enabled = false;
-    config.api.enabled = false;
-    config.autonomy.rules_config.enabled = false;
-    config.autonomy.ai_config.enabled = false;
-    config.qudag.exchange_config.enabled = false;
+    // Disable all optional subsystems
+    system_config.autonomy.enabled = false;
+    system_config.qudag.enabled = false;
+    system_config.mcp.enabled = false;
+    system_config.api.enabled = false;
+    system_config.autonomy.rules_config.enabled = false;
+    system_config.autonomy.ai_config.enabled = false;
+    system_config.qudag.exchange_config.enabled = false;
+    assert!(
+        system_config.validate().is_ok(),
+        "Disabled-subsystem configuration should be valid"
+    );
+
+    // Disable every orchestrator integration
+    let config = OrchestratorConfig {
+        integrations: IntegrationConfig {
+            enable_chain: false,
+            enable_economy: false,
+            enable_rules: false,
+            enable_ai: false,
+        },
+        ..OrchestratorConfig::default()
+    };
 
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
 
@@ -210,7 +229,7 @@ async fn test_orchestrator_disabled_integrations() {
 /// Test multiple orchestrator instances
 #[tokio::test]
 async fn test_multiple_orchestrator_instances() {
-    let config1 = OrchestratorConfig {
+    let config1 = SystemConfig {
         name: "orchestrator-1".to_string(),
         mcp: McpConfig {
             port: 3010,
@@ -228,7 +247,7 @@ async fn test_multiple_orchestrator_instances() {
         ..Default::default()
     };
 
-    let config2 = OrchestratorConfig {
+    let config2 = SystemConfig {
         name: "orchestrator-2".to_string(),
         mcp: McpConfig {
             port: 3020,
@@ -247,8 +266,20 @@ async fn test_multiple_orchestrator_instances() {
     };
 
     // Create both orchestrators
-    let mut orchestrator1 = DaaOrchestrator::new(config1).await.unwrap();
-    let mut orchestrator2 = DaaOrchestrator::new(config2).await.unwrap();
+    assert!(
+        config1.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator1 = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
+    assert!(
+        config2.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator2 = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
 
     // Initialize both
     let result1 = orchestrator1.initialize().await;
@@ -273,6 +304,7 @@ async fn test_orchestrator_full_lifecycle() {
     let config = OrchestratorConfig::default();
 
     // Create orchestrator
+
     let orchestrator_result = DaaOrchestrator::new(config).await;
     assert!(orchestrator_result.is_ok(), "Failed to create orchestrator");
 

@@ -3,13 +3,12 @@
 //! This module provides client functionality for connecting to DAA MCP servers
 //! and executing remote operations.
 
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
 use serde_json::Value;
-use tokio::sync::{Mutex, RwLock};
-use tracing::{debug, error, info, warn};
+use tokio::sync::RwLock;
+use tracing::{debug, info};
 use uuid::Uuid;
 
 use crate::{
@@ -23,7 +22,6 @@ pub struct DaaMcpClient {
     client: reqwest::Client,
     session_id: Option<String>,
     server_capabilities: Option<crate::ServerCapabilities>,
-    pending_requests: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<McpMessage>>>>,
     request_counter: Arc<RwLock<u64>>,
 }
 
@@ -40,7 +38,6 @@ impl DaaMcpClient {
             client,
             session_id: None,
             server_capabilities: None,
-            pending_requests: Arc::new(Mutex::new(HashMap::new())),
             request_counter: Arc::new(RwLock::new(0)),
         }
     }
@@ -328,19 +325,19 @@ impl DaaMcpClient {
             .json(&message)
             .send()
             .await
-            .map_err(|e| DaaMcpError::Network(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+            .map_err(|e| DaaMcpError::Network(std::io::Error::other(e)))?;
 
         if !response.status().is_success() {
-            return Err(DaaMcpError::Network(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("HTTP error: {}", response.status()),
-            )));
+            return Err(DaaMcpError::Network(std::io::Error::other(format!(
+                "HTTP error: {}",
+                response.status()
+            ))));
         }
 
         let response_message: McpMessage = response
             .json()
             .await
-            .map_err(|e| DaaMcpError::Network(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+            .map_err(|e| DaaMcpError::Network(std::io::Error::other(e)))?;
 
         debug!("Received MCP response: {:?}", response_message);
         Ok(response_message)

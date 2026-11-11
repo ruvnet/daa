@@ -84,7 +84,7 @@ impl NetworkManager {
     pub async fn new(config: NetworkConfig) -> Result<Self> {
         let network = QuDAGNetwork::new(config)
             .await
-            .map_err(|e| ChainError::Network(e))?;
+            .map_err(ChainError::Network)?;
 
         let (event_sender, _) = broadcast::channel(1000);
         let peers = Arc::new(RwLock::new(HashMap::new()));
@@ -184,7 +184,7 @@ impl NetworkManager {
         self.network
             .send_to_peer(peer_id, serialized)
             .await
-            .map_err(|e| ChainError::Network(e))?;
+            .map_err(ChainError::Network)?;
 
         Ok(())
     }
@@ -238,7 +238,7 @@ impl NetworkManager {
         self.network
             .broadcast(serialized)
             .await
-            .map_err(|e| ChainError::Network(e))?;
+            .map_err(ChainError::Network)?;
 
         Ok(())
     }
@@ -407,16 +407,12 @@ impl ProtocolHandler for DaaProtocolHandler {
 /// Network discovery for finding DAA agents
 pub struct AgentDiscovery {
     network: Arc<NetworkManager>,
-    discovered_agents: Arc<RwLock<HashMap<String, PeerInfo>>>,
 }
 
 impl AgentDiscovery {
     /// Create new agent discovery service
     pub fn new(network: Arc<NetworkManager>) -> Self {
-        Self {
-            network,
-            discovered_agents: Arc::new(RwLock::new(HashMap::new())),
-        }
+        Self { network }
     }
 
     /// Start agent discovery
@@ -449,19 +445,19 @@ mod tests {
 
     #[tokio::test]
     async fn test_network_manager_creation() {
-        let config = NetworkConfig::default();
+        let config = NetworkConfig;
         let manager = NetworkManager::new(config).await;
         assert!(manager.is_ok());
     }
 
     #[tokio::test]
     async fn test_peer_info_storage() {
-        let config = NetworkConfig::default();
-        let mut manager = NetworkManager::new(config).await.unwrap();
+        let config = NetworkConfig;
+        let manager = NetworkManager::new(config).await.unwrap();
 
         let peer_id = PeerId::random();
         let peer_info = PeerInfo {
-            peer_id,
+            peer_id: peer_id.clone(),
             agent_id: Some("test-agent".to_string()),
             capabilities: vec!["test".to_string()],
             last_seen: 0,

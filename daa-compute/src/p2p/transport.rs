@@ -10,14 +10,15 @@ use libp2p::{
 };
 use std::time::Duration;
 
-#[cfg(feature = "browser")]
-use libp2p_webrtc as webrtc;
+#[cfg(all(target_arch = "wasm32", feature = "browser"))]
+use libp2p_webrtc_websys as webrtc;
 
 /// Transport configuration
 #[derive(Debug, Clone)]
 pub struct TransportConfig {
     pub enable_tcp: bool,
     pub enable_websocket: bool,
+    /// WebRTC transport; only honoured by browser (wasm32) builds via `create_wasm_transport`.
     pub enable_webrtc: bool,
     pub enable_relay: bool,
 }
@@ -53,11 +54,11 @@ pub fn create_transport(
     };
 
     // Combine transports
-    let mut transport = if config.enable_websocket {
+    let transport = if config.enable_websocket {
         let ws_dns_tcp = {
             let tcp = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true));
             let dns_tcp = dns::tokio::Transport::system(tcp).unwrap();
-            websocket::WsConfig::new(dns_tcp)
+            websocket::Config::new(dns_tcp)
         };
 
         let ws_transport = ws_dns_tcp
@@ -73,13 +74,8 @@ pub fn create_transport(
         tcp_transport.or_transport(DummyTransport::new()).boxed()
     };
 
-    // Add WebRTC support for browser compatibility
-    #[cfg(feature = "browser")]
-    if config.enable_webrtc {
-        let webrtc_config = webrtc::Config::new(local_key)?;
-        let webrtc_transport = webrtc::tokio::Transport::new(webrtc_config);
-        transport = transport.or_transport(webrtc_transport).boxed();
-    }
+    // WebRTC is only available to browser (wasm32) nodes, see `create_wasm_transport`.
+    // Native nodes reach browser peers over WebSocket.
 
     // Add relay transport
     // TODO: Fix relay client API for libp2p 0.53 - Transport::new is now private
@@ -117,8 +113,7 @@ pub fn create_wasm_transport(
     // WebRTC transport for direct browser-to-browser
     #[cfg(feature = "browser")]
     {
-        let webrtc_config = webrtc::Config::new(local_key)?;
-        let webrtc_transport = webrtc::Transport::new(webrtc_config);
+        let webrtc_transport = webrtc::Transport::new(webrtc::Config::new(local_key));
 
         Ok(ws_transport
             .or_transport(webrtc_transport)
@@ -157,26 +152,4 @@ impl Default for IceConfig {
             turn_servers: vec![],
         }
     }
-}
-
-/// Configure ICE servers for WebRTC
-#[cfg(feature = "browser")]
-pub fn configure_ice_servers(ice_config: &IceConfig) -> webrtc::IceServers {
-    let mut servers = webrtc::IceServers::new();
-
-    // Add STUN servers
-    for stun in &ice_config.stun_servers {
-        servers.add_stun(stun);
-    }
-
-    // Add TURN servers
-    for turn in &ice_config.turn_servers {
-        for url in &turn.urls {
-            if let (Some(username), Some(credential)) = (&turn.username, &turn.credential) {
-                servers.add_turn(url, username, credential);
-            }
-        }
-    }
-
-    servers
 }

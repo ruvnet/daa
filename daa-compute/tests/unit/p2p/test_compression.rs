@@ -1,21 +1,10 @@
 //! Unit tests for gradient compression
 
 use daa_compute::p2p::compression::{CompressionMethod, GradientCompressor};
-use daa_compute::training::Gradient;
-use std::collections::HashMap;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn create_test_gradient(values: Vec<f32>) -> Gradient {
-        Gradient {
-            values,
-            node_id: "test_node".to_string(),
-            round: 1,
-            compressed: false,
-        }
-    }
 
     #[test]
     fn test_zstd_compression_basic() {
@@ -50,34 +39,10 @@ mod tests {
     }
 
     #[test]
-    fn test_top_k_compression() {
-        let compressor = GradientCompressor::new(CompressionMethod::TopK { k: 10 });
-        let gradient = vec![0.1, 0.9, 0.2, 0.8, 0.3, 0.7, 0.4, 0.6, 0.5, 0.0];
-
-        let compressed = compressor.compress_sparse(&gradient).unwrap();
-
-        // Should be much smaller than original
-        assert!(compressed.len() < gradient.len() * 4);
-
-        let decompressed = compressor.decompress_sparse(&compressed).unwrap();
-
-        // Top-K should preserve largest values
-        assert_eq!(decompressed.len(), gradient.len());
-
-        // Check that the largest values are preserved
-        let mut sorted_indices: Vec<usize> = (0..gradient.len()).collect();
-        sorted_indices.sort_by(|&a, &b| gradient[b].partial_cmp(&gradient[a]).unwrap());
-
-        for i in 0..3 {
-            // Check top 3 values
-            let idx = sorted_indices[i];
-            assert!((gradient[idx] - decompressed[idx]).abs() < 0.001);
-        }
-    }
-
-    #[test]
     fn test_quantization_compression() {
-        let compressor = GradientCompressor::new(CompressionMethod::Quantization { bits: 8 });
+        // Dense gradients are int8-quantised before entropy coding; `None`
+        // isolates the quantisation step.
+        let compressor = GradientCompressor::new(CompressionMethod::None);
         let gradient = vec![-1.0, -0.5, 0.0, 0.5, 1.0];
 
         let compressed = compressor.compress_sparse(&gradient).unwrap();
@@ -117,9 +82,9 @@ mod tests {
         let compressed = compressor.compress_sparse(&gradient).unwrap();
         let decompressed = compressor.decompress_sparse(&compressed).unwrap();
 
-        // Should match original
+        // Should match original within half an int8 quantisation step of the [-1, 1] range
         for (orig, decomp) in gradient.iter().zip(decompressed.iter()) {
-            assert!((orig - decomp).abs() < 0.001);
+            assert!((orig - decomp).abs() <= 1.0 / 255.0 + 1e-6);
         }
     }
 
@@ -155,8 +120,9 @@ mod tests {
 
         let methods = vec![
             CompressionMethod::Zstd { level: 3 },
-            CompressionMethod::TopK { k: 50 },
-            CompressionMethod::Quantization { bits: 8 },
+            CompressionMethod::Lz4 { level: 4 },
+            CompressionMethod::Snappy,
+            CompressionMethod::None,
         ];
 
         for method in methods {

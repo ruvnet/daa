@@ -1,10 +1,8 @@
 //! Comprehensive test runner for all DAA Compute tests
 
 use serde_json::{json, Value};
-use std::collections::HashMap;
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::time::{Duration, Instant};
-use tokio;
 
 #[derive(Debug, Clone)]
 pub struct TestResult {
@@ -28,6 +26,12 @@ pub struct TestRunner {
     pub start_time: Instant,
 }
 
+impl Default for TestRunner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TestRunner {
     pub fn new() -> Self {
         Self {
@@ -38,7 +42,7 @@ impl TestRunner {
 
     pub async fn run_all_tests(&mut self) -> anyhow::Result<()> {
         println!("🚀 Starting comprehensive DAA Compute test suite...");
-        println!("=" * 80);
+        println!("{}", "=".repeat(80));
 
         // Run unit tests
         self.run_unit_tests().await?;
@@ -60,7 +64,7 @@ impl TestRunner {
 
     async fn run_unit_tests(&mut self) -> anyhow::Result<()> {
         println!("\n📋 Running Unit Tests");
-        println!("-" * 40);
+        println!("{}", "-".repeat(40));
 
         let unit_tests = vec![
             ("P2P Gradient Tests", "tests/unit/p2p/test_gradient.rs"),
@@ -85,9 +89,9 @@ impl TestRunner {
 
         let suite = TestSuite {
             name: "Unit Tests".to_string(),
+            pass_rate: self.calculate_pass_rate(&suite_results),
             tests: suite_results,
             total_duration: suite_start.elapsed(),
-            pass_rate: self.calculate_pass_rate(&suite_results),
         };
 
         self.results.push(suite);
@@ -96,7 +100,7 @@ impl TestRunner {
 
     async fn run_integration_tests(&mut self) -> anyhow::Result<()> {
         println!("\n🔗 Running Integration Tests");
-        println!("-" * 40);
+        println!("{}", "-".repeat(40));
 
         let integration_tests = vec![(
             "P2P Networking Integration",
@@ -114,9 +118,9 @@ impl TestRunner {
 
         let suite = TestSuite {
             name: "Integration Tests".to_string(),
+            pass_rate: self.calculate_pass_rate(&suite_results),
             tests: suite_results,
             total_duration: suite_start.elapsed(),
-            pass_rate: self.calculate_pass_rate(&suite_results),
         };
 
         self.results.push(suite);
@@ -125,7 +129,7 @@ impl TestRunner {
 
     async fn run_simulation_tests(&mut self) -> anyhow::Result<()> {
         println!("\n🌊 Running Simulation Tests");
-        println!("-" * 40);
+        println!("{}", "-".repeat(40));
 
         let simulation_tests = vec![(
             "Node Churn Simulation",
@@ -143,9 +147,9 @@ impl TestRunner {
 
         let suite = TestSuite {
             name: "Simulation Tests".to_string(),
+            pass_rate: self.calculate_pass_rate(&suite_results),
             tests: suite_results,
             total_duration: suite_start.elapsed(),
-            pass_rate: self.calculate_pass_rate(&suite_results),
         };
 
         self.results.push(suite);
@@ -154,7 +158,7 @@ impl TestRunner {
 
     async fn run_benchmark_tests(&mut self) -> anyhow::Result<()> {
         println!("\n⚡ Running Benchmark Tests");
-        println!("-" * 40);
+        println!("{}", "-".repeat(40));
 
         let benchmark_tests = vec![(
             "Training Performance Benchmarks",
@@ -172,27 +176,31 @@ impl TestRunner {
 
         let suite = TestSuite {
             name: "Benchmark Tests".to_string(),
+            pass_rate: self.calculate_pass_rate(&suite_results),
             tests: suite_results,
             total_duration: suite_start.elapsed(),
-            pass_rate: self.calculate_pass_rate(&suite_results),
         };
 
         self.results.push(suite);
         Ok(())
     }
 
+    /// Run the tests of one module of the `lib` test target, e.g.
+    /// `tests/unit/p2p/test_gradient.rs` runs `unit::p2p::test_gradient::`.
     async fn run_test_file(&self, test_file: &str) -> anyhow::Result<TestResult> {
         let start = Instant::now();
+        let filter = format!(
+            "{}::",
+            test_file
+                .trim_start_matches("tests/")
+                .trim_end_matches(".rs")
+                .replace('/', "::")
+        );
 
         // Build the test
         let build_output = Command::new("cargo")
-            .args(&[
-                "test",
-                "--no-run",
-                "--test",
-                &test_file.replace("tests/", "").replace(".rs", ""),
-            ])
-            .current_dir("/workspaces/daa/daa-compute")
+            .args(["test", "-p", "daa-compute", "--test", "lib", "--no-run"])
+            .current_dir(env!("CARGO_MANIFEST_DIR"))
             .output()?;
 
         if !build_output.status.success() {
@@ -207,14 +215,17 @@ impl TestRunner {
 
         // Run the test
         let test_output = Command::new("cargo")
-            .args(&[
+            .args([
                 "test",
+                "-p",
+                "daa-compute",
                 "--test",
-                &test_file.replace("tests/", "").replace(".rs", ""),
+                "lib",
                 "--",
                 "--nocapture",
+                &filter,
             ])
-            .current_dir("/workspaces/daa/daa-compute")
+            .current_dir(env!("CARGO_MANIFEST_DIR"))
             .output()?;
 
         let passed = test_output.status.success();
@@ -259,9 +270,9 @@ impl TestRunner {
     async fn generate_report(&self) -> anyhow::Result<()> {
         let total_duration = self.start_time.elapsed();
 
-        println!("\n" + &"=".repeat(80));
+        println!("\n{}", "=".repeat(80));
         println!("📊 COMPREHENSIVE TEST REPORT");
-        println!("=" * 80);
+        println!("{}", "=".repeat(80));
 
         let mut total_tests = 0;
         let mut total_passed = 0;
@@ -279,8 +290,8 @@ impl TestRunner {
                 let status = if test.passed { "✅" } else { "❌" };
                 println!("     {} {} ({:?})", status, test.name, test.duration);
 
-                if !test.passed && test.error.is_some() {
-                    println!("       Error: {}", test.error.as_ref().unwrap());
+                if let (false, Some(error)) = (test.passed, &test.error) {
+                    println!("       Error: {}", error);
                 }
             }
         }
@@ -291,9 +302,9 @@ impl TestRunner {
             0.0
         };
 
-        println!("\n" + &"=".repeat(80));
+        println!("\n{}", "=".repeat(80));
         println!("🎯 OVERALL RESULTS");
-        println!("=" * 80);
+        println!("{}", "=".repeat(80));
         println!("Total Tests: {}", total_tests);
         println!("Passed: {}", total_passed);
         println!("Failed: {}", total_tests - total_passed);
@@ -306,6 +317,7 @@ impl TestRunner {
             .await?;
 
         println!("\n📝 Test report generated for memory storage");
+        println!("{}", serde_json::to_string_pretty(&report)?);
 
         // Check if we achieved 100% pass rate
         if overall_pass_rate >= 100.0 {
@@ -362,7 +374,7 @@ impl TestRunner {
             "environment": {
                 "platform": std::env::consts::OS,
                 "arch": std::env::consts::ARCH,
-                "rust_version": env!("RUSTC_VERSION")
+                "rust_version": option_env!("RUSTC_VERSION").unwrap_or("unknown")
             }
         });
 
@@ -388,16 +400,24 @@ impl TestRunner {
     }
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let mut runner = TestRunner::new();
-    runner.run_all_tests().await?;
-    Ok(())
-}
+/// Set to run the whole suite through [`TestRunner`] from `cargo test`.
+const RUN_SUITE_ENV: &str = "DAA_COMPUTE_RUN_TEST_SUITE";
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Runs the full suite and prints the report. It shells out to `cargo
+    /// test`, so it only runs when [`RUN_SUITE_ENV`] is set; a plain `cargo
+    /// test` already runs the same tests directly.
+    #[tokio::test]
+    async fn run_comprehensive_suite() -> anyhow::Result<()> {
+        if std::env::var_os(RUN_SUITE_ENV).is_none() {
+            return Ok(());
+        }
+        let mut runner = TestRunner::new();
+        runner.run_all_tests().await
+    }
 
     #[tokio::test]
     async fn test_runner_creation() {

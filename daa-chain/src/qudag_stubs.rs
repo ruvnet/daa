@@ -88,7 +88,15 @@ impl Transaction {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+impl Default for Transaction {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, Default,
+)]
 pub struct Hash([u8; 32]);
 
 impl Hash {
@@ -104,12 +112,6 @@ impl Hash {
 
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
-    }
-}
-
-impl Default for Hash {
-    fn default() -> Self {
-        Self([0; 32])
     }
 }
 
@@ -199,12 +201,6 @@ impl ConsensusEngine {
         Ok(())
     }
 }
-
-#[derive(Debug)]
-pub struct ConsensusMessage;
-
-#[derive(Debug)]
-pub struct ConsensusState;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PeerId(String);

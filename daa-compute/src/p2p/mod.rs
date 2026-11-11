@@ -13,23 +13,16 @@ pub mod transport;
 
 use anyhow::Result;
 use libp2p::{
-    autonat,
-    gossipsub::{
-        self, Behaviour as Gossipsub, Config as GossipsubConfig, Event as GossipsubEvent,
-        MessageAuthenticity, ValidationMode,
-    },
-    identify::{Behaviour as Identify, Config as IdentifyConfig, Event as IdentifyEvent},
-    kad::{
-        store::MemoryStore, Behaviour as Kademlia, Config as KademliaConfig, Event as KademliaEvent,
-    },
-    mdns::{tokio::Behaviour as Mdns, Event as MdnsEvent},
-    ping::{Behaviour as Ping, Event as PingEvent},
-    relay, upnp, Multiaddr, PeerId, Swarm, SwarmBuilder,
+    gossipsub::{Config as GossipsubConfig, Event as GossipsubEvent},
+    identify::Event as IdentifyEvent,
+    kad::{Config as KademliaConfig, Event as KademliaEvent},
+    ping::Event as PingEvent,
+    Multiaddr, PeerId, Swarm, SwarmBuilder,
 };
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{mpsc, RwLock};
-use tracing::{debug, error, info, warn};
+use tokio::sync::RwLock;
+use tracing::{debug, info, warn};
 
 pub use behavior::{ComposedEvent, NetworkBehavior};
 pub use gradient::{AllReduce, GradientMessage};
@@ -80,8 +73,6 @@ impl Default for SwarmConfig {
 /// Main P2P network manager
 pub struct P2PNetwork {
     swarm: Swarm<NetworkBehavior>,
-    event_tx: mpsc::UnboundedSender<ComposedEvent>,
-    event_rx: mpsc::UnboundedReceiver<ComposedEvent>,
     gradient_manager: Arc<RwLock<gradient::GradientManager>>,
     config: SwarmConfig,
 }
@@ -120,9 +111,6 @@ impl P2PNetwork {
             info!("Listening on {}", addr);
         }
 
-        // Create event channels
-        let (event_tx, event_rx) = mpsc::unbounded_channel();
-
         // Create gradient manager
         let gradient_manager = Arc::new(RwLock::new(gradient::GradientManager::new(
             local_peer_id,
@@ -131,8 +119,6 @@ impl P2PNetwork {
 
         Ok(Self {
             swarm,
-            event_tx,
-            event_rx,
             gradient_manager,
             config,
         })
@@ -157,29 +143,73 @@ impl P2PNetwork {
 
     /// Run the network event loop
     pub async fn run(&mut self) -> Result<()> {
+        loop {
+            self.process_next_event().await?;
+        }
+    }
+
+    /// Wait for the next swarm event and handle it.
+    ///
+    /// Waiting for the event is cancellation-safe; this lets callers drive the
+    /// network alongside other work instead of handing it to [`Self::run`].
+    pub async fn process_next_event(&mut self) -> Result<()> {
         use futures::StreamExt;
 
-        loop {
-            tokio::select! {
-                event = self.swarm.select_next_some() => {
-                    match event {
-                        libp2p::swarm::SwarmEvent::Behaviour(event) => {
-                            self.handle_behavior_event(event).await?;
-                        }
-                        libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
-                            info!("Listening on {}", address);
-                        }
-                        libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-                            info!("Connected to {}", peer_id);
-                        }
-                        libp2p::swarm::SwarmEvent::ConnectionClosed { peer_id, .. } => {
-                            info!("Disconnected from {}", peer_id);
-                        }
-                        _ => {}
-                    }
-                }
+        let event = self.swarm.select_next_some().await;
+        match event {
+            libp2p::swarm::SwarmEvent::Behaviour(event) => {
+                self.handle_behavior_event(event).await?;
             }
+            libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
+                info!("Listening on {}", address);
+            }
+            libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                info!("Connected to {}", peer_id);
+            }
+            libp2p::swarm::SwarmEvent::ConnectionClosed { peer_id, .. } => {
+                info!("Disconnected from {}", peer_id);
+            }
+            _ => {}
         }
+        Ok(())
+    }
+
+    /// This node's peer ID.
+    pub fn local_peer_id(&self) -> PeerId {
+        *self.swarm.local_peer_id()
+    }
+
+    /// Addresses the swarm is currently listening on.
+    pub fn listen_addresses(&self) -> Vec<Multiaddr> {
+        self.swarm.listeners().cloned().collect()
+    }
+
+    /// Peers with at least one established connection.
+    pub fn connected_peers(&self) -> Vec<PeerId> {
+        self.swarm.connected_peers().copied().collect()
+    }
+
+    /// Dial a peer at a known address and record it in the DHT.
+    pub fn connect_to_peer(&mut self, peer_id: PeerId, addr: Multiaddr) -> Result<()> {
+        self.swarm
+            .behaviour_mut()
+            .kademlia
+            .add_address(&peer_id, addr.clone());
+        self.swarm.dial(addr)?;
+        Ok(())
+    }
+
+    /// Gradients received from other peers for the current round.
+    pub async fn received_gradients(&self) -> Vec<(PeerId, Vec<f32>)> {
+        let local = self.local_peer_id();
+        let manager = self.gradient_manager.read().await;
+        let round = manager.current_round();
+        manager
+            .gradients_for_round(round)
+            .await
+            .into_iter()
+            .filter(|(peer, _)| *peer != local)
+            .collect()
     }
 
     /// Handle behavior events
@@ -201,13 +231,8 @@ impl P2PNetwork {
 
     /// Handle Kademlia events
     async fn handle_kademlia_event(&mut self, event: KademliaEvent) -> Result<()> {
-        use libp2p::kad::{GetClosestPeersOk, QueryResult};
-
-        match event {
-            KademliaEvent::RoutingUpdated { peer, .. } => {
-                debug!("Routing updated for peer: {}", peer);
-            }
-            _ => {}
+        if let KademliaEvent::RoutingUpdated { peer, .. } = event {
+            debug!("Routing updated for peer: {}", peer);
         }
         Ok(())
     }
@@ -226,13 +251,25 @@ impl P2PNetwork {
                 );
 
                 // Handle gradient messages
+                // Handle gradient messages. Their content comes from remote peers,
+                // so a bad message is dropped rather than stopping the event loop.
                 if message.topic == gradient::GRADIENT_TOPIC.hash() {
-                    let gradient_msg: GradientMessage = bincode::deserialize(&message.data)?;
-                    self.gradient_manager
-                        .write()
-                        .await
-                        .handle_gradient_message(gradient_msg)
-                        .await?;
+                    let result = match bincode::deserialize::<GradientMessage>(&message.data) {
+                        Ok(gradient_msg) => {
+                            self.gradient_manager
+                                .read()
+                                .await
+                                .handle_gradient_message(gradient_msg)
+                                .await
+                        }
+                        Err(e) => Err(e.into()),
+                    };
+                    if let Err(e) = result {
+                        warn!(
+                            "Dropping gradient message from {}: {}",
+                            propagation_source, e
+                        );
+                    }
                 }
             }
             GossipsubEvent::Subscribed { peer_id, topic } => {
@@ -245,19 +282,16 @@ impl P2PNetwork {
 
     /// Handle Identify events
     async fn handle_identify_event(&mut self, event: IdentifyEvent) -> Result<()> {
-        match event {
-            IdentifyEvent::Received { peer_id, info, .. } => {
-                debug!("Identified peer {}: {:?}", peer_id, info.protocol_version);
+        if let IdentifyEvent::Received { peer_id, info, .. } = event {
+            debug!("Identified peer {}: {:?}", peer_id, info.protocol_version);
 
-                // Add addresses to Kademlia
-                for addr in info.listen_addrs {
-                    self.swarm
-                        .behaviour_mut()
-                        .kademlia
-                        .add_address(&peer_id, addr);
-                }
+            // Add addresses to Kademlia
+            for addr in info.listen_addrs {
+                self.swarm
+                    .behaviour_mut()
+                    .kademlia
+                    .add_address(&peer_id, addr);
             }
-            _ => {}
         }
         Ok(())
     }
@@ -275,28 +309,6 @@ impl P2PNetwork {
         Ok(())
     }
 
-    /// Handle mDNS events
-    async fn handle_mdns_event(&mut self, event: MdnsEvent) -> Result<()> {
-        match event {
-            MdnsEvent::Discovered(peers) => {
-                for (peer_id, addr) in peers {
-                    info!("Discovered peer {} at {} via mDNS", peer_id, addr);
-                    self.swarm
-                        .behaviour_mut()
-                        .kademlia
-                        .add_address(&peer_id, addr.clone());
-                    self.swarm.dial(addr)?;
-                }
-            }
-            MdnsEvent::Expired(peers) => {
-                for (peer_id, _) in peers {
-                    debug!("mDNS peer expired: {}", peer_id);
-                }
-            }
-        }
-        Ok(())
-    }
-
     /// Broadcast a gradient update
     pub async fn broadcast_gradient(&mut self, gradient: Vec<f32>) -> Result<()> {
         let compressed = self
@@ -305,7 +317,7 @@ impl P2PNetwork {
             .await
             .compress_gradient(&gradient)?;
         let message = GradientMessage {
-            peer_id: self.swarm.local_peer_id().clone(),
+            peer_id: *self.swarm.local_peer_id(),
             round: self.gradient_manager.read().await.current_round(),
             compressed_gradient: compressed,
             timestamp: std::time::SystemTime::now(),
@@ -316,6 +328,13 @@ impl P2PNetwork {
             .behaviour_mut()
             .gossipsub
             .publish(gradient::GRADIENT_TOPIC.clone(), data)?;
+
+        // Our own contribution takes part in this round's all-reduce too.
+        self.gradient_manager
+            .read()
+            .await
+            .handle_gradient_message(message)
+            .await?;
 
         Ok(())
     }

@@ -2,7 +2,6 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use rand::prelude::*;
-use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Runtime;
 
@@ -44,16 +43,19 @@ impl BenchmarkModel {
             let mut next_activations = vec![0.0; output_size];
 
             // Matrix multiplication
-            for o in 0..output_size {
-                for i in 0..input_size {
-                    next_activations[o] += self.weights[weight_idx] * activations[i];
-                    weight_idx += 1;
-                }
-                next_activations[o] += self.biases[bias_idx];
+            for next in next_activations.iter_mut() {
+                let row = &self.weights[weight_idx..weight_idx + input_size];
+                *next += row
+                    .iter()
+                    .zip(&activations[..input_size])
+                    .map(|(w, a)| w * a)
+                    .sum::<f32>();
+                weight_idx += input_size;
+                *next += self.biases[bias_idx];
                 bias_idx += 1;
 
                 // ReLU activation
-                next_activations[o] = next_activations[o].max(0.0);
+                *next = next.max(0.0);
             }
 
             activations = next_activations;
@@ -124,10 +126,8 @@ fn benchmark_training_convergence_model_size(c: &mut Criterion) {
             |b, layers| {
                 b.to_async(&rt).iter(|| async move {
                     let mut model = BenchmarkModel::new(layers.clone(), 0.001);
-                    let dataset =
-                        generate_training_data(1000, layers[0], layers.last().unwrap().clone());
+                    let dataset = generate_training_data(1000, layers[0], *layers.last().unwrap());
 
-                    let start = std::time::Instant::now();
                     let convergence_time = train_to_convergence(&mut model, &dataset, 0.01).await;
                     black_box(convergence_time)
                 });
@@ -147,6 +147,7 @@ fn benchmark_distributed_vs_single_training(c: &mut Criterion) {
 
     let node_counts = vec![1, 2, 4, 8, 16];
     let model_layers = vec![784, 512, 256, 10];
+    let model_layers = &model_layers;
 
     for node_count in node_counts {
         group.throughput(Throughput::Elements(node_count as u64));
@@ -158,11 +159,10 @@ fn benchmark_distributed_vs_single_training(c: &mut Criterion) {
                 b.to_async(&rt).iter(|| async move {
                     let dataset = generate_training_data(5000, 784, 10);
 
-                    let start = std::time::Instant::now();
                     let convergence_time = if node_count == 1 {
-                        train_single_node(&model_layers, &dataset).await
+                        train_single_node(model_layers, &dataset).await
                     } else {
-                        train_distributed(&model_layers, &dataset, node_count).await
+                        train_distributed(model_layers, &dataset, node_count).await
                     };
                     black_box(convergence_time)
                 });
@@ -182,6 +182,7 @@ fn benchmark_training_batch_sizes(c: &mut Criterion) {
 
     let batch_sizes = vec![32, 64, 128, 256, 512];
     let model_layers = vec![784, 256, 10];
+    let model_layers = &model_layers;
 
     for batch_size in batch_sizes {
         group.throughput(Throughput::Elements(batch_size as u64));
@@ -194,7 +195,6 @@ fn benchmark_training_batch_sizes(c: &mut Criterion) {
                     let mut model = BenchmarkModel::new(model_layers.clone(), 0.001);
                     let dataset = generate_training_data(2000, 784, 10);
 
-                    let start = std::time::Instant::now();
                     let convergence_time =
                         train_with_batch_size(&mut model, &dataset, batch_size).await;
                     black_box(convergence_time)
@@ -216,6 +216,7 @@ fn benchmark_gradient_sync_frequency(c: &mut Criterion) {
     // Sync frequencies: every N batches
     let sync_frequencies = vec![1, 5, 10, 50, 100];
     let model_layers = vec![784, 256, 10];
+    let model_layers = &model_layers;
     let node_count = 8;
 
     for sync_freq in sync_frequencies {
@@ -226,9 +227,8 @@ fn benchmark_gradient_sync_frequency(c: &mut Criterion) {
                 b.to_async(&rt).iter(|| async move {
                     let dataset = generate_training_data(2000, 784, 10);
 
-                    let start = std::time::Instant::now();
                     let convergence_time =
-                        train_with_sync_frequency(&model_layers, &dataset, node_count, sync_freq)
+                        train_with_sync_frequency(model_layers, &dataset, node_count, sync_freq)
                             .await;
                     black_box(convergence_time)
                 });
@@ -248,6 +248,7 @@ fn benchmark_learning_rate_impact(c: &mut Criterion) {
 
     let learning_rates = vec![0.0001, 0.001, 0.01, 0.1, 0.5];
     let model_layers = vec![784, 256, 10];
+    let model_layers = &model_layers;
 
     for lr in learning_rates {
         group.bench_with_input(
@@ -258,7 +259,6 @@ fn benchmark_learning_rate_impact(c: &mut Criterion) {
                     let mut model = BenchmarkModel::new(model_layers.clone(), lr);
                     let dataset = generate_training_data(1000, 784, 10);
 
-                    let start = std::time::Instant::now();
                     let convergence_time = train_to_convergence(&mut model, &dataset, 0.01).await;
                     black_box(convergence_time)
                 });
@@ -277,6 +277,7 @@ fn benchmark_communication_overhead(c: &mut Criterion) {
     group.measurement_time(Duration::from_secs(35));
 
     let model_layers = vec![784, 512, 256, 10];
+    let model_layers = &model_layers;
     let gradient_size: usize = model_layers
         .windows(2)
         .map(|pair| pair[0] * pair[1])
@@ -301,7 +302,6 @@ fn benchmark_communication_overhead(c: &mut Criterion) {
                 b.to_async(&rt).iter(|| async move {
                     let gradients = vec![0.1f32; gradient_size];
 
-                    let start = std::time::Instant::now();
                     let comm_time =
                         simulate_gradient_communication(pattern, &gradients, node_count).await;
                     black_box(comm_time)
@@ -322,6 +322,7 @@ fn benchmark_federated_learning_convergence(c: &mut Criterion) {
     group.sample_size(10);
 
     let model_layers = vec![784, 128, 10];
+    let model_layers = &model_layers;
     let client_counts = vec![10, 50, 100, 500];
 
     for client_count in client_counts {
@@ -335,13 +336,9 @@ fn benchmark_federated_learning_convergence(c: &mut Criterion) {
                     // Each client has a smaller local dataset
                     let local_dataset_size = 100;
 
-                    let start = std::time::Instant::now();
-                    let convergence_time = simulate_federated_learning(
-                        &model_layers,
-                        client_count,
-                        local_dataset_size,
-                    )
-                    .await;
+                    let convergence_time =
+                        simulate_federated_learning(model_layers, client_count, local_dataset_size)
+                            .await;
                     black_box(convergence_time)
                 });
             },
@@ -591,7 +588,7 @@ async fn simulate_federated_learning(
     // Simulate federated learning rounds
     let rounds = 10;
 
-    for round in 0..rounds {
+    for _round in 0..rounds {
         // Client selection (subset of clients participate)
         let participating_clients = (client_count as f32 * 0.1).max(1.0) as usize; // 10% participation
 

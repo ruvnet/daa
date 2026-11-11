@@ -1,37 +1,28 @@
 # Dockerfile for DAA CLI
-FROM rust:1.75-bookworm as builder
-
-# Install dependencies
-RUN apt-get update && apt-get install -y \
-    pkg-config \
-    libssl-dev \
-    libsqlite3-dev \
-    && rm -rf /var/lib/apt/lists/*
+FROM rust:1-bookworm AS builder
 
 WORKDIR /app
 
-# Copy workspace and CLI code  
+# Copy the workspace manifest, the lockfile and every workspace member
+# (cargo has to load all members to resolve the workspace).
 COPY Cargo.toml Cargo.lock ./
-COPY daa-cli/ ./daa-cli/
-COPY daa-orchestrator/ ./daa-orchestrator/
-COPY daa-rules/ ./daa-rules/
 COPY daa-chain/ ./daa-chain/
 COPY daa-economy/ ./daa-economy/
+COPY daa-rules/ ./daa-rules/
 COPY daa-ai/ ./daa-ai/
+COPY daa-orchestrator/ ./daa-orchestrator/
+COPY daa-cli/ ./daa-cli/
 COPY daa-mcp/ ./daa-mcp/
+COPY daa-compute/ ./daa-compute/
 
 # Build CLI
-RUN cargo build --release --bin daa-cli
+RUN cargo build --locked --release -p daa-cli
 
 # Runtime stage
 FROM debian:bookworm-slim
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    libssl3 \
-    libsqlite3-0 \
-    curl \
-    git \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -r -s /bin/bash -m -d /home/daa daa
 
@@ -44,5 +35,6 @@ RUN mkdir -p /home/daa/.daa && chown -R daa:daa /home/daa
 USER daa
 WORKDIR /home/daa
 
+ENTRYPOINT ["daa-cli"]
 # Default command shows help
-CMD ["daa-cli", "--help"]
+CMD ["--help"]

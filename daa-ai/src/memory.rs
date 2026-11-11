@@ -20,6 +20,10 @@ impl MemorySystem {
         Self { config }
     }
 
+    pub fn config(&self) -> &MemoryConfig {
+        &self.config
+    }
+
     pub async fn initialize(&mut self) -> Result<()> {
         Ok(())
     }

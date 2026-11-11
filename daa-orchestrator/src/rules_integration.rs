@@ -22,6 +22,11 @@ impl Default for RulesConfig {
 }
 
 impl RulesIntegration {
+    /// Integration configuration
+    pub fn config(&self) -> &RulesConfig {
+        &self.config
+    }
+
     /// Create new rules integration
     pub async fn new() -> Result<Self> {
         Ok(Self {

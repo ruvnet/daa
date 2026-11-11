@@ -2,7 +2,10 @@
 
 use daa_orchestrator::{
     autonomy::{AutonomyLoop, AutonomyState},
-    config::{AiConfig, AutonomyConfig, HealthCheckConfig, RulesConfig},
+    config::{
+        AiConfig, AutonomyConfig, HealthCheckConfig, OrchestratorConfig as SystemConfig,
+        RulesConfig,
+    },
     services::Service,
     workflow::{Workflow, WorkflowStep},
     DaaOrchestrator, OrchestratorConfig,
@@ -15,7 +18,7 @@ use uuid::Uuid;
 /// Test basic health check functionality
 #[tokio::test]
 async fn test_basic_health_checks() {
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         health_check: HealthCheckConfig {
             interval_seconds: 5,
             component_timeout_ms: 2000,
@@ -25,7 +28,13 @@ async fn test_basic_health_checks() {
         ..Default::default()
     };
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    assert!(
+        config.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
     orchestrator.initialize().await.unwrap();
 
     // Test initial health state
@@ -93,7 +102,7 @@ async fn test_autonomy_loop_health_monitoring() {
 /// Test system status reporting under load
 #[tokio::test]
 async fn test_system_status_under_load() {
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         health_check: HealthCheckConfig {
             interval_seconds: 1, // Frequent health checks
             component_timeout_ms: 1000,
@@ -103,7 +112,13 @@ async fn test_system_status_under_load() {
         ..Default::default()
     };
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    assert!(
+        config.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
     orchestrator.initialize().await.unwrap();
 
     // Register multiple services
@@ -183,7 +198,7 @@ async fn test_system_status_under_load() {
 #[tokio::test]
 async fn test_health_monitoring_edge_cases() {
     // Test with extreme health check configuration
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         health_check: HealthCheckConfig {
             interval_seconds: 1,       // Very frequent
             component_timeout_ms: 100, // Very short timeout
@@ -202,7 +217,13 @@ async fn test_health_monitoring_edge_cases() {
         ..Default::default()
     };
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    assert!(
+        config.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
     orchestrator.initialize().await.unwrap();
 
     // System should handle extreme health check settings
@@ -231,7 +252,7 @@ async fn test_health_monitoring_edge_cases() {
 /// Test component monitoring and status reporting
 #[tokio::test]
 async fn test_component_monitoring() {
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         health_check: HealthCheckConfig {
             interval_seconds: 2,
             component_timeout_ms: 3000,
@@ -261,7 +282,13 @@ async fn test_component_monitoring() {
         ..Default::default()
     };
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    assert!(
+        config.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
     orchestrator.initialize().await.unwrap();
 
     // Test component status reporting
@@ -340,7 +367,7 @@ async fn test_component_monitoring() {
 /// Test system recovery scenarios
 #[tokio::test]
 async fn test_system_recovery_scenarios() {
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         health_check: HealthCheckConfig {
             interval_seconds: 1,
             component_timeout_ms: 2000,
@@ -359,7 +386,13 @@ async fn test_system_recovery_scenarios() {
         ..Default::default()
     };
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    assert!(
+        config.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
     orchestrator.initialize().await.unwrap();
 
     // Baseline health check

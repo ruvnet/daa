@@ -3,20 +3,20 @@
 //! This module implements a distributed swarm coordination system that manages
 //! multiple agents working together on complex tasks through parallel execution.
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime};
 
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, Mutex, RwLock};
-use tokio::time::{interval, timeout};
-use tracing::{debug, error, info, warn};
+use tokio::time::interval;
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use crate::{
     discovery::{AgentDiscoveryInfo, DiscoveryFilter, DiscoveryProtocol, DiscoveryUtils},
     DaaMcpError, DaaTask, McpServerState, Result, SwarmMessage, SwarmMessageType, TaskPriority,
-    TaskResult, TaskStatus,
+    TaskResult,
 };
 
 /// Swarm coordination strategies
@@ -168,6 +168,11 @@ impl SwarmCoordinator {
             task_scheduler: Arc::new(Mutex::new(task_scheduler)),
             shutdown_tx: None,
         })
+    }
+
+    /// Shared MCP server state this coordinator operates on
+    pub fn server_state(&self) -> &Arc<McpServerState> {
+        &self.server_state
     }
 
     /// Start the swarm coordination system
@@ -482,7 +487,10 @@ impl SwarmCoordinator {
 
                 // Send initialization message to agent
                 // In a real implementation, this would use the agent's MCP endpoint
-                debug!("Initializing agent {} for swarm {}", agent.id, swarm_id);
+                debug!(
+                    "Initializing agent {} for swarm {}: {}",
+                    agent.id, swarm_id, init_message
+                );
             }
         }
 
@@ -562,7 +570,7 @@ impl SwarmCoordinator {
     async fn check_swarm_health(
         swarm_id: &str,
         swarm: &SwarmState,
-        discovery: &Arc<DiscoveryProtocol>,
+        _discovery: &Arc<DiscoveryProtocol>,
     ) {
         let now = SystemTime::now();
         let mut unhealthy_agents = 0;
@@ -664,6 +672,12 @@ pub struct TaskScheduler {
     pending_assignments: HashMap<String, Vec<DaaTask>>,
 }
 
+impl Default for TaskScheduler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TaskScheduler {
     /// Create a new task scheduler
     pub fn new() -> Self {
@@ -676,7 +690,7 @@ impl TaskScheduler {
     pub async fn schedule_task(&mut self, swarm_id: &str, task: DaaTask) -> Result<()> {
         self.pending_assignments
             .entry(swarm_id.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(task);
 
         Ok(())
@@ -688,7 +702,7 @@ impl TaskScheduler {
         swarm_id: &str,
         swarm_state: &SwarmState,
     ) -> Result<()> {
-        let tasks_snapshot = self.pending_assignments.get(swarm_id).map(|t| t.clone());
+        let tasks_snapshot = self.pending_assignments.get(swarm_id).cloned();
         if let Some(tasks) = tasks_snapshot {
             if !tasks.is_empty() && matches!(swarm_state.status, SwarmStatus::Active) {
                 // Distribute tasks based on the configured method
@@ -740,7 +754,7 @@ impl TaskScheduler {
                 }
                 _ => {
                     // Default to round-robin
-                    &worker_agents[0] // Simplified for this implementation
+                    worker_agents[0] // Simplified for this implementation
                 }
             };
 
@@ -869,7 +883,6 @@ impl SwarmTemplates {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{discovery::DiscoveryConfig, DaaMcpConfig};
 
     #[test]
     fn test_swarm_templates() {

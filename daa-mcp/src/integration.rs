@@ -14,7 +14,7 @@ use uuid::Uuid;
 use crate::{
     discovery::{DiscoveryConfig, DiscoveryProtocol, DiscoveryUtils},
     server::DaaMcpServer,
-    swarm::{SwarmConfig, SwarmCoordinator, SwarmMode, SwarmStrategy, SwarmTemplates},
+    swarm::{SwarmCoordinator, SwarmTemplates},
     tools::execute_tool,
     DaaMcpConfig, DaaMcpError, DaaTask, McpServerState, Result, TaskPriority,
 };
@@ -262,7 +262,7 @@ impl DaaIntegrationManager {
                     )
                     .await
                     {
-                        Ok(Ok(result)) => Some(format!("{}: Success", tool_name)),
+                        Ok(Ok(_result)) => Some(format!("{}: Success", tool_name)),
                         Ok(Err(e)) => Some(format!("{}: Error - {}", tool_name, e)),
                         Err(_) => Some(format!("{}: Timeout", tool_name)),
                     }
@@ -271,10 +271,8 @@ impl DaaIntegrationManager {
             .collect();
 
         let batch_results = futures::future::join_all(futures).await;
-        for result in batch_results {
-            if let Some(result_str) = result {
-                results.push(result_str);
-            }
+        for result_str in batch_results.into_iter().flatten() {
+            results.push(result_str);
         }
 
         info!(

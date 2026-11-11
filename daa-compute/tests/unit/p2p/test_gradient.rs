@@ -1,21 +1,27 @@
 //! Unit tests for gradient sharing and aggregation
 
 use daa_compute::p2p::gradient::{AllReduceAlgorithm, GradientManager, GradientMessage};
-use daa_compute::training::{Gradient, ModelParameters};
 use libp2p::PeerId;
 use std::collections::HashMap;
-use tokio;
+use std::sync::Arc;
+use std::time::SystemTime;
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn create_test_gradient(node_id: &str, values: Vec<f32>, round: u64) -> Gradient {
-        Gradient {
-            values,
-            node_id: node_id.to_string(),
+    /// A gradient message as a peer would send it over the network.
+    fn create_test_message(
+        manager: &GradientManager,
+        peer_id: PeerId,
+        values: &[f32],
+        round: u64,
+    ) -> GradientMessage {
+        GradientMessage {
+            peer_id,
             round,
-            compressed: false,
+            compressed_gradient: manager.compress_gradient(values).unwrap(),
+            timestamp: SystemTime::now(),
         }
     }
 
@@ -24,7 +30,8 @@ mod tests {
         let peer_id = PeerId::random();
         let manager = GradientManager::new(peer_id, 3);
 
-        assert_eq!(manager.get_num_peers(), 3);
+        assert_eq!(manager.current_round(), 0);
+        assert!(manager.gradients_for_round(0).await.is_empty());
         assert!(manager.get_aggregated_gradient().await.unwrap().is_none());
     }
 
@@ -38,7 +45,10 @@ mod tests {
         gradients.insert(PeerId::random(), vec![4.0, 5.0, 6.0]);
         gradients.insert(peer_id, vec![7.0, 8.0, 9.0]);
 
-        let result = manager.ring_allreduce(&gradients).await.unwrap();
+        let result = manager
+            .all_reduce(AllReduceAlgorithm::Ring, &gradients)
+            .await
+            .unwrap();
 
         // Check averaging: (1+4+7)/3=4, (2+5+8)/3=5, (3+6+9)/3=6
         assert_eq!(result.len(), 3);
@@ -55,7 +65,10 @@ mod tests {
         let mut gradients = HashMap::new();
         gradients.insert(peer_id, vec![1.0, 2.0, 3.0]);
 
-        let result = manager.ring_allreduce(&gradients).await.unwrap();
+        let result = manager
+            .all_reduce(AllReduceAlgorithm::Ring, &gradients)
+            .await
+            .unwrap();
         assert_eq!(result, vec![1.0, 2.0, 3.0]);
     }
 
@@ -65,7 +78,9 @@ mod tests {
         let manager = GradientManager::new(peer_id, 3);
 
         let gradients = HashMap::new();
-        let result = manager.ring_allreduce(&gradients).await;
+        let result = manager
+            .all_reduce(AllReduceAlgorithm::Ring, &gradients)
+            .await;
 
         assert!(result.is_err());
     }
@@ -79,8 +94,10 @@ mod tests {
         gradients.insert(PeerId::random(), vec![1.0, 2.0, 3.0]);
         gradients.insert(peer_id, vec![4.0, 5.0]); // Different size
 
-        let result = manager.ring_allreduce(&gradients).await;
-        assert!(result.is_err() || result.unwrap().len() == 2);
+        let result = manager
+            .all_reduce(AllReduceAlgorithm::Ring, &gradients)
+            .await;
+        assert!(result.is_err());
     }
 
     #[tokio::test]
@@ -88,15 +105,16 @@ mod tests {
         let peer_id = PeerId::random();
         let manager = GradientManager::new(peer_id, 3);
 
-        let gradient = create_test_gradient("node1", vec![1.0, 2.0, 3.0], 1);
-        manager
-            .store_gradient(PeerId::random(), gradient.clone())
-            .await
-            .unwrap();
+        let sender = PeerId::random();
+        let message = create_test_message(&manager, sender, &[1.0, 2.0, 3.0], 0);
+        manager.handle_gradient_message(message).await.unwrap();
 
-        // Check that gradient was stored
-        let stored = manager.get_stored_gradients().await;
+        // Check that gradient was stored (int8-quantised in transit)
+        let stored = manager.gradients_for_round(0).await;
         assert_eq!(stored.len(), 1);
+        for (got, want) in stored[&sender].iter().zip([1.0, 2.0, 3.0]) {
+            assert!((got - want).abs() < 0.01);
+        }
     }
 
     #[tokio::test]
@@ -109,7 +127,9 @@ mod tests {
         gradients.insert(peer_id, vec![4.0, 5.0, 6.0]);
 
         // Should handle NaN gracefully
-        let result = manager.ring_allreduce(&gradients).await;
+        let result = manager
+            .all_reduce(AllReduceAlgorithm::Ring, &gradients)
+            .await;
         if let Ok(values) = result {
             assert!(values.iter().all(|v| v.is_finite()));
         }
@@ -125,7 +145,9 @@ mod tests {
         gradients.insert(peer_id, vec![4.0, 5.0, 6.0]);
 
         // Should handle infinity gracefully
-        let result = manager.ring_allreduce(&gradients).await;
+        let result = manager
+            .all_reduce(AllReduceAlgorithm::Ring, &gradients)
+            .await;
         if let Ok(values) = result {
             assert!(values.iter().all(|v| v.is_finite()));
         }
@@ -145,7 +167,10 @@ mod tests {
             gradients.insert(peer, values);
         }
 
-        let result = manager.ring_allreduce(&gradients).await.unwrap();
+        let result = manager
+            .all_reduce(AllReduceAlgorithm::Ring, &gradients)
+            .await
+            .unwrap();
         assert_eq!(result.len(), 1000);
 
         // Check first value: (0+1000+2000+...+9000)/10 = 4500
@@ -155,7 +180,7 @@ mod tests {
     #[tokio::test]
     async fn test_concurrent_gradient_updates() {
         let peer_id = PeerId::random();
-        let manager = GradientManager::new(peer_id, 5);
+        let manager = Arc::new(GradientManager::new(peer_id, 5));
 
         // Spawn multiple concurrent tasks updating gradients
         let mut handles = vec![];
@@ -163,8 +188,8 @@ mod tests {
         for i in 0..5 {
             let mgr = manager.clone();
             let handle = tokio::spawn(async move {
-                let gradient = create_test_gradient(&format!("node{}", i), vec![i as f32; 100], 1);
-                mgr.store_gradient(PeerId::random(), gradient).await
+                let message = create_test_message(&mgr, PeerId::random(), &[i as f32; 100], 0);
+                mgr.handle_gradient_message(message).await
             });
             handles.push(handle);
         }
@@ -174,29 +199,27 @@ mod tests {
             handle.await.unwrap().unwrap();
         }
 
-        let stored = manager.get_stored_gradients().await;
+        let stored = manager.gradients_for_round(0).await;
         assert_eq!(stored.len(), 5);
     }
 
     #[tokio::test]
     async fn test_gradient_message_serialization() {
-        let gradient = create_test_gradient("test", vec![1.0, 2.0, 3.0], 42);
-        let message = GradientMessage::Update {
-            gradient: gradient.clone(),
-            round: 42,
-        };
+        let manager = GradientManager::new(PeerId::random(), 3);
+        let sender = PeerId::random();
+        let message = create_test_message(&manager, sender, &[1.0, 2.0, 3.0], 42);
 
-        // Test that gradient message can be created and matched
-        match message {
-            GradientMessage::Update {
-                gradient: g,
-                round: r,
-            } => {
-                assert_eq!(g.node_id, "test");
-                assert_eq!(g.values, vec![1.0, 2.0, 3.0]);
-                assert_eq!(r, 42);
-            }
-            _ => panic!("Wrong message type"),
+        // Round-trip through the wire format used on the gossip topic
+        let bytes = bincode::serialize(&message).unwrap();
+        let decoded: GradientMessage = bincode::deserialize(&bytes).unwrap();
+
+        assert_eq!(decoded.peer_id, sender);
+        assert_eq!(decoded.round, 42);
+        let values = manager
+            .decompress_gradient(&decoded.compressed_gradient)
+            .unwrap();
+        for (got, want) in values.iter().zip([1.0, 2.0, 3.0]) {
+            assert!((got - want).abs() < 0.01);
         }
     }
 }

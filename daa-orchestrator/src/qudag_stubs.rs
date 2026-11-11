@@ -9,8 +9,9 @@ pub struct Node {
 
 impl Node {
     pub async fn new(_config: NodeConfig) -> Result<Self> {
+        // Each node gets a unique random identity.
         Ok(Self {
-            node_id: vec![1, 2, 3, 4],
+            node_id: uuid::Uuid::new_v4().as_bytes().to_vec(),
         })
     }
 
@@ -52,5 +53,5 @@ pub enum MessageError {
 }
 
 pub mod qudag_protocol {
-    pub use super::{Message, MessageError, Node, NodeConfig, ProtocolError};
+    pub use super::{Message, Node, NodeConfig};
 }

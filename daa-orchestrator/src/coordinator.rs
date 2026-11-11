@@ -11,6 +11,11 @@ impl Coordinator {
         Self { config }
     }
 
+    /// Coordination configuration
+    pub fn config(&self) -> &CoordinationConfig {
+        &self.config
+    }
+
     pub async fn initialize(&mut self) -> Result<()> {
         Ok(())
     }

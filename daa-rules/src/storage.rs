@@ -1,6 +1,6 @@
 //! Storage interface for rules
 
-use crate::{Result, Rule, RulesError};
+use crate::{Result, Rule};
 use std::collections::HashMap;
 
 /// Storage interface for rules

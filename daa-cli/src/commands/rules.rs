@@ -11,7 +11,7 @@ pub async fn handle_add_rule(
     rule_type: String,
     params: Option<String>,
     description: Option<String>,
-    config: &CliConfig,
+    _config: &CliConfig,
     cli: &CliContext,
 ) -> Result<()> {
     if cli.verbose {
