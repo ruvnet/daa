@@ -110,7 +110,7 @@ impl ByzantineAggregator {
             }
 
             // Check for anomalous values
-            if self.is_anomalous(&weights) {
+            if self.is_anomalous(weights) {
                 warn!("Anomalous weights detected from node {}", node_id);
                 self.byzantine_nodes.insert(node_id.clone());
                 continue;
@@ -525,10 +525,8 @@ pub trait RecoveryStrategy: Send + Sync + std::fmt::Debug {
 }
 
 /// Simple checkpoint-based recovery strategy
-#[derive(Debug)]
-pub struct CheckpointRecovery {
-    checkpoint_consensus: Arc<CheckpointConsensus>,
-}
+#[derive(Debug, Default)]
+pub struct CheckpointRecovery;
 
 #[async_trait::async_trait]
 impl RecoveryStrategy for CheckpointRecovery {
@@ -689,6 +687,12 @@ impl Default for QRAvalancheConfig {
     }
 }
 
+impl Default for QuDAGModelConsensus {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl QuDAGModelConsensus {
     /// Create a new QuDAG model consensus instance
     pub fn new() -> Self {
@@ -720,15 +724,12 @@ impl QuDAGModelConsensus {
         }
 
         // Step 2: Apply Byzantine fault-tolerant aggregation if needed
-        match &update {
-            ModelUpdate::WeightUpdate { weights, .. } => {
-                // In a real scenario, we'd aggregate multiple weight updates
-                // For now, just validate the single update
-                let mut aggregator = self.aggregator.lock().await;
-                let updates = vec![("node1".to_string(), weights.clone())];
-                let _ = aggregator.aggregate_weight_updates(updates).await?;
-            }
-            _ => {}
+        if let ModelUpdate::WeightUpdate { weights, .. } = &update {
+            // In a real scenario, we'd aggregate multiple weight updates
+            // For now, just validate the single update
+            let mut aggregator = self.aggregator.lock().await;
+            let updates = vec![("node1".to_string(), weights.clone())];
+            let _ = aggregator.aggregate_weight_updates(updates).await?;
         }
 
         // Step 3: Create checkpoint if needed

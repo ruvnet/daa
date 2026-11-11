@@ -20,8 +20,7 @@ uuid = { version = "1.0", features = ["v4", "serde"] }
 tracing = "0.1"
 async-trait = "0.1"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
-dashmap = "5.5"
-daa-rules = { version = "0.2.0", optional = true }
+daa-rules = { version = "0.2.0", path = "../daa-rules", optional = true }
 
 # QuDAG dependencies - commented out until published
 # qudag-crypto = { version = "0.1", optional = true }

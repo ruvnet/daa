@@ -30,7 +30,7 @@ pub struct ConsensusEngine {
 }
 
 /// DAA-specific consensus state
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DaaConsensusState {
     /// Current epoch
     pub epoch: u64,
@@ -52,20 +52,6 @@ pub struct DaaConsensusState {
 
     /// Last finalized height
     pub finalized_height: u64,
-}
-
-impl Default for DaaConsensusState {
-    fn default() -> Self {
-        Self {
-            epoch: 0,
-            round: 0,
-            current_leader: None,
-            votes: HashMap::new(),
-            proposals: HashMap::new(),
-            committed_blocks: HashSet::new(),
-            finalized_height: 0,
-        }
-    }
 }
 
 /// Validator information
@@ -180,6 +166,11 @@ impl ConsensusEngine {
             event_sender,
             validators: Arc::new(RwLock::new(HashMap::new())),
         })
+    }
+
+    /// Chain configuration this engine was created with
+    pub fn config(&self) -> &ChainConfig {
+        &self.config
     }
 
     /// Start the consensus engine
@@ -390,7 +381,7 @@ impl ConsensusEngine {
         let validators = self.validators.read().await;
         let threshold = (validators.values().map(|v| v.stake).sum::<u64>() * 2) / 3;
 
-        for (_proposer, block) in &state.proposals {
+        for block in state.proposals.values() {
             let votes_for_block: u64 = state
                 .votes
                 .values()
@@ -465,6 +456,7 @@ impl ConsensusEngine {
 mod tests {
     use super::*;
     use crate::ChainConfig;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[tokio::test]
     async fn test_consensus_engine_creation() {

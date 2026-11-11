@@ -22,49 +22,68 @@ pub use trading::{TradeExecution, TradeOrder, TradingEngine};
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rust_decimal_macros::dec;
 
-    #[test]
-    fn test_economic_components_integration() {
+    fn market_maker_config() -> market::MarketMakerConfig {
+        market::MarketMakerConfig {
+            spread: dec!(0.01),
+            depth: 10,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_economic_components_integration() {
         // Test that all major components can be instantiated
-        let market_analyzer = MarketAnalyzer::new();
+        let market_manager = market::MarketManager::new(market_maker_config())
+            .await
+            .unwrap();
         let resource_manager = ResourceManager::new();
         let trading_engine = TradingEngine::new();
 
-        assert!(market_analyzer.get_market_data().is_ok());
+        assert!(market_manager.get_market_data("BTC", "USD").await.is_ok());
         assert_eq!(resource_manager.available_resources().len(), 0);
         assert!(trading_engine.get_account_balance().is_ok());
     }
 
-    #[test]
-    fn test_integration_workflow() {
+    #[tokio::test]
+    async fn test_integration_workflow() {
         // Test integration between components
         let mut trading_engine = TradingEngine::new();
-        let mut market_analyzer = MarketAnalyzer::new();
+        let mut market_manager = market::MarketManager::new(market_maker_config())
+            .await
+            .unwrap();
+        market_manager.initialize().await.unwrap();
 
         // Set up initial conditions
-        trading_engine.set_balance("USD".to_string(), rust_decimal_macros::dec!(10000.0));
-        trading_engine.update_market_price("BTC".to_string(), rust_decimal_macros::dec!(50000.0));
+        trading_engine.set_balance("USD".to_string(), dec!(10000.0));
+        trading_engine.update_market_price("BTC".to_string(), dec!(50000.0));
 
-        // Create market data
-        let mut btc_data = market::MarketData::new("BTC".to_string());
-        btc_data.add_price_point(market::PricePoint::new(
-            rust_decimal_macros::dec!(50000.0),
-            rust_decimal_macros::dec!(100.0),
-        ));
-        market_analyzer.add_market_data("BTC".to_string(), btc_data);
+        // Create market data and feed it to the optimizer
+        let btc_data = MarketData {
+            base_token: "BTC".to_string(),
+            quote_token: "USD".to_string(),
+            last_price: dec!(50000.0),
+            bid_price: dec!(49990.0),
+            ask_price: dec!(50010.0),
+            volume_24h: dec!(100.0),
+            price_change_24h: dec!(0.02),
+        };
+        let mut optimizer = EconomicOptimizer::new();
+        optimizer.add_market_data("BTC".to_string(), btc_data);
 
         // Test resource allocation
         let mut resource_manager = ResourceManager::new();
         let resource = resources::Resource::new(
             resources::ResourceType::Token("BTC".to_string()),
-            rust_decimal_macros::dec!(100.0),
+            dec!(100.0),
             "BTC".to_string(),
-            rust_decimal_macros::dec!(50000.0),
+            dec!(50000.0),
         );
         resource_manager.add_resource(resource);
 
         assert_eq!(resource_manager.available_resources().len(), 1);
-        assert!(market_analyzer.get_market_data().is_ok());
+        let quote = market_manager.get_market_data("BTC", "USD").await.unwrap();
+        assert_eq!(quote.base_token, "BTC");
         assert!(trading_engine.get_account_balance().is_ok());
     }
 }

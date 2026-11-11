@@ -237,7 +237,7 @@ impl RiskAssessment {
     /// Get highest risk factors
     pub fn get_top_risk_factors(&self, limit: usize) -> Vec<&RiskFactor> {
         let mut factors: Vec<&RiskFactor> = self.risk_factors.values().collect();
-        factors.sort_by(|a, b| b.score.cmp(&a.score));
+        factors.sort_by_key(|f| std::cmp::Reverse(f.score));
         factors.into_iter().take(limit).collect()
     }
 
@@ -276,6 +276,11 @@ impl RiskAssessmentEngine {
 
         engine.initialize_default_factors();
         engine
+    }
+
+    /// How often, in hours, assets are expected to be re-assessed
+    pub fn assessment_interval_hours(&self) -> u64 {
+        self.assessment_interval_hours
     }
 
     /// Initialize default risk factors

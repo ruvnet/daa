@@ -25,9 +25,6 @@ pub mod tools;
 #[cfg(feature = "rules-integration")]
 pub mod rules_integration;
 
-#[cfg(feature = "database")]
-pub mod database;
-
 /// AI system error types
 #[derive(Error, Debug)]
 pub enum AIError {
@@ -62,7 +59,7 @@ pub enum AIError {
 pub type Result<T> = std::result::Result<T, AIError>;
 
 /// Configuration for the DAA AI system
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AIConfig {
     /// Claude API configuration
     pub claude: claude::ClaudeConfig,
@@ -75,23 +72,6 @@ pub struct AIConfig {
 
     /// Memory configuration
     pub memory: MemoryConfig,
-
-    /// Database configuration
-    #[cfg(feature = "database")]
-    pub database_url: Option<String>,
-}
-
-impl Default for AIConfig {
-    fn default() -> Self {
-        Self {
-            claude: claude::ClaudeConfig::default(),
-            mcp: MCPClientConfig::default(),
-            agents: AgentConfig::default(),
-            memory: MemoryConfig::default(),
-            #[cfg(feature = "database")]
-            database_url: None,
-        }
-    }
 }
 
 /// MCP client configuration
@@ -230,10 +210,6 @@ pub struct AISystem {
 
     /// Memory system
     memory: memory::MemorySystem,
-
-    /// Database connection
-    #[cfg(feature = "database")]
-    database: Option<database::DatabaseManager>,
 }
 
 impl AISystem {
@@ -253,14 +229,6 @@ impl AISystem {
         let tool_registry = tools::ToolRegistry::new();
         let memory = memory::MemorySystem::new(config.memory.clone());
 
-        // Initialize database if enabled
-        #[cfg(feature = "database")]
-        let database = if let Some(db_url) = &config.database_url {
-            Some(database::DatabaseManager::new(db_url).await?)
-        } else {
-            None
-        };
-
         Ok(Self {
             config,
             mcp_client,
@@ -269,8 +237,6 @@ impl AISystem {
             task_manager,
             tool_registry,
             memory,
-            #[cfg(feature = "database")]
-            database,
         })
     }
 
@@ -286,12 +252,6 @@ impl AISystem {
 
         // Initialize memory system
         self.memory.initialize().await?;
-
-        // Initialize database if enabled
-        #[cfg(feature = "database")]
-        if let Some(db) = &mut self.database {
-            db.initialize().await?;
-        }
 
         tracing::info!("DAA AI System initialized successfully");
         Ok(())
@@ -336,12 +296,6 @@ impl AISystem {
         self.memory
             .store_task_result(agent_id, &task.id, &result)
             .await?;
-
-        // Record in database if enabled
-        #[cfg(feature = "database")]
-        if let Some(db) = &mut self.database {
-            db.record_task_execution(agent_id, &task, &result).await?;
-        }
 
         tracing::info!("Task {} executed by agent {}", task.id, agent_id);
         Ok(result)
@@ -456,10 +410,10 @@ mod tests {
     #[tokio::test]
     async fn test_ai_system_creation() {
         let config = AIConfig::default();
-        // Note: This would fail in real test due to missing MCP server
-        // let system = AISystem::new(config).await;
-        // In actual implementation, we'd use mock clients for testing
-        assert!(true); // Placeholder test
+        // The MCP client is a local stub and the Claude client only builds an
+        // HTTP client, so construction needs no network access.
+        let system = AISystem::new(config).await;
+        assert!(system.is_ok());
     }
 
     #[test]
