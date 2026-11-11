@@ -8,9 +8,9 @@ use libp2p::{gossipsub::IdentTopic, PeerId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 use tokio::sync::RwLock;
-use tracing::info;
+use tracing::{info, warn};
 
 use super::compression::CompressionMethod;
 
@@ -62,14 +62,16 @@ pub enum AllReduceAlgorithm {
     Hierarchical,
 }
 
+/// Gradients received per round, keyed by the contributing peer.
+type GradientsByRound = HashMap<u64, HashMap<PeerId, Vec<f32>>>;
+
 /// Gradient manager for handling aggregation
 pub struct GradientManager {
     peer_id: PeerId,
     current_round: Arc<RwLock<u64>>,
-    gradients: Arc<RwLock<HashMap<u64, HashMap<PeerId, Vec<f32>>>>>,
+    gradients: Arc<RwLock<GradientsByRound>>,
     compression_method: CompressionMethod,
     algorithm: AllReduceAlgorithm,
-    round_timeout: Duration,
     min_peers_for_aggregation: usize,
 }
 
@@ -83,7 +85,6 @@ impl GradientManager {
                 level: compression_level as i32,
             },
             algorithm: AllReduceAlgorithm::Ring,
-            round_timeout: Duration::from_secs(30),
             min_peers_for_aggregation: 2,
         }
     }
@@ -111,21 +112,40 @@ impl GradientManager {
     pub async fn handle_gradient_message(&self, message: GradientMessage) -> Result<()> {
         let gradient = self.decompress_gradient(&message.compressed_gradient)?;
 
-        let mut gradients = self.gradients.write().await;
-        let round_gradients = gradients.entry(message.round).or_insert_with(HashMap::new);
-        round_gradients.insert(message.peer_id, gradient);
+        // The write guard must be released before aggregating, which takes a
+        // read lock on the same map.
+        let held = {
+            let mut gradients = self.gradients.write().await;
+            let round_gradients = gradients.entry(message.round).or_insert_with(HashMap::new);
+            round_gradients.insert(message.peer_id, gradient);
+            round_gradients.len()
+        };
 
         info!(
             "Received gradient from {} for round {}",
             message.peer_id, message.round
         );
 
-        // Check if we have enough gradients to aggregate
-        if round_gradients.len() >= self.min_peers_for_aggregation {
-            self.try_aggregate_round(message.round).await?;
+        // Check if we have enough gradients to aggregate. A round that cannot
+        // be reduced yet (e.g. a peer sent a malformed gradient) must not cause
+        // this, possibly valid, message to be rejected.
+        if held >= self.min_peers_for_aggregation {
+            if let Err(e) = self.try_aggregate_round(message.round).await {
+                warn!("Round {} not aggregated: {}", message.round, e);
+            }
         }
 
         Ok(())
+    }
+
+    /// Gradients currently held for `round`, keyed by contributing peer.
+    pub async fn gradients_for_round(&self, round: u64) -> HashMap<PeerId, Vec<f32>> {
+        self.gradients
+            .read()
+            .await
+            .get(&round)
+            .cloned()
+            .unwrap_or_default()
     }
 
     /// Try to aggregate gradients for a round
@@ -133,31 +153,56 @@ impl GradientManager {
         let gradients = self.gradients.read().await;
 
         if let Some(round_gradients) = gradients.get(&round) {
-            if round_gradients.len() >= self.min_peers_for_aggregation {
+            if round_gradients.len() >= self.min_peers_for_aggregation
+                // All-reduce is computed from this peer's position, so it can
+                // only run once we have contributed to the round ourselves.
+                && round_gradients.contains_key(&self.peer_id)
+            {
                 info!(
                     "Aggregating {} gradients for round {}",
                     round_gradients.len(),
                     round
                 );
 
-                match self.algorithm {
-                    AllReduceAlgorithm::Ring => {
-                        self.ring_allreduce(round_gradients).await?;
-                    }
-                    AllReduceAlgorithm::Tree => {
-                        self.tree_allreduce(round_gradients).await?;
-                    }
-                    AllReduceAlgorithm::Butterfly => {
-                        self.butterfly_allreduce(round_gradients).await?;
-                    }
-                    AllReduceAlgorithm::Hierarchical => {
-                        self.hierarchical_allreduce(round_gradients).await?;
-                    }
-                }
+                self.all_reduce(self.algorithm, round_gradients).await?;
             }
         }
 
         Ok(())
+    }
+
+    /// Reduce one round of per-peer gradients to their average using `algorithm`.
+    ///
+    /// `gradients` must contain an entry for this manager's own peer ID, and
+    /// every gradient must have the same length and only finite values.
+    pub async fn all_reduce(
+        &self,
+        algorithm: AllReduceAlgorithm,
+        gradients: &HashMap<PeerId, Vec<f32>>,
+    ) -> Result<Vec<f32>> {
+        let own = gradients
+            .get(&self.peer_id)
+            .ok_or_else(|| anyhow!("Our peer ID not found in gradient list"))?;
+        for (peer, gradient) in gradients {
+            if gradient.len() != own.len() {
+                return Err(anyhow!(
+                    "Gradient from {} has {} values, expected {}",
+                    peer,
+                    gradient.len(),
+                    own.len()
+                ));
+            }
+            if gradient.iter().any(|v| !v.is_finite()) {
+                return Err(anyhow!("Gradient from {} has non-finite values", peer));
+            }
+        }
+
+        match algorithm {
+            AllReduceAlgorithm::Ring => self.ring_allreduce(gradients).await,
+            AllReduceAlgorithm::Tree => self.tree_allreduce(gradients).await,
+            AllReduceAlgorithm::Butterfly => self.butterfly_allreduce(gradients).await,
+            AllReduceAlgorithm::Hierarchical => self.hierarchical_allreduce(gradients).await,
+        }
     }
 
     /// Ring all-reduce implementation
@@ -204,11 +249,6 @@ impl GradientManager {
         let mut peers: Vec<_> = gradients.keys().cloned().collect();
         peers.sort();
 
-        let our_idx = peers
-            .iter()
-            .position(|p| p == &self.peer_id)
-            .ok_or_else(|| anyhow!("Our peer ID not found"))?;
-
         // Reduce phase: aggregate up the tree
         let mut level_gradients = gradients.clone();
         let mut level_size = peers.len();
@@ -229,18 +269,18 @@ impl GradientManager {
                         for (a, b) in aggregated.iter_mut().zip(grad2.iter()) {
                             *a = (*a + *b) / 2.0;
                         }
-                        next_level.insert(peer1.clone(), aggregated);
+                        next_level.insert(*peer1, aggregated);
                     }
                 } else {
                     // Odd peer passes through
                     if let Some(grad) = level_gradients.get(&peers[i]) {
-                        next_level.insert(peers[i].clone(), grad.clone());
+                        next_level.insert(peers[i], grad.clone());
                     }
                 }
             }
 
             level_gradients = next_level;
-            level_size = (level_size + 1) / 2;
+            level_size = level_size.div_ceil(2);
         }
 
         // The root contains the aggregated gradient
@@ -296,10 +336,7 @@ impl GradientManager {
 
         for peer in gradients.keys() {
             let region = peer.to_bytes()[0]; // Simple region assignment
-            regions
-                .entry(region)
-                .or_insert_with(Vec::new)
-                .push(peer.clone());
+            regions.entry(region).or_default().push(*peer);
         }
 
         // First level: aggregate within regions
@@ -349,21 +386,12 @@ impl GradientManager {
         let gradients = self.gradients.read().await;
 
         if let Some(round_gradients) = gradients.get(&current_round) {
-            if round_gradients.len() >= self.min_peers_for_aggregation {
-                match self.algorithm {
-                    AllReduceAlgorithm::Ring => {
-                        Ok(Some(self.ring_allreduce(round_gradients).await?))
-                    }
-                    AllReduceAlgorithm::Tree => {
-                        Ok(Some(self.tree_allreduce(round_gradients).await?))
-                    }
-                    AllReduceAlgorithm::Butterfly => {
-                        Ok(Some(self.butterfly_allreduce(round_gradients).await?))
-                    }
-                    AllReduceAlgorithm::Hierarchical => {
-                        Ok(Some(self.hierarchical_allreduce(round_gradients).await?))
-                    }
-                }
+            if round_gradients.len() >= self.min_peers_for_aggregation
+                && round_gradients.contains_key(&self.peer_id)
+            {
+                Ok(Some(
+                    self.all_reduce(self.algorithm, round_gradients).await?,
+                ))
             } else {
                 Ok(None)
             }
@@ -379,17 +407,19 @@ pub fn quantize_gradient(gradient: &[f32]) -> Result<Vec<u8>> {
     let min = gradient.iter().fold(f32::INFINITY, |a, &b| a.min(b));
     let max = gradient.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
 
-    if min == max {
-        // All values are the same
-        return Ok(vec![0; gradient.len() + 8]);
-    }
-
-    let scale = 255.0 / (max - min);
     let mut quantized = Vec::with_capacity(gradient.len() + 8);
 
     // Store min and max for dequantization
     quantized.extend_from_slice(&min.to_le_bytes());
     quantized.extend_from_slice(&max.to_le_bytes());
+
+    if min == max {
+        // All values are the same; the header alone reconstructs them
+        quantized.resize(gradient.len() + 8, 0);
+        return Ok(quantized);
+    }
+
+    let scale = 255.0 / (max - min);
 
     // Quantize values
     for &value in gradient {

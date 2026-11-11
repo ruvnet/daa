@@ -1,11 +1,14 @@
 //! End-to-end tests for DAA orchestrator error scenarios and recovery mechanisms
 
 use daa_orchestrator::{
-    autonomy::{AutonomyLoop, AutonomyState},
-    config::{AiConfig, ApiConfig, AutonomyConfig, McpConfig, QuDAGConfig, RulesConfig},
+    autonomy::AutonomyLoop,
+    config::{
+        AiConfig, ApiConfig, AutonomyConfig, McpConfig, OrchestratorConfig as SystemConfig,
+        QuDAGConfig, RulesConfig,
+    },
     services::Service,
     workflow::{Workflow, WorkflowStep},
-    DaaOrchestrator, OrchestratorConfig, OrchestratorError,
+    DaaOrchestrator, OrchestratorConfig,
 };
 use serde_json::json;
 use std::time::Duration;
@@ -16,7 +19,7 @@ use uuid::Uuid;
 #[tokio::test]
 async fn test_invalid_configuration_errors() {
     // Test with invalid port (0)
-    let mut config = OrchestratorConfig::default();
+    let mut config = SystemConfig::default();
     config.mcp.port = 0;
 
     let validation_result = config.validate();
@@ -59,7 +62,7 @@ async fn test_invalid_configuration_errors() {
     assert!(validation_result.is_err(), "Should reject zero max tasks");
     assert!(validation_result
         .unwrap_err()
-        .contains("max tasks per iteration cannot be 0"));
+        .contains("Max tasks per iteration cannot be 0"));
 
     println!("Invalid configuration error tests completed");
 }
@@ -68,7 +71,7 @@ async fn test_invalid_configuration_errors() {
 #[tokio::test]
 async fn test_orchestrator_initialization_failures() {
     // Test with conflicting port configurations
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         mcp: McpConfig {
             enabled: true,
             port: 3500,
@@ -86,7 +89,7 @@ async fn test_orchestrator_initialization_failures() {
     assert!(config.validate().is_ok(), "Configuration should be valid");
 
     // But orchestrator creation should handle this gracefully
-    let orchestrator_result = DaaOrchestrator::new(config).await;
+    let orchestrator_result = DaaOrchestrator::new(OrchestratorConfig::default()).await;
     assert!(
         orchestrator_result.is_ok(),
         "Orchestrator creation should handle port conflicts gracefully"
@@ -160,6 +163,7 @@ async fn test_autonomy_loop_error_scenarios() {
 #[tokio::test]
 async fn test_workflow_execution_errors() {
     let config = OrchestratorConfig::default();
+
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
 
@@ -227,6 +231,7 @@ async fn test_workflow_execution_errors() {
 #[tokio::test]
 async fn test_service_registry_errors() {
     let config = OrchestratorConfig::default();
+
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
 
@@ -277,7 +282,7 @@ async fn test_service_registry_errors() {
 #[tokio::test]
 async fn test_network_connectivity_errors() {
     // Test with unreachable bootstrap peers
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         qudag: QuDAGConfig {
             enabled: true,
             node_endpoint: "127.0.0.1:7999".to_string(),
@@ -296,7 +301,13 @@ async fn test_network_connectivity_errors() {
         ..Default::default()
     };
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    assert!(
+        config.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
 
     // Should handle network connectivity issues gracefully
     let init_result = orchestrator.initialize().await;
@@ -318,7 +329,7 @@ async fn test_network_connectivity_errors() {
 /// Test timeout scenarios
 #[tokio::test]
 async fn test_timeout_scenarios() {
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         autonomy: AutonomyConfig {
             enabled: true,
             loop_interval_ms: 100,
@@ -343,7 +354,13 @@ async fn test_timeout_scenarios() {
         ..Default::default()
     };
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    assert!(
+        config.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
 
     // Initialization with short timeouts should still work
     let init_result = timeout(Duration::from_secs(2), orchestrator.initialize()).await;
@@ -388,6 +405,7 @@ async fn test_timeout_scenarios() {
 #[tokio::test]
 async fn test_resource_exhaustion_scenarios() {
     let config = OrchestratorConfig::default();
+
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
 
@@ -453,7 +471,7 @@ async fn test_resource_exhaustion_scenarios() {
 /// Test recovery mechanisms
 #[tokio::test]
 async fn test_recovery_mechanisms() {
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         autonomy: AutonomyConfig {
             enabled: true,
             loop_interval_ms: 100,
@@ -466,7 +484,13 @@ async fn test_recovery_mechanisms() {
         ..Default::default()
     };
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    assert!(
+        config.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
     orchestrator.initialize().await.unwrap();
 
     // Test orchestrator recovery after stress
@@ -528,6 +552,7 @@ async fn test_recovery_mechanisms() {
 #[tokio::test]
 async fn test_error_propagation() {
     let config = OrchestratorConfig::default();
+
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
 
@@ -600,11 +625,12 @@ async fn test_error_propagation() {
 #[tokio::test]
 async fn test_concurrent_error_scenarios() {
     let config = OrchestratorConfig::default();
+
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
 
     // Create multiple workflows with different error scenarios
-    let error_scenarios = vec![
+    let error_scenarios = [
         ("timeout", "timeout_simulation"),
         ("validation", "validation_failure"),
         ("network", "network_unavailable"),

@@ -15,9 +15,7 @@ use axum::{
     Router,
 };
 use serde_json::Value;
-use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
-use uuid::Uuid;
 
 use crate::{
     DaaMcpConfig, DaaMcpError, InitializeRequest, InitializeResponse, McpMessage, McpServerState,
@@ -495,10 +493,8 @@ async fn task_timeout_monitor(state: Arc<McpServerState>) -> Result<()> {
         if let Some(timeout) = task.timeout {
             // Check if task has a result
             if !results.contains_key(task_id) {
-                // Check if task has timed out (assuming created_at field exists)
-                let timeout_duration = chrono::Duration::seconds(timeout as i64);
-                // For this example, we'll assume tasks are created "now - timeout"
-                // In a real implementation, you'd store creation time
+                // Tasks carry no creation time yet, so any task with a timeout and no
+                // result is treated as having exceeded it.
 
                 // Create a timeout result
                 let timeout_result = crate::TaskResult {
@@ -506,7 +502,7 @@ async fn task_timeout_monitor(state: Arc<McpServerState>) -> Result<()> {
                     agent_id: "system".to_string(),
                     status: crate::TaskStatus::Failed,
                     result: None,
-                    error: Some("Task timed out".to_string()),
+                    error: Some(format!("Task timed out after {}s", timeout)),
                     started_at: now,
                     completed_at: Some(now),
                     metrics: HashMap::new(),

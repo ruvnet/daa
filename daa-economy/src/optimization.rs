@@ -317,7 +317,7 @@ impl EconomicOptimizer {
 
         // Allocate based on return ranking (simplified approach)
         let total_assets = asset_returns.len();
-        for (i, (asset, expected_return)) in asset_returns.iter().enumerate() {
+        for (asset, expected_return) in asset_returns.iter() {
             let weight = rust_decimal_macros::dec!(1.0) / Decimal::from(total_assets);
             result.add_allocation(asset.clone(), weight);
             result.expected_return += expected_return * weight;
@@ -627,7 +627,7 @@ impl Default for EconomicOptimizer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::market::{MarketData, PricePoint};
+    use crate::market::MarketData;
     use rust_decimal_macros::dec;
 
     #[test]
@@ -664,9 +664,16 @@ mod tests {
         let mut optimizer = EconomicOptimizer::new();
 
         // Add sample market data
-        let mut btc_data = MarketData::new("BTC".to_string());
-        btc_data.add_price_point(PricePoint::new(dec!(50000.0), dec!(100.0)));
-        btc_data.add_price_point(PricePoint::new(dec!(52000.0), dec!(110.0)));
+        // BTC moved from 50000 to 52000 (+4%) over the window
+        let btc_data = MarketData {
+            base_token: "BTC".to_string(),
+            quote_token: "USD".to_string(),
+            last_price: dec!(52000.0),
+            bid_price: dec!(51990.0),
+            ask_price: dec!(52010.0),
+            volume_24h: dec!(210.0),
+            price_change_24h: dec!(0.04),
+        };
 
         optimizer.add_market_data("BTC".to_string(), btc_data);
 

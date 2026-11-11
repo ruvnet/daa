@@ -12,6 +12,10 @@ impl MCPClient {
         })
     }
 
+    pub fn server_url(&self) -> &str {
+        &self.server_url
+    }
+
     pub async fn connect(&self) -> Result<(), MCPError> {
         // Stub implementation
         Ok(())

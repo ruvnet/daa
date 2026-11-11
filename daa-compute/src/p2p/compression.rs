@@ -96,6 +96,11 @@ impl CompressionMethod {
     }
 }
 
+/// Leading byte of a [`GradientCompressor`] payload, before entropy coding.
+const FORMAT_SPARSE: u8 = 0;
+/// Dense int8-quantised payload (see [`super::gradient::quantize_gradient`]).
+const FORMAT_DENSE_QUANTIZED: u8 = 1;
+
 /// Gradient-specific compression optimizations
 pub struct GradientCompressor {
     method: CompressionMethod,
@@ -125,14 +130,15 @@ impl GradientCompressor {
             self.compress_sparse_format(gradient)
         } else {
             // Use dense representation with quantization
-            let quantized = super::gradient::quantize_gradient(gradient)?;
-            self.method.compress(&quantized)
+            let mut dense = vec![FORMAT_DENSE_QUANTIZED];
+            dense.extend(super::gradient::quantize_gradient(gradient)?);
+            self.method.compress(&dense)
         }
     }
 
     /// Compress using sparse format (index, value) pairs
     fn compress_sparse_format(&self, gradient: &[f32]) -> Result<Vec<u8>> {
-        let mut sparse_data = Vec::new();
+        let mut sparse_data = vec![FORMAT_SPARSE];
 
         // Write gradient length
         sparse_data.extend_from_slice(&(gradient.len() as u32).to_le_bytes());
@@ -157,9 +163,16 @@ impl GradientCompressor {
         self.method.compress(&sparse_data)
     }
 
-    /// Decompress sparse format back to dense gradient
+    /// Decompress output of [`Self::compress_sparse`] back to a dense gradient
     pub fn decompress_sparse(&self, compressed: &[u8]) -> Result<Vec<f32>> {
-        let sparse_data = self.method.decompress(compressed)?;
+        let payload = self.method.decompress(compressed)?;
+        let sparse_data = match payload.split_first() {
+            Some((&FORMAT_SPARSE, rest)) => rest,
+            Some((&FORMAT_DENSE_QUANTIZED, rest)) => {
+                return super::gradient::dequantize_gradient(rest);
+            }
+            _ => return Err(anyhow!("Unknown gradient payload format")),
+        };
 
         if sparse_data.len() < 8 {
             return Err(anyhow!("Invalid sparse gradient data"));

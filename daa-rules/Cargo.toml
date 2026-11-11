@@ -12,28 +12,30 @@ description = "Rules engine for DAA system providing policy enforcement and deci
 
 [dependencies]
 # Workspace dependencies
-tokio = { version = "1.0", features = ["full"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-thiserror = "1.0"
-anyhow = "1.0"
-uuid = { version = "1.6", features = ["v4", "serde"] }
-tracing = "0.1"
-async-trait = "0.1"
+# Only tokio's sync primitives are used; "full" would pull mio, which does not
+# build for wasm32.
+tokio = { version = "1.54.1", features = ["sync"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+thiserror = "1.0.69"
+anyhow = "1.0.104"
+uuid = { version = "1.29.2", features = ["v4", "serde"] }
+tracing = "0.1.44"
+async-trait = "0.1.92"
 
 # Rules engine specific dependencies
-regex = "1.0"
-chrono = { version = "0.4", features = ["serde"] }
-
-# Optional scripting support
-rhai = { version = "1.0", optional = true }
-
-# Optional database support for rule storage
-sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "sqlite", "chrono", "uuid"], optional = true }
+regex = "1.13.1"
+chrono = { version = "0.4.45", features = ["serde"] }
 
 [features]
 default = ["basic"]
 basic = []
-scripting = ["rhai"]
-database = ["sqlx"]
+# No scripting or database backend is implemented yet; the features are kept
+# (empty) so downstream feature flags keep resolving.
+scripting = []
+database = []
 full = ["basic", "scripting", "database"]
+
+# uuid v4 needs a randomness source on wasm32-unknown-unknown (browser/JS hosts).
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+uuid = { version = "1.29.2", features = ["js"] }

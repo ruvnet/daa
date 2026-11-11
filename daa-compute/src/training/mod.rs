@@ -1,10 +1,9 @@
 pub mod local_trainer;
-pub mod optimizer;
 pub mod strategy;
 
+pub use local_trainer::{DataBatch, DataLoader};
+
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::RwLock;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelParameters {

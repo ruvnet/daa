@@ -88,7 +88,7 @@ impl Builder {
 
         let mut hasher = Hasher::new();
         for tx in transactions {
-            hasher.update(&tx.hash().as_bytes());
+            hasher.update(tx.hash().as_bytes());
         }
 
         Ok(Hash::from_bytes(hasher.finalize().as_bytes()))

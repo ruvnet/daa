@@ -1,95 +1,68 @@
-# Configuration file for cargo-deny
+# cargo-deny configuration (cargo-deny >= 0.16, config format version 2).
 # https://embarkstudios.github.io/cargo-deny/
 
 [graph]
-# The graph table configures how the dependency graph is constructed and thus
-# which crates the checks are performed over
 all-features = false
 no-default-features = false
 
 [advisories]
-# The advisories section configures how the `cargo deny check advisories` command works
+version = 2
 db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
-vulnerability = "deny"
-unmaintained = "warn"
+# Version 2: every vulnerability and unsound advisory is an error unless it is
+# listed in `ignore` below. Unmaintained crates are reported for workspace
+# dependencies only; yanked crates are warnings.
+unmaintained = "workspace"
 yanked = "warn"
-notice = "warn"
 ignore = [
-    # RUSTSEC-2026-0119: hickory-proto CPU exhaustion (O(n²) name compression).
-    # RUSTSEC-2026-0118: hickory-proto NSEC3 unbounded loop on cross-zone responses.
-    # Both affect hickory-proto pulled transitively via libp2p-mdns. The fix requires
-    # hickory-proto >= 0.26.1, but libp2p 0.56 (latest released) still pins
-    # hickory-proto = "0.25.2". Remove these ignores once libp2p-mdns is updated
-    # upstream to use hickory-proto >= 0.26.1.
-    "RUSTSEC-2026-0119",
-    "RUSTSEC-2026-0118",
-
-    # RUSTSEC-2023-0071: rsa Marvin Attack (timing side-channel).
-    # Affects rsa pulled via sqlx-mysql. There is no fixed version available.
-    # sqlx intentionally includes mysql support; no runtime exposure exists unless
-    # MySQL TLS client auth is active. Remove when sqlx publishes a fix.
-    "RUSTSEC-2023-0071",
+    # bincode 1.x is unmaintained (development ceased permanently); there is no
+    # maintained release to move to. It is used by daa-compute for local
+    # serialization only. Review again by 2027-05-01 (replace with postcard or
+    # serde_json if the crate is still unmaintained then).
+    { id = "RUSTSEC-2025-0141", reason = "bincode unmaintained, no fixed release; review 2027-05-01" },
 ]
 
 [licenses]
-# The licenses section configures how the `cargo deny check licenses` command works
-unlicensed = "deny"
+version = 2
 allow = [
     "MIT",
+    "MIT-0",
+    # Weak, file-level copyleft (attohttpc, colored, option-ext). The previous
+    # config only warned on copyleft licenses, so this keeps that behaviour.
+    "MPL-2.0",
     "Apache-2.0",
     "Apache-2.0 WITH LLVM-exception",
     "BSD-2-Clause",
     "BSD-3-Clause",
     "ISC",
+    "Zlib",
     "Unicode-DFS-2016",
+    "Unicode-3.0",
+    "CDLA-Permissive-2.0",
 ]
-deny = [
-    # Copyleft licenses we don't want
-    "GPL-2.0",
-    "GPL-3.0",
-    "AGPL-1.0",
-    "AGPL-3.0",
-]
-copyleft = "warn"
-allow-osi-fsf-free = "neither"
-default = "deny"
 confidence-threshold = 0.8
 
-# Allow specific crates with potentially problematic licenses
-[[licenses.exceptions]]
-allow = ["Unicode-DFS-2016"]
-name = "unicode-ident"
+[licenses.private]
+ignore = true
 
 [bans]
-# Lint level for when multiple versions of the same crate are detected
 multiple-versions = "warn"
 wildcards = "allow"
 highlight = "all"
-
-# List of crates that are allowed to have multiple versions
 skip = [
     { name = "windows-sys", version = "*" },
     { name = "windows-targets", version = "*" },
     { name = "syn", version = "*" },
 ]
-
-# List of explicitly disallowed crates
 deny = [
     # Crates with known security issues
     { name = "openssl", version = "<0.10.45" },
-    # Unmaintained crates
+    # Old chrono releases with the localtime_r soundness issue
     { name = "chrono", version = "<0.4.19" },
 ]
 
 [sources]
-# Lint level for what to happen when a crate from a crate registry that is
-# not in the allow list is encountered
 unknown-registry = "warn"
 unknown-git = "warn"
-
-# List of allowed registries
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-
-# List of allowed Git repositories
 allow-git = []

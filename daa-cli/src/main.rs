@@ -4,11 +4,11 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use std::path::PathBuf;
-use tracing::{error, info};
+use tracing::info;
 
 mod commands;
-mod config;
-mod utils;
+
+use daa_cli::{config, utils};
 
 use config::CliConfig;
 
@@ -481,19 +481,19 @@ mod tests {
 
     #[test]
     fn test_cli_parsing() {
-        let cli = Cli::try_parse_from(&["daa", "status"]).unwrap();
+        let cli = Cli::try_parse_from(["daa", "status"]).unwrap();
         assert!(matches!(cli.command, Commands::Status { .. }));
     }
 
     #[test]
     fn test_verbose_flag() {
-        let cli = Cli::try_parse_from(&["daa", "-v", "status"]).unwrap();
+        let cli = Cli::try_parse_from(["daa", "-v", "status"]).unwrap();
         assert!(cli.verbose);
     }
 
     #[test]
     fn test_config_flag() {
-        let cli = Cli::try_parse_from(&["daa", "-c", "/path/to/config.toml", "status"]).unwrap();
+        let cli = Cli::try_parse_from(["daa", "-c", "/path/to/config.toml", "status"]).unwrap();
         assert_eq!(cli.config, Some(PathBuf::from("/path/to/config.toml")));
     }
 }

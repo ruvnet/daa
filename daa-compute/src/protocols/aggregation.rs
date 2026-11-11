@@ -1,9 +1,7 @@
-use crate::training::{Gradient, ModelParameters};
+use crate::training::Gradient;
 use futures::stream::{FuturesUnordered, StreamExt};
 use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock};
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
 /// Gradient aggregation protocol supporting various strategies
 pub struct GradientAggregator {
@@ -42,6 +40,11 @@ impl GradientAggregator {
     }
 
     /// Set aggregation strategy
+    /// Compression level this aggregator was created with.
+    pub fn compression_level(&self) -> u8 {
+        self.compression_level
+    }
+
     pub fn set_strategy(&mut self, strategy: AggregationStrategy) {
         self.aggregation_strategy = strategy;
     }
@@ -73,11 +76,26 @@ impl GradientAggregator {
         // Decompress gradients if needed
         let decompressed = self.decompress_gradients(verified_gradients).await?;
 
+        // Every strategy combines gradients element-wise
+        let grad_len = match decompressed.first() {
+            Some(first) => first.values.len(),
+            None => return Err(anyhow::anyhow!("No gradients passed verification")),
+        };
+        if let Some(bad) = decompressed.iter().find(|g| g.values.len() != grad_len) {
+            return Err(anyhow::anyhow!(
+                "Gradient from {} has {} values, expected {}",
+                bad.node_id,
+                bad.values.len(),
+                grad_len
+            ));
+        }
+
         // Apply aggregation strategy
         let aggregated = match &self.aggregation_strategy {
             AggregationStrategy::Average => self.average_gradients(decompressed).await?,
             AggregationStrategy::WeightedAverage(weights) => {
-                self.weighted_average_gradients(decompressed, weights).await?
+                self.weighted_average_gradients(decompressed, weights)
+                    .await?
             }
             AggregationStrategy::TrimmedMean(trim_pct) => {
                 self.trimmed_mean_gradients(decompressed, *trim_pct).await?
@@ -94,8 +112,9 @@ impl GradientAggregator {
 
     /// Verify gradients for validity and security
     async fn verify_gradients(&self, gradients: Vec<Gradient>) -> anyhow::Result<Vec<Gradient>> {
+        let submitted = gradients.len();
         let mut verified = Vec::new();
-        
+
         for grad in gradients {
             // Check basic validity
             if grad.values.is_empty() {
@@ -105,21 +124,27 @@ impl GradientAggregator {
 
             // Check for NaN or Inf values
             if grad.values.iter().any(|v| !v.is_finite()) {
-                warn!("Skipping gradient with non-finite values from {}", grad.node_id);
+                warn!(
+                    "Skipping gradient with non-finite values from {}",
+                    grad.node_id
+                );
                 continue;
             }
 
             // Check gradient norm bounds
             let norm = grad.values.iter().map(|v| v.powi(2)).sum::<f32>().sqrt();
             if norm > 1e6 {
-                warn!("Skipping gradient with excessive norm {} from {}", norm, grad.node_id);
+                warn!(
+                    "Skipping gradient with excessive norm {} from {}",
+                    norm, grad.node_id
+                );
                 continue;
             }
 
             verified.push(grad);
         }
 
-        if verified.len() < gradients.len() / 2 {
+        if verified.len() < submitted / 2 {
             return Err(anyhow::anyhow!("Too many gradients failed verification"));
         }
 
@@ -127,7 +152,10 @@ impl GradientAggregator {
     }
 
     /// Decompress gradients if compressed
-    async fn decompress_gradients(&self, gradients: Vec<Gradient>) -> anyhow::Result<Vec<Gradient>> {
+    async fn decompress_gradients(
+        &self,
+        gradients: Vec<Gradient>,
+    ) -> anyhow::Result<Vec<Gradient>> {
         // In a real implementation, this would reverse the compression
         // For now, we just return as-is since compression is simplified
         Ok(gradients)
@@ -199,7 +227,8 @@ impl GradientAggregator {
         let grad_len = gradients[0].values.len();
         let mut result = vec![0.0f32; grad_len];
 
-        let trim_count = ((gradients.len() as f32 * trim_pct) as usize).max(1);
+        // Trim floor(n * pct) from each end; too few gradients trims nothing.
+        let trim_count = (gradients.len() as f32 * trim_pct) as usize;
         let keep_count = gradients.len().saturating_sub(2 * trim_count);
 
         if keep_count == 0 {
@@ -207,13 +236,13 @@ impl GradientAggregator {
         }
 
         // For each gradient dimension
-        for i in 0..grad_len {
+        for (i, slot) in result.iter_mut().enumerate() {
             let mut values: Vec<f32> = gradients.iter().map(|g| g.values[i]).collect();
             values.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
             // Calculate trimmed mean
             let sum: f32 = values[trim_count..values.len() - trim_count].iter().sum();
-            result[i] = sum / keep_count as f32;
+            *slot = sum / keep_count as f32;
         }
 
         Ok(Gradient {
@@ -229,12 +258,12 @@ impl GradientAggregator {
         let grad_len = gradients[0].values.len();
         let mut result = vec![0.0f32; grad_len];
 
-        for i in 0..grad_len {
+        for (i, slot) in result.iter_mut().enumerate() {
             let mut values: Vec<f32> = gradients.iter().map(|g| g.values[i]).collect();
             values.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
             let mid = values.len() / 2;
-            result[i] = if values.len() % 2 == 0 {
+            *slot = if values.len().is_multiple_of(2) {
                 (values[mid - 1] + values[mid]) / 2.0
             } else {
                 values[mid]
@@ -267,14 +296,14 @@ impl GradientAggregator {
         let mut scores = vec![0.0f32; n];
         for i in 0..n {
             let mut distances: Vec<f32> = Vec::new();
-            
+
             for j in 0..n {
                 if i != j {
                     let dist = self.gradient_distance(&gradients[i], &gradients[j]);
                     distances.push(dist);
                 }
             }
-            
+
             // Sort distances and sum the n-f-2 smallest
             distances.sort_by(|a, b| a.partial_cmp(b).unwrap());
             scores[i] = distances[..n - f - 2].iter().sum();
@@ -304,7 +333,7 @@ impl GradientAggregator {
     /// Calculate communication bytes for metrics
     fn calculate_communication_bytes(&self, gradient: &Gradient) -> u64 {
         let base_size = gradient.values.len() * 4; // f32 = 4 bytes
-        
+
         if gradient.compressed && self.compression_level > 0 {
             // Estimate compressed size based on compression level
             let compression_ratio = 1.0 - (self.compression_level as f32 / 10.0) * 0.8;
@@ -325,9 +354,7 @@ impl GradientAggregator {
         // Aggregate each batch in parallel
         for batch in gradient_batches {
             let aggregator = self.clone();
-            futures.push(async move {
-                aggregator.aggregate(batch, round).await
-            });
+            futures.push(async move { aggregator.aggregate(batch, round).await });
         }
 
         // Collect results

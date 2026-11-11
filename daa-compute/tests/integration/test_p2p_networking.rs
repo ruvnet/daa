@@ -1,43 +1,37 @@
 //! Integration tests for P2P networking layer
+//!
+//! These run real networks over loopback TCP. Every network listens on an
+//! OS-assigned port, and waits are deadline-bounded polls (see
+//! `crate::common::net`), so the tests do not depend on fixed ports or timing.
 
+use crate::common::net::{self, loopback_network};
 use anyhow::Result;
 use daa_compute::p2p::{
     discovery::{DiscoveredPeer, DiscoveryMethod, DiscoveryService},
-    gradient::{GradientManager, GradientMessage},
     nat::{NatTraversal, StunConfig},
     transport::{create_transport, TransportConfig},
 };
-use daa_compute::training::Gradient;
-use daa_compute::{NetworkBehavior, P2PNetwork, SwarmConfig};
-use libp2p::{Multiaddr, PeerId};
+use daa_compute::{P2PNetwork, SwarmConfig};
+use libp2p::PeerId;
 use std::time::{Duration, Instant};
-use tokio::{select, time::timeout};
+use tokio::time::timeout;
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    async fn create_test_network(port: u16) -> Result<P2PNetwork> {
-        let mut config = SwarmConfig::default();
-        config.listen_addresses = vec![format!("/ip4/127.0.0.1/tcp/{}", port).parse()?];
-        P2PNetwork::new(config).await
-    }
-
-    fn create_test_gradient(node_id: &str, values: Vec<f32>) -> Gradient {
-        Gradient {
-            values,
-            node_id: node_id.to_string(),
-            round: 1,
-            compressed: false,
-        }
+    /// Gradients travel int8-quantised, so compare with a tolerance.
+    fn assert_close(actual: &[f32], expected: &[f32]) {
+        crate::common::assert_approx_eq(actual, expected, 0.05);
     }
 
     #[tokio::test]
     async fn test_single_node_network() -> Result<()> {
-        let network = create_test_network(4001).await?;
+        let network = loopback_network().await?;
 
         // Test basic network operations
         assert!(network.get_aggregated_gradient().await?.is_none());
+        assert!(network.connected_peers().is_empty());
 
         let peer_id = network.local_peer_id();
         assert!(peer_id != PeerId::random());
@@ -47,104 +41,55 @@ mod tests {
 
     #[tokio::test]
     async fn test_two_node_connection() -> Result<()> {
-        let network1 = create_test_network(4002).await?;
-        let network2 = create_test_network(4003).await?;
+        let mut network1 = loopback_network().await?;
+        let mut network2 = loopback_network().await?;
 
-        // Get addresses
-        let addr1 = network1.get_listen_addresses().await?;
-        let peer_id1 = network1.local_peer_id();
+        net::connect_star(&mut network1, &mut [&mut network2]).await?;
 
-        // Connect network2 to network1
-        network2.connect_to_peer(peer_id1, addr1[0].clone()).await?;
-
-        // Wait for connection
-        tokio::time::sleep(Duration::from_millis(100)).await;
-
-        // Check connections
-        let peers1 = network1.get_connected_peers().await?;
-        let peers2 = network2.get_connected_peers().await?;
-
-        assert!(peers1.len() > 0 || peers2.len() > 0);
+        assert!(network2
+            .connected_peers()
+            .contains(&network1.local_peer_id()));
+        assert!(network1
+            .connected_peers()
+            .contains(&network2.local_peer_id()));
 
         Ok(())
     }
 
     #[tokio::test]
     async fn test_gradient_sharing_between_nodes() -> Result<()> {
-        let network1 = create_test_network(4004).await?;
-        let network2 = create_test_network(4005).await?;
+        let mut network1 = loopback_network().await?;
+        let mut network2 = loopback_network().await?;
+        net::connect_star(&mut network1, &mut [&mut network2]).await?;
 
-        // Connect nodes
-        let addr1 = network1.get_listen_addresses().await?;
-        let peer_id1 = network1.local_peer_id();
-        network2.connect_to_peer(peer_id1, addr1[0].clone()).await?;
+        let mut networks = [&mut network1, &mut network2];
+        net::broadcast(&mut networks, 0, vec![1.0, 2.0, 3.0]).await?;
 
-        // Wait for connection
-        tokio::time::sleep(Duration::from_millis(200)).await;
-
-        // Share gradient from network1
-        let gradient = create_test_gradient("node1", vec![1.0, 2.0, 3.0]);
-        network1.broadcast_gradient(gradient.clone()).await?;
-
-        // Wait for propagation
-        tokio::time::sleep(Duration::from_millis(100)).await;
-
-        // Check if network2 received the gradient
-        let received = network2.get_received_gradients().await?;
-        assert!(received.len() > 0);
+        let received = net::await_gradients(&mut networks, 1, 1).await?;
+        assert_close(&received[0], &[1.0, 2.0, 3.0]);
 
         Ok(())
     }
 
     #[tokio::test]
     async fn test_multi_node_network() -> Result<()> {
-        let mut networks = Vec::new();
-        let base_port = 4010;
         let num_nodes = 5;
-
-        // Create multiple networks
-        for i in 0..num_nodes {
-            let network = create_test_network(base_port + i).await?;
-            networks.push(network);
+        let mut networks = Vec::new();
+        for _ in 0..num_nodes {
+            networks.push(loopback_network().await?);
         }
 
         // Connect all nodes to the first node (star topology)
-        let hub_addr = networks[0].get_listen_addresses().await?;
-        let hub_peer_id = networks[0].local_peer_id();
+        let (hub, spokes) = networks.split_first_mut().expect("at least one node");
+        let mut spoke_refs: Vec<&mut P2PNetwork> = spokes.iter_mut().collect();
+        net::connect_star(hub, &mut spoke_refs).await?;
+        assert_eq!(hub.connected_peers().len(), num_nodes - 1);
 
-        for i in 1..num_nodes {
-            networks[i]
-                .connect_to_peer(hub_peer_id, hub_addr[0].clone())
-                .await?;
-        }
-
-        // Wait for connections
-        tokio::time::sleep(Duration::from_millis(500)).await;
-
-        // Check that hub node has connections
-        let hub_peers = networks[0].get_connected_peers().await?;
-        assert!(hub_peers.len() >= 1);
-
-        // Test gradient broadcasting
-        let gradient = create_test_gradient("broadcaster", vec![4.0, 5.0, 6.0]);
-        networks[1].broadcast_gradient(gradient.clone()).await?;
-
-        // Wait for propagation
-        tokio::time::sleep(Duration::from_millis(200)).await;
-
-        // Check if other nodes received the gradient
-        let mut received_count = 0;
-        for i in 0..num_nodes {
-            if i != 1 {
-                // Skip the broadcaster
-                let received = networks[i].get_received_gradients().await?;
-                if received.len() > 0 {
-                    received_count += 1;
-                }
-            }
-        }
-
-        assert!(received_count > 0);
+        // Broadcast from a spoke; the hub must receive it
+        let mut all: Vec<&mut P2PNetwork> = networks.iter_mut().collect();
+        net::broadcast(&mut all, 1, vec![4.0, 5.0, 6.0]).await?;
+        let received = net::await_gradients(&mut all, 0, 1).await?;
+        assert_close(&received[0], &[4.0, 5.0, 6.0]);
 
         Ok(())
     }
@@ -180,212 +125,190 @@ mod tests {
         let stun_config = StunConfig::default();
         let nat = NatTraversal::new(stun_config, None);
 
-        // Test NAT detection (this may not work in all environments)
-        let result = timeout(Duration::from_secs(10), nat.detect_nat()).await;
-
-        // Just ensure it doesn't panic or hang
-        match result {
-            Ok(_) => {}  // NAT detection completed
-            Err(_) => {} // Timeout is acceptable
-        }
+        // NAT detection may not work in all environments; it must just not
+        // panic or hang (a timeout is acceptable).
+        let _ = timeout(Duration::from_secs(10), nat.detect_nat()).await;
 
         Ok(())
     }
 
     #[tokio::test]
     async fn test_transport_configuration() -> Result<()> {
+        let keypair = libp2p::identity::Keypair::generate_ed25519();
         let config = TransportConfig {
             enable_tcp: true,
-            enable_quic: false, // Disable QUIC for simpler testing
-            enable_websocket: false,
-            tcp_config: Default::default(),
+            enable_websocket: false, // TCP only for simpler testing
+            enable_webrtc: false,
+            enable_relay: false,
         };
 
-        let transport = create_transport(config).await?;
-
-        // Just check that transport was created successfully
-        // More detailed testing would require actual network setup
+        // Just check that transport was created successfully; exercising it
+        // needs a swarm, which the network tests above cover.
+        let _transport = create_transport(&keypair, config)?;
 
         Ok(())
     }
 
     #[tokio::test]
     async fn test_network_resilience_node_disconnect() -> Result<()> {
-        let network1 = create_test_network(4020).await?;
-        let network2 = create_test_network(4021).await?;
-        let network3 = create_test_network(4022).await?;
-
-        // Connect all nodes
-        let addr1 = network1.get_listen_addresses().await?;
-        let peer_id1 = network1.local_peer_id();
-
-        network2.connect_to_peer(peer_id1, addr1[0].clone()).await?;
-        network3.connect_to_peer(peer_id1, addr1[0].clone()).await?;
-
-        tokio::time::sleep(Duration::from_millis(200)).await;
-
-        // Check initial connections
-        let initial_peers = network1.get_connected_peers().await?;
-        let initial_count = initial_peers.len();
+        let mut network1 = loopback_network().await?;
+        let mut network2 = loopback_network().await?;
+        let mut network3 = loopback_network().await?;
+        net::connect_star(&mut network1, &mut [&mut network2, &mut network3]).await?;
+        assert_eq!(network1.connected_peers().len(), 2);
 
         // Simulate node2 disconnecting (drop it)
+        let peer_id2 = network2.local_peer_id();
         drop(network2);
 
         // Wait for disconnect detection
-        tokio::time::sleep(Duration::from_millis(500)).await;
+        let start = Instant::now();
+        while network1.connected_peers().contains(&peer_id2) {
+            assert!(start.elapsed() < net::DEADLINE, "disconnect not detected");
+            net::pump(
+                &mut [&mut network1, &mut network3],
+                Duration::from_millis(50),
+            )
+            .await?;
+        }
 
         // Network should still function with remaining nodes
-        let gradient = create_test_gradient("node3", vec![7.0, 8.0, 9.0]);
-        network3.broadcast_gradient(gradient).await?;
-
-        tokio::time::sleep(Duration::from_millis(100)).await;
-
-        // Network1 should still receive gradients from network3
-        let received = network1.get_received_gradients().await?;
-
-        // Just check that the network is still functional
-        // The exact behavior depends on the implementation
+        let mut networks = [&mut network1, &mut network3];
+        net::broadcast(&mut networks, 1, vec![7.0, 8.0, 9.0]).await?;
+        let received = net::await_gradients(&mut networks, 0, 1).await?;
+        assert_close(&received[0], &[7.0, 8.0, 9.0]);
 
         Ok(())
     }
 
     #[tokio::test]
     async fn test_gradient_compression_over_network() -> Result<()> {
-        let mut config1 = SwarmConfig::default();
-        config1.listen_addresses = vec!["/ip4/127.0.0.1/tcp/4030".parse()?];
-        config1.enable_compression = true;
-
-        let mut config2 = SwarmConfig::default();
-        config2.listen_addresses = vec!["/ip4/127.0.0.1/tcp/4031".parse()?];
-        config2.enable_compression = true;
-
-        let network1 = P2PNetwork::new(config1).await?;
-        let network2 = P2PNetwork::new(config2).await?;
-
-        // Connect networks
-        let addr1 = network1.get_listen_addresses().await?;
-        let peer_id1 = network1.local_peer_id();
-        network2.connect_to_peer(peer_id1, addr1[0].clone()).await?;
-
-        tokio::time::sleep(Duration::from_millis(200)).await;
+        let config = || -> Result<SwarmConfig> {
+            Ok(SwarmConfig {
+                listen_addresses: vec!["/ip4/127.0.0.1/tcp/0".parse()?],
+                compression_level: 9, // maximum zstd compression
+                ..SwarmConfig::default()
+            })
+        };
+        let mut network1 = P2PNetwork::new(config()?).await?;
+        let mut network2 = P2PNetwork::new(config()?).await?;
+        net::connect_star(&mut network1, &mut [&mut network2]).await?;
 
         // Send large gradient that should benefit from compression
-        let large_gradient = create_test_gradient("node2", vec![0.1; 10000]);
-        network2.broadcast_gradient(large_gradient).await?;
+        let mut networks = [&mut network1, &mut network2];
+        net::broadcast(&mut networks, 1, vec![0.1; 10_000]).await?;
 
-        tokio::time::sleep(Duration::from_millis(300)).await;
-
-        // Check if gradient was received
-        let received = network1.get_received_gradients().await?;
-        assert!(received.len() > 0);
+        let received = net::await_gradients(&mut networks, 0, 1).await?;
+        assert_close(&received[0], &[0.1; 10_000]);
 
         Ok(())
     }
 
     #[tokio::test]
     async fn test_concurrent_gradient_broadcasts() -> Result<()> {
-        let network1 = create_test_network(4040).await?;
-        let network2 = create_test_network(4041).await?;
-        let network3 = create_test_network(4042).await?;
+        let mut network1 = loopback_network().await?;
+        let mut network2 = loopback_network().await?;
+        let mut network3 = loopback_network().await?;
+        net::connect_star(&mut network1, &mut [&mut network2, &mut network3]).await?;
 
-        // Connect all to network1 (hub)
-        let addr1 = network1.get_listen_addresses().await?;
-        let peer_id1 = network1.local_peer_id();
-
-        network2.connect_to_peer(peer_id1, addr1[0].clone()).await?;
-        network3.connect_to_peer(peer_id1, addr1[0].clone()).await?;
-
-        tokio::time::sleep(Duration::from_millis(200)).await;
-
-        // Concurrent gradient broadcasts
-        let gradient2 = create_test_gradient("node2", vec![1.0, 2.0]);
-        let gradient3 = create_test_gradient("node3", vec![3.0, 4.0]);
-
-        let (result2, result3) = tokio::join!(
-            network2.broadcast_gradient(gradient2),
-            network3.broadcast_gradient(gradient3)
-        );
-
-        result2?;
-        result3?;
-
-        tokio::time::sleep(Duration::from_millis(200)).await;
+        // Concurrent gradient broadcasts, retried until both spokes see a
+        // subscriber for the gradient topic.
+        let start = Instant::now();
+        loop {
+            let (result2, result3) = tokio::join!(
+                network2.broadcast_gradient(vec![1.0, 2.0]),
+                network3.broadcast_gradient(vec![3.0, 4.0])
+            );
+            match (result2, result3) {
+                (Ok(()), Ok(())) => break,
+                (Err(e), _) | (_, Err(e)) if start.elapsed() > net::DEADLINE => return Err(e),
+                _ => {
+                    net::pump(
+                        &mut [&mut network1, &mut network2, &mut network3],
+                        Duration::from_millis(100),
+                    )
+                    .await?
+                }
+            }
+        }
 
         // Check that hub received both gradients
-        let received = network1.get_received_gradients().await?;
-        assert!(received.len() >= 1); // Should receive at least one
+        let mut networks = [&mut network1, &mut network2, &mut network3];
+        let mut received = net::await_gradients(&mut networks, 0, 2).await?;
+        received.sort_by(|a, b| a[0].total_cmp(&b[0]));
+        assert_close(&received[0], &[1.0, 2.0]);
+        assert_close(&received[1], &[3.0, 4.0]);
 
         Ok(())
     }
 
     #[tokio::test]
     async fn test_network_bootstrap() -> Result<()> {
-        // Test bootstrapping with known peers
-        let mut config = SwarmConfig::default();
-        config.listen_addresses = vec!["/ip4/127.0.0.1/tcp/4050".parse()?];
-        config.bootstrap_peers = vec!["/ip4/127.0.0.1/tcp/4051".parse()?];
+        // Test bootstrapping with a known (unreachable) peer
+        let config = SwarmConfig {
+            listen_addresses: vec!["/ip4/127.0.0.1/tcp/0".parse()?],
+            bootstrap_nodes: vec![(PeerId::random(), "/ip4/127.0.0.1/tcp/1".parse()?)],
+            ..SwarmConfig::default()
+        };
 
-        let network = P2PNetwork::new(config).await?;
+        let mut network = P2PNetwork::new(config).await?;
 
-        // Just check that network starts successfully with bootstrap config
-        assert!(network.get_connected_peers().await?.len() >= 0);
+        // Bootstrapping only starts dials, so it succeeds even though the
+        // bootstrap peer is not reachable.
+        network.bootstrap().await?;
+        assert!(network.connected_peers().is_empty());
 
         Ok(())
     }
 
     #[tokio::test]
     async fn test_message_ordering() -> Result<()> {
-        let network1 = create_test_network(4060).await?;
-        let network2 = create_test_network(4061).await?;
-
-        // Connect networks
-        let addr1 = network1.get_listen_addresses().await?;
-        let peer_id1 = network1.local_peer_id();
-        network2.connect_to_peer(peer_id1, addr1[0].clone()).await?;
-
-        tokio::time::sleep(Duration::from_millis(200)).await;
+        let mut network1 = loopback_network().await?;
+        let mut network2 = loopback_network().await?;
+        net::connect_star(&mut network1, &mut [&mut network2]).await?;
 
         // Send multiple gradients in sequence
+        let mut networks = [&mut network1, &mut network2];
         for i in 0..5 {
-            let gradient = create_test_gradient("sender", vec![i as f32]);
-            network2.broadcast_gradient(gradient).await?;
-            tokio::time::sleep(Duration::from_millis(50)).await;
+            net::broadcast(&mut networks, 1, vec![i as f32]).await?;
+            net::pump(&mut networks, Duration::from_millis(50)).await?;
         }
 
-        tokio::time::sleep(Duration::from_millis(200)).await;
-
-        // Check received gradients
-        let received = network1.get_received_gradients().await?;
-        assert!(received.len() > 0);
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_network_metrics() -> Result<()> {
-        let network = create_test_network(4070).await?;
-
-        // Test basic metrics collection
-        let metrics = network.get_network_metrics().await?;
-
-        // Basic sanity checks
-        assert!(metrics.connected_peers >= 0);
-        assert!(metrics.bytes_sent >= 0);
-        assert!(metrics.bytes_received >= 0);
+        // The receiver keeps one gradient per peer and round, so in-order
+        // delivery leaves it holding the last one sent.
+        let start = Instant::now();
+        loop {
+            let received = networks[0].received_gradients().await;
+            if let [(_, values)] = received.as_slice() {
+                if (values[0] - 4.0).abs() < 0.05 {
+                    break;
+                }
+            }
+            assert!(
+                start.elapsed() < net::DEADLINE,
+                "last gradient not received"
+            );
+            net::pump(&mut networks, Duration::from_millis(50)).await?;
+        }
 
         Ok(())
     }
 
     #[tokio::test]
     async fn test_graceful_shutdown() -> Result<()> {
-        let network = create_test_network(4080).await?;
+        let mut network1 = loopback_network().await?;
+        let mut network2 = loopback_network().await?;
+        net::connect_star(&mut network1, &mut [&mut network2]).await?;
 
-        // Test that network can be shut down gracefully
-        network.shutdown().await?;
+        // Shutting a network down is dropping it; its peers must notice and
+        // clean up the connection.
+        drop(network2);
 
-        // After shutdown, operations should fail gracefully
-        let result = network.get_connected_peers().await;
-        assert!(result.is_err() || result.unwrap().is_empty());
+        let start = Instant::now();
+        while !network1.connected_peers().is_empty() {
+            assert!(start.elapsed() < net::DEADLINE, "peer still connected");
+            net::pump(&mut [&mut network1], Duration::from_millis(50)).await?;
+        }
 
         Ok(())
     }

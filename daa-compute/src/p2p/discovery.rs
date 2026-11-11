@@ -3,14 +3,14 @@
 //! Implements multiple discovery methods including DHT, mDNS,
 //! and bootstrap nodes.
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use libp2p::{Multiaddr, PeerId};
 use std::collections::HashSet;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tokio::sync::{mpsc, RwLock};
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// Discovery method
 #[derive(Debug, Clone)]
@@ -85,6 +85,10 @@ impl DiscoveryService {
 
     /// Add discovered peer
     pub async fn add_discovered_peer(&self, peer: DiscoveredPeer) -> Result<()> {
+        if peer.peer_id == self.local_peer_id {
+            return Ok(());
+        }
+
         let mut discovered = self.discovered_peers.write().await;
         let mut info = self.peer_info.write().await;
 
@@ -98,6 +102,11 @@ impl DiscoveryService {
         }
 
         Ok(())
+    }
+
+    /// Wait for the next newly discovered peer, in discovery order.
+    pub async fn next_discovered_peer(&self) -> Option<DiscoveredPeer> {
+        self.discovery_rx.write().await.recv().await
     }
 
     /// Get all discovered peers
@@ -217,6 +226,10 @@ impl DhtDiscovery {
 
     /// Discover peers through DHT random walk
     pub async fn discover_random_peers(&self, count: usize) -> Result<Vec<PeerId>> {
+        debug!(
+            "DHT random walk from {} for {} peers",
+            self.local_peer_id, count
+        );
         // This would integrate with Kademlia DHT
         // For now, return empty as it requires DHT integration
         Ok(Vec::new())
@@ -224,6 +237,11 @@ impl DhtDiscovery {
 
     /// Discover peers near a specific key
     pub async fn discover_near_key(&self, key: &[u8]) -> Result<Vec<PeerId>> {
+        debug!(
+            "DHT lookup from {} near key of {} bytes",
+            self.local_peer_id,
+            key.len()
+        );
         // This would use Kademlia's find_node operation
         Ok(Vec::new())
     }
@@ -276,6 +294,10 @@ impl TrackerDiscovery {
 
     /// Announce to tracker and get peers
     pub async fn announce_and_discover(&self) -> Result<Vec<SocketAddr>> {
+        debug!(
+            "Announcing info hash {:02x?} to tracker {}",
+            self.info_hash, self.tracker_url
+        );
         // Would implement HTTP/UDP tracker protocol
         // For now, return empty
         Ok(Vec::new())
@@ -289,6 +311,12 @@ pub struct CapabilityFilter {
     min_memory_gb: Option<f32>,
     min_bandwidth_mbps: Option<f32>,
     require_gpu: bool,
+}
+
+impl Default for CapabilityFilter {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CapabilityFilter {

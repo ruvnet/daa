@@ -21,7 +21,7 @@ mod tests {
     #[tokio::test]
     async fn test_aggregator_creation() {
         let aggregator = GradientAggregator::new(3).await.unwrap();
-        assert_eq!(aggregator.compression_level, 3);
+        assert_eq!(aggregator.compression_level(), 3);
     }
 
     #[tokio::test]
@@ -112,11 +112,13 @@ mod tests {
         let mut aggregator = GradientAggregator::new(0).await.unwrap();
         aggregator.set_strategy(AggregationStrategy::Krum(1)); // Tolerate 1 Byzantine node
 
+        // Krum needs at least 2*f+3 = 5 gradients for f=1
         let gradients = vec![
             create_test_gradient("node1", vec![1.0, 1.0], 1),
             create_test_gradient("node2", vec![1.1, 1.1], 1),
             create_test_gradient("node3", vec![1.2, 1.2], 1),
-            create_test_gradient("node4", vec![100.0, 100.0], 1), // Byzantine
+            create_test_gradient("node4", vec![0.9, 0.9], 1),
+            create_test_gradient("node5", vec![100.0, 100.0], 1), // Byzantine
         ];
 
         let (result, _) = aggregator.aggregate(gradients, 1).await.unwrap();

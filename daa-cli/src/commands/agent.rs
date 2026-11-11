@@ -6,7 +6,11 @@ use colored::Colorize;
 use crate::{config::CliConfig, AgentAction, CliContext};
 
 /// Handle the agent command
-pub async fn handle_agent(action: AgentAction, config: &CliConfig, cli: &CliContext) -> Result<()> {
+pub async fn handle_agent(
+    action: AgentAction,
+    _config: &CliConfig,
+    cli: &CliContext,
+) -> Result<()> {
     match action {
         AgentAction::List => {
             let agents = get_agents().await?;
@@ -116,9 +120,9 @@ async fn get_agent_details(agent_id: &str) -> Result<AgentDetails> {
 }
 
 async fn create_agent(
-    name: String,
-    agent_type: String,
-    capabilities: Option<String>,
+    _name: String,
+    _agent_type: String,
+    _capabilities: Option<String>,
 ) -> Result<String> {
     let agent_id = format!(
         "agent-{}",
@@ -128,12 +132,12 @@ async fn create_agent(
     Ok(agent_id)
 }
 
-async fn stop_agent(agent_id: &str, force: bool) -> Result<()> {
+async fn stop_agent(_agent_id: &str, _force: bool) -> Result<()> {
     // Mock agent stopping
     Ok(())
 }
 
-async fn restart_agent(agent_id: &str) -> Result<()> {
+async fn restart_agent(_agent_id: &str) -> Result<()> {
     // Mock agent restarting
     Ok(())
 }

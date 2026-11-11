@@ -13,8 +13,11 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
+# Minimum supported Rust version; the highest rust-version among the locked
+# dependencies (uuid 1.29). Keep in sync with the MSRV job in ci.yml.
+rust-version = "1.89"
 authors = ["DAA Team <team@daa.hq>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/daa-hq/daa-sdk"
@@ -25,7 +28,7 @@ categories = ["cryptography", "web-programming", "development-tools"]
 
 [workspace.dependencies]
 # Core Rust dependencies
-tokio = { version = "1.0", features = ["full"] }
+tokio = { version = "1.54", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
@@ -35,21 +38,21 @@ axum = "0.7"
 tower = "0.4"
 futures = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
-uuid = { version = "1.6", features = ["v4", "serde"] }
+uuid = { version = "1.29", features = ["v4", "serde"] }
 hex = "0.4"
 mockall = "0.12"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 colorful = "0.2"
 anyhow = "1.0"
 async-trait = "0.1"
-clap = { version = "4.0", features = ["derive"] }
-tempfile = "3.8"
-once_cell = "1.19"
+clap = { version = "4.6", features = ["derive"] }
+tempfile = "3.27"
+once_cell = "1.21"
 jsonrpc-core = "18.0"
 tokio-tungstenite = "0.21"
 
 # Additional dependencies needed by QuDAG crates
-proptest = "1.0"
+proptest = "1.12"
 criterion = { version = "0.5", features = ["html_reports"] }
 parking_lot = "0.12"
 lru = "0.12"
@@ -57,10 +60,10 @@ metrics = "0.21"
 rand = "0.8"
 rand_core = "0.6"
 bincode = "1.3"
-blake3 = "1.5"
+blake3 = "1.8"
 toml = "0.8"
-subtle = "2.5"
-zeroize = { version = "1.7", features = ["zeroize_derive"] }
+subtle = "2.6"
+zeroize = { version = "1.9", features = ["zeroize_derive"] }
 hex-literal = "0.4"
 sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "sqlite"] }
 tokio-test = "0.4"

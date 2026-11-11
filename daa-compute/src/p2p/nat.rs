@@ -5,7 +5,7 @@
 
 use anyhow::{anyhow, Result};
 use igd_next;
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{Mutex, RwLock};
@@ -162,13 +162,8 @@ impl NatTraversal {
 
     /// Perform STUN binding request
     async fn query_stun_server(&self, server: &str) -> Result<SocketAddr> {
-        use stun::agent::*;
-        use stun::client::Client;
-        use stun::message::*;
-        use stun::xoraddr::*;
-
-        // Parse STUN server URL
-        let server_addr = server
+        // Validate the STUN server URL
+        server
             .trim_start_matches("stun:")
             .parse::<SocketAddr>()
             .map_err(|e| anyhow!("Invalid STUN server address: {}", e))?;
@@ -248,9 +243,6 @@ impl NatTraversal {
 
     /// Allocate from specific TURN server
     async fn allocate_from_turn_server(&self, server: &TurnServer) -> Result<TurnAllocation> {
-        use turn::auth::*;
-        use turn::client::*;
-
         // Parse first TURN URL
         let url = server
             .urls
@@ -399,15 +391,6 @@ impl NatTraversal {
 #[derive(Debug, Default)]
 struct StunTestResults {
     mapped_addresses: Vec<SocketAddr>,
-    changed_addresses: Vec<SocketAddr>,
-    filtering_behavior: Option<FilteringBehavior>,
-}
-
-#[derive(Debug, Clone, Copy)]
-enum FilteringBehavior {
-    EndpointIndependent,
-    AddressDependent,
-    AddressAndPortDependent,
 }
 
 /// ICE candidate

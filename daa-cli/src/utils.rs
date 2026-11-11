@@ -101,7 +101,7 @@ pub fn is_process_running(pid: u32) -> bool {
     #[cfg(target_os = "windows")]
     {
         Command::new("tasklist")
-            .args(&["/FI", &format!("PID eq {}", pid)])
+            .args(["/FI", &format!("PID eq {}", pid)])
             .output()
             .map(|output| String::from_utf8_lossy(&output.stdout).contains(&pid.to_string()))
             .unwrap_or(false)
@@ -110,7 +110,7 @@ pub fn is_process_running(pid: u32) -> bool {
     #[cfg(not(target_os = "windows"))]
     {
         Command::new("kill")
-            .args(&["-0", &pid.to_string()])
+            .args(["-0", &pid.to_string()])
             .output()
             .map(|output| output.status.success())
             .unwrap_or(false)

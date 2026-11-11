@@ -6,7 +6,6 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -294,15 +293,13 @@ pub enum RuleAction {
 impl RuleAction {
     /// Validate the action
     pub fn validate(&self) -> Result<()> {
-        match self {
-            RuleAction::Webhook { url, .. } => {
-                if url.is_empty() {
-                    return Err(RulesError::InvalidRule(
-                        "Webhook URL cannot be empty".to_string(),
-                    ));
-                }
+        // Only webhooks need validation; other actions are always valid
+        if let RuleAction::Webhook { url, .. } = self {
+            if url.is_empty() {
+                return Err(RulesError::InvalidRule(
+                    "Webhook URL cannot be empty".to_string(),
+                ));
             }
-            _ => {} // Other actions are always valid
         }
         Ok(())
     }

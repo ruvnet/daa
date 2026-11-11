@@ -2,7 +2,6 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use rand::prelude::*;
-use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::runtime::Runtime;
 
@@ -72,7 +71,6 @@ fn benchmark_consensus_finalization_by_validator_count(c: &mut Criterion) {
                     let block = create_test_block(100); // 100 transactions
 
                     // Measure time to achieve consensus
-                    let start = std::time::Instant::now();
 
                     // Simulate consensus rounds
                     let finalization_time = simulate_consensus_rounds(&validators, &block).await;
@@ -107,7 +105,6 @@ fn benchmark_consensus_finalization_by_tx_count(c: &mut Criterion) {
                     let validators = create_validator_set(validator_count);
                     let block = create_test_block(tx_count);
 
-                    let start = std::time::Instant::now();
                     let finalization_time = simulate_consensus_rounds(&validators, &block).await;
                     black_box(finalization_time)
                 });
@@ -141,7 +138,6 @@ fn benchmark_consensus_network_conditions(c: &mut Criterion) {
                     let validators = create_validator_set(13);
                     let block = create_test_block(100);
 
-                    let start = std::time::Instant::now();
                     let finalization_time = simulate_consensus_with_network_conditions(
                         &validators,
                         &block,
@@ -178,7 +174,6 @@ fn benchmark_consensus_byzantine_tolerance(c: &mut Criterion) {
                         create_validator_set_with_byzantine(validator_count, byzantine_pct);
                     let block = create_test_block(100);
 
-                    let start = std::time::Instant::now();
                     let finalization_time = simulate_byzantine_consensus(&validators, &block).await;
                     black_box(finalization_time)
                 });
@@ -205,13 +200,7 @@ fn benchmark_consensus_round_timing(c: &mut Criterion) {
             &round_duration_ms,
             |b, &round_duration_ms| {
                 b.to_async(&rt).iter(|| async move {
-                    let validators = create_validator_set(13);
-                    let block = create_test_block(100);
-
-                    let start = std::time::Instant::now();
                     let finalization_time = simulate_consensus_with_round_timing(
-                        &validators,
-                        &block,
                         Duration::from_millis(round_duration_ms),
                     )
                     .await;
@@ -305,8 +294,8 @@ fn create_validator_set_with_byzantine(
     let byzantine_count = (total_count * byzantine_pct as usize) / 100;
 
     // Mark some validators as byzantine (lower reputation)
-    for i in 0..byzantine_count {
-        validators[i].reputation = 0.1;
+    for validator in validators.iter_mut().take(byzantine_count) {
+        validator.reputation = 0.1;
     }
 
     validators
@@ -316,7 +305,7 @@ fn create_test_block(tx_count: usize) -> Block {
     let mut rng = rand::thread_rng();
     let mut transactions = Vec::new();
 
-    for i in 0..tx_count {
+    for _ in 0..tx_count {
         transactions.push(Transaction {
             hash: [rng.gen(); 32],
             data: (0..rng.gen_range(100..1000)).map(|_| rng.gen()).collect(),
@@ -340,28 +329,33 @@ fn create_test_block_with_height(tx_count: usize, height: u64) -> Block {
     block
 }
 
+/// Time for the leader to assemble and send a proposal; larger blocks take longer.
+fn proposal_delay(block: &Block) -> Duration {
+    Duration::from_millis(10 + block.transactions.len() as u64 / 100)
+}
+
 async fn simulate_consensus_rounds(validators: &[ValidatorInfo], block: &Block) -> Duration {
     let start = std::time::Instant::now();
 
     // Simulate the typical consensus phases: Proposal -> Prevote -> Precommit -> Commit
 
     // Phase 1: Proposal (leader proposes block)
-    tokio::time::sleep(Duration::from_millis(10)).await;
+    tokio::time::sleep(proposal_delay(block)).await;
 
     // Phase 2: Prevote (validators vote on proposal)
-    let prevote_time = simulate_voting_phase(validators, VoteType::Prevote).await;
+    simulate_voting_phase(validators).await;
 
     // Phase 3: Precommit (validators commit to the block)
-    let precommit_time = simulate_voting_phase(validators, VoteType::Precommit).await;
+    simulate_voting_phase(validators).await;
 
     // Phase 4: Commit (final commitment)
-    let commit_time = simulate_voting_phase(validators, VoteType::Commit).await;
+    simulate_voting_phase(validators).await;
 
     // Total consensus time
     start.elapsed()
 }
 
-async fn simulate_voting_phase(validators: &[ValidatorInfo], vote_type: VoteType) -> Duration {
+async fn simulate_voting_phase(validators: &[ValidatorInfo]) -> Duration {
     let start = std::time::Instant::now();
 
     // Simulate network delay for vote collection
@@ -387,10 +381,11 @@ async fn simulate_consensus_with_network_conditions(
     let base_delay = Duration::from_millis(latency_ms);
 
     // Proposal phase with network delay
-    tokio::time::sleep(base_delay).await;
+    tokio::time::sleep(base_delay + proposal_delay(block)).await;
 
     // Each voting phase is affected by network conditions
-    for vote_type in [VoteType::Prevote, VoteType::Precommit, VoteType::Commit] {
+    // Prevote, precommit and commit
+    for _phase in 0..3 {
         // Network delay
         tokio::time::sleep(base_delay).await;
 
@@ -400,7 +395,7 @@ async fn simulate_consensus_with_network_conditions(
             tokio::time::sleep(Duration::from_millis(latency_ms * 2)).await;
         }
 
-        simulate_voting_phase(validators, vote_type).await;
+        simulate_voting_phase(validators).await;
     }
 
     start.elapsed()
@@ -421,11 +416,7 @@ async fn simulate_byzantine_consensus(validators: &[ValidatorInfo], block: &Bloc
     start.elapsed()
 }
 
-async fn simulate_consensus_with_round_timing(
-    validators: &[ValidatorInfo],
-    block: &Block,
-    round_duration: Duration,
-) -> Duration {
+async fn simulate_consensus_with_round_timing(round_duration: Duration) -> Duration {
     let start = std::time::Instant::now();
 
     // Each phase takes a portion of the round duration

@@ -75,7 +75,7 @@ pub struct ChainConfig {
     /// Enable consensus validation
     pub enable_consensus: bool,
 
-    /// Storage path for blockchain data
+    /// Storage path for blockchain data (ignored on wasm32, which uses in-memory storage)
     pub storage_path: String,
 }
 
@@ -83,7 +83,7 @@ impl Default for ChainConfig {
     fn default() -> Self {
         Self {
             chain_id: "daa-main".to_string(),
-            network: NetworkConfig::default(),
+            network: NetworkConfig,
             max_block_size: 1024 * 1024, // 1MB
             max_transactions_per_block: 1000,
             block_time: 15, // 15 seconds
@@ -106,9 +106,12 @@ impl DaaChain {
     pub async fn new(config: ChainConfig) -> Result<Self> {
         let network = Network::new(config.network.clone())
             .await
-            .map_err(|e| ChainError::Network(e))?;
-        let storage = storage::Storage::new(&config.storage_path)
-            .map_err(|e| ChainError::Storage(e.to_string()))?;
+            .map_err(ChainError::Network)?;
+        #[cfg(not(target_arch = "wasm32"))]
+        let storage = storage::Storage::new(&config.storage_path).await?;
+        // wasm32 has no filesystem in tokio; `storage_path` is ignored there.
+        #[cfg(target_arch = "wasm32")]
+        let storage = storage::Storage::in_memory();
 
         let consensus = if config.enable_consensus {
             Some(consensus::ConsensusEngine::new(&config).await?)
@@ -129,10 +132,7 @@ impl DaaChain {
         tracing::info!("Starting DAA Chain: {}", self.config.chain_id);
 
         // Start network layer
-        self.network
-            .start()
-            .await
-            .map_err(|e| ChainError::Network(e))?;
+        self.network.start().await.map_err(ChainError::Network)?;
 
         // Start consensus engine if enabled
         if let Some(consensus) = &mut self.consensus {
@@ -158,7 +158,7 @@ impl DaaChain {
         self.network
             .broadcast_transaction(tx_hash)
             .await
-            .map_err(|e| ChainError::Network(e))?;
+            .map_err(ChainError::Network)?;
 
         Ok(tx_hash)
     }
@@ -188,7 +188,7 @@ impl DaaChain {
             tokio::select! {
                 // Process network events
                 event = self.network.next_event() => {
-                    match event.map_err(|e| ChainError::Network(e))? {
+                    match event.map_err(ChainError::Network)? {
                         NetworkEvent::TransactionReceived(tx) => {
                             self.handle_transaction_received(tx).await?;
                         }
@@ -292,7 +292,7 @@ impl DaaChain {
         self.network
             .broadcast_block(block)
             .await
-            .map_err(|e| ChainError::Network(e))?;
+            .map_err(ChainError::Network)?;
 
         tracing::info!("Produced block: {}", block_hash);
 

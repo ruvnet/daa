@@ -26,8 +26,6 @@ pub mod benchmarks {
     pub mod test_training_performance;
 }
 
-pub mod test_runner;
-
 // Common test utilities
 pub mod common {
     use daa_compute::training::Gradient;
@@ -96,6 +94,123 @@ pub mod common {
     pub fn random_peer_id() -> PeerId {
         PeerId::random()
     }
+
+    /// Helpers for tests that run real `P2PNetwork`s over loopback TCP.
+    ///
+    /// A swarm only makes progress while it is polled, so tests pump every
+    /// network they own and poll for the state they expect against a deadline
+    /// rather than sleeping for a fixed time.
+    pub mod net {
+        use anyhow::{anyhow, Result};
+        use daa_compute::{Multiaddr, P2PNetwork, SwarmConfig};
+        use futures::future::select_all;
+        use std::time::{Duration, Instant};
+
+        /// Upper bound for any single network condition to become true.
+        pub const DEADLINE: Duration = Duration::from_secs(20);
+
+        /// A network on an OS-assigned loopback port.
+        pub async fn loopback_network() -> Result<P2PNetwork> {
+            let config = SwarmConfig {
+                listen_addresses: vec!["/ip4/127.0.0.1/tcp/0".parse()?],
+                ..SwarmConfig::default()
+            };
+            P2PNetwork::new(config).await
+        }
+
+        /// Handle swarm events on all `networks` for up to `slice`.
+        pub async fn pump(networks: &mut [&mut P2PNetwork], slice: Duration) -> Result<()> {
+            let end = Instant::now() + slice;
+            while Instant::now() < end {
+                let events = networks
+                    .iter_mut()
+                    .map(|network| Box::pin(network.process_next_event()));
+                // The first network with an event is handled; the others are
+                // still waiting on their swarm, which is cancellation-safe.
+                match tokio::time::timeout_at(
+                    tokio::time::Instant::from_std(end),
+                    select_all(events),
+                )
+                .await
+                {
+                    Ok((result, _, _)) => result?,
+                    Err(_) => break,
+                }
+            }
+            Ok(())
+        }
+
+        /// Pump `network` until it reports a listen address.
+        pub async fn listen_address(network: &mut P2PNetwork) -> Result<Multiaddr> {
+            let start = Instant::now();
+            while start.elapsed() < DEADLINE {
+                if let Some(addr) = network.listen_addresses().into_iter().next() {
+                    return Ok(addr);
+                }
+                pump(&mut [&mut *network], Duration::from_millis(50)).await?;
+            }
+            Err(anyhow!("network did not start listening"))
+        }
+
+        /// Dial `hub` from each of `spokes` and pump until every spoke is connected.
+        pub async fn connect_star(
+            hub: &mut P2PNetwork,
+            spokes: &mut [&mut P2PNetwork],
+        ) -> Result<()> {
+            let hub_addr = listen_address(hub).await?;
+            let hub_id = hub.local_peer_id();
+            for spoke in spokes.iter_mut() {
+                spoke.connect_to_peer(hub_id, hub_addr.clone())?;
+            }
+            let start = Instant::now();
+            while start.elapsed() < DEADLINE {
+                if spokes
+                    .iter()
+                    .all(|spoke| spoke.connected_peers().contains(&hub_id))
+                {
+                    return Ok(());
+                }
+                let mut all: Vec<&mut P2PNetwork> = vec![&mut *hub];
+                all.extend(spokes.iter_mut().map(|spoke| &mut **spoke));
+                pump(&mut all, Duration::from_millis(50)).await?;
+            }
+            Err(anyhow!("spokes did not connect to the hub"))
+        }
+
+        /// Publish from `networks[sender]` once a peer is subscribed to the
+        /// gradient topic (gossipsub rejects publishes with no subscribers).
+        pub async fn broadcast(
+            networks: &mut [&mut P2PNetwork],
+            sender: usize,
+            gradient: Vec<f32>,
+        ) -> Result<()> {
+            let start = Instant::now();
+            loop {
+                match networks[sender].broadcast_gradient(gradient.clone()).await {
+                    Ok(()) => return Ok(()),
+                    Err(e) if start.elapsed() > DEADLINE => return Err(e),
+                    Err(_) => pump(networks, Duration::from_millis(100)).await?,
+                }
+            }
+        }
+
+        /// Pump until `networks[receiver]` holds gradients from at least `count` peers.
+        pub async fn await_gradients(
+            networks: &mut [&mut P2PNetwork],
+            receiver: usize,
+            count: usize,
+        ) -> Result<Vec<Vec<f32>>> {
+            let start = Instant::now();
+            while start.elapsed() < DEADLINE {
+                let received = networks[receiver].received_gradients().await;
+                if received.len() >= count {
+                    return Ok(received.into_iter().map(|(_, values)| values).collect());
+                }
+                pump(networks, Duration::from_millis(50)).await?;
+            }
+            Err(anyhow!("expected gradients from {count} peers"))
+        }
+    }
 }
 
 // Test configuration constants
@@ -162,8 +277,7 @@ pub mod analysis {
 
 // Mock implementations for testing
 pub mod mocks {
-    use async_trait::async_trait;
-    use daa_compute::training::{Gradient, ModelInterface, ModelParameters, TrainingMetrics};
+    use daa_compute::training::{Gradient, ModelInterface, ModelParameters};
 
     /// Mock model for testing purposes
     pub struct MockModel {
@@ -235,6 +349,12 @@ pub mod mocks {
         pub connected_peers: Vec<libp2p::PeerId>,
     }
 
+    impl Default for MockNetwork {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl MockNetwork {
         pub fn new() -> Self {
             Self {
@@ -299,6 +419,8 @@ mod tests {
 
     #[test]
     fn test_mock_model() {
+        use daa_compute::training::ModelInterface;
+
         let mut model = mocks::MockModel::new(3);
 
         let output = model.forward(&[1.0, 2.0, 3.0]);

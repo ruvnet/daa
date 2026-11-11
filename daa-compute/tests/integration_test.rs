@@ -2,8 +2,7 @@
 
 use anyhow::Result;
 use daa_compute::{P2PNetwork, SwarmConfig};
-use libp2p::{Multiaddr, PeerId};
-use tokio;
+use libp2p::PeerId;
 
 #[tokio::test]
 async fn test_network_creation() -> Result<()> {
@@ -41,7 +40,9 @@ async fn test_all_reduce_algorithms() -> Result<()> {
     gradients.insert(peer_id, vec![7.0, 8.0, 9.0]);
 
     // Test ring all-reduce
-    let result = manager.ring_allreduce(&gradients).await?;
+    let result = manager
+        .all_reduce(AllReduceAlgorithm::Ring, &gradients)
+        .await?;
     assert_eq!(result.len(), 3);
     assert!((result[0] - 4.0).abs() < 0.001); // (1+4+7)/3 = 4
 

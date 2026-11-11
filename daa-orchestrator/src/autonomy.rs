@@ -6,7 +6,7 @@ use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
 use crate::config::AutonomyConfig;
-use crate::error::{OrchestratorError, Result};
+use crate::error::Result;
 
 /// Autonomy state enumeration
 #[derive(Debug, Clone, PartialEq)]

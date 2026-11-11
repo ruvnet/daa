@@ -1,6 +1,7 @@
 //! Storage layer for DAA Chain using QuDAG storage primitives
 
 use std::collections::HashMap;
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -8,7 +9,9 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
 use crate::qudag_stubs::qudag_core::{Block, Hash, Transaction};
-use crate::{ChainError, Result};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::ChainError;
+use crate::Result;
 
 /// Storage interface for DAA Chain data
 #[async_trait::async_trait]
@@ -38,7 +41,11 @@ pub trait StorageInterface: Send + Sync {
     async fn get_metadata(&self, key: &str) -> Result<Option<Vec<u8>>>;
 }
 
-/// File-based storage implementation
+/// File-based storage implementation.
+///
+/// Not available on `wasm32`, where tokio has no filesystem support; use
+/// [`MemoryStorage`] there instead.
+#[cfg(not(target_arch = "wasm32"))]
 pub struct FileStorage {
     /// Root directory for storage
     root_path: PathBuf,
@@ -59,6 +66,7 @@ pub struct FileStorage {
     height_to_hash: Arc<RwLock<HashMap<u64, Hash>>>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl FileStorage {
     /// Create new file storage instance
     pub async fn new<P: AsRef<Path>>(root_path: P) -> Result<Self> {
@@ -149,6 +157,7 @@ impl FileStorage {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[async_trait::async_trait]
 impl StorageInterface for FileStorage {
     async fn store_block(&mut self, block: Block) -> Result<()> {
@@ -274,6 +283,70 @@ impl StorageInterface for FileStorage {
     }
 }
 
+/// Non-persistent, in-memory storage implementation.
+///
+/// Available on every target; it is the backend used on `wasm32`.
+#[derive(Default)]
+pub struct MemoryStorage {
+    blocks: HashMap<Hash, Block>,
+    transactions: HashMap<Hash, Transaction>,
+    metadata: HashMap<String, Vec<u8>>,
+    height: u64,
+    height_to_hash: HashMap<u64, Hash>,
+}
+
+impl MemoryStorage {
+    /// Create an empty in-memory storage
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+#[async_trait::async_trait]
+impl StorageInterface for MemoryStorage {
+    async fn store_block(&mut self, block: Block) -> Result<()> {
+        let hash = block.hash();
+        self.blocks.insert(hash, block);
+        self.height += 1;
+        self.height_to_hash.insert(self.height, hash);
+        self.metadata.insert(
+            "chain_height".to_string(),
+            self.height.to_string().into_bytes(),
+        );
+        Ok(())
+    }
+
+    async fn get_block(&self, hash: &Hash) -> Result<Option<Block>> {
+        Ok(self.blocks.get(hash).cloned())
+    }
+
+    async fn store_transaction(&mut self, tx: Transaction) -> Result<()> {
+        self.transactions.insert(tx.hash(), tx);
+        Ok(())
+    }
+
+    async fn get_transaction(&self, hash: &Hash) -> Result<Option<Transaction>> {
+        Ok(self.transactions.get(hash).cloned())
+    }
+
+    async fn get_height(&self) -> Result<u64> {
+        Ok(self.height)
+    }
+
+    async fn get_block_hash_at_height(&self, height: u64) -> Result<Option<Hash>> {
+        Ok(self.height_to_hash.get(&height).copied())
+    }
+
+    async fn store_metadata(&mut self, key: String, value: Vec<u8>) -> Result<()> {
+        self.metadata.insert(key, value);
+        Ok(())
+    }
+
+    async fn get_metadata(&self, key: &str) -> Result<Option<Vec<u8>>> {
+        Ok(self.metadata.get(key).cloned())
+    }
+}
+
 /// Storage wrapper for DAA Chain operations
 pub struct Storage {
     inner: Box<dyn StorageInterface>,
@@ -281,15 +354,24 @@ pub struct Storage {
 }
 
 impl Storage {
-    /// Create new storage instance
-    pub fn new<P: AsRef<Path>>(storage_path: P) -> Result<Self> {
-        let inner = tokio::runtime::Handle::current()
-            .block_on(async { FileStorage::new(storage_path).await })?;
+    /// Create a file-backed storage instance rooted at `storage_path`
+    #[cfg(not(target_arch = "wasm32"))]
+    pub async fn new<P: AsRef<Path>>(storage_path: P) -> Result<Self> {
+        let inner = FileStorage::new(storage_path).await?;
+        Ok(Self::with_backend(Box::new(inner)))
+    }
 
-        Ok(Self {
-            inner: Box::new(inner),
+    /// Create a non-persistent, in-memory storage instance
+    pub fn in_memory() -> Self {
+        Self::with_backend(Box::new(MemoryStorage::new()))
+    }
+
+    /// Create a storage instance over any [`StorageInterface`] backend
+    pub fn with_backend(inner: Box<dyn StorageInterface>) -> Self {
+        Self {
+            inner,
             pending_transactions: Arc::new(RwLock::new(HashMap::new())),
-        })
+        }
     }
 
     /// Add block to storage
@@ -401,7 +483,7 @@ mod tests {
     #[tokio::test]
     async fn test_storage_wrapper() {
         let temp_dir = TempDir::new().unwrap();
-        let storage = Storage::new(temp_dir.path()).unwrap();
+        let storage = Storage::new(temp_dir.path()).await.unwrap();
 
         let height = storage.get_height().await.unwrap();
         assert_eq!(height, 0);
@@ -409,5 +491,22 @@ mod tests {
         let stats = storage.get_stats().await;
         assert_eq!(stats.total_blocks, 0);
         assert_eq!(stats.pending_transactions, 0);
+    }
+
+    #[tokio::test]
+    async fn test_in_memory_storage() {
+        let mut storage = Storage::in_memory();
+        let block = Block::new_empty();
+        let hash = block.hash();
+
+        storage.add_block(block).await.unwrap();
+
+        assert_eq!(storage.get_height().await.unwrap(), 1);
+        assert!(storage.get_block(&hash).await.unwrap().is_some());
+        assert!(storage.get_block_at_height(1).await.unwrap().is_some());
+        assert_eq!(
+            storage.get_metadata("chain_height").await.unwrap(),
+            Some(b"1".to_vec())
+        );
     }
 }

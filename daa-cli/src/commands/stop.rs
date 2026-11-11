@@ -9,7 +9,7 @@ use crate::{config::CliConfig, CliContext};
 pub async fn handle_stop(
     force: bool,
     grace_period: u64,
-    config: &CliConfig,
+    _config: &CliConfig,
     cli: &CliContext,
 ) -> Result<()> {
     if cli.verbose {

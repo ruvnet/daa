@@ -2,14 +2,19 @@
 
 use daa_orchestrator::{
     autonomy::{AutonomyLoop, AutonomyState},
-    config::{AiConfig, ApiConfig, AutonomyConfig, McpConfig, QuDAGConfig, RulesConfig},
+    config::{
+        AiConfig, ApiConfig, AutonomyConfig, McpConfig, OrchestratorConfig as SystemConfig,
+        QuDAGConfig, RulesConfig,
+    },
     services::Service,
-    workflow::{Workflow, WorkflowStatus, WorkflowStep},
+    workflow::{Workflow, WorkflowStep},
     DaaOrchestrator, OrchestratorConfig,
 };
 use futures::future::join_all;
 use serde_json::json;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tokio::sync::RwLock;
 use tokio::time::{sleep, timeout};
 use uuid::Uuid;
 
@@ -18,7 +23,7 @@ use uuid::Uuid;
 async fn stress_test_high_frequency_workflows() {
     println!("\n=== STRESS TEST: High-Frequency Workflow Execution ===");
 
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         name: "stress-test-orchestrator".to_string(),
         autonomy: AutonomyConfig {
             enabled: true,
@@ -32,7 +37,13 @@ async fn stress_test_high_frequency_workflows() {
         ..Default::default()
     };
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    assert!(
+        config.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
     orchestrator.initialize().await.unwrap();
 
     let start_time = Instant::now();
@@ -80,7 +91,10 @@ async fn stress_test_high_frequency_workflows() {
     println!("   Total Workflows: {}", num_workflows);
     println!("   Execution Time: {:?}", execution_time);
     println!("   Workflows/Second: {:.2}", workflows_per_second);
-    println!("   Average Latency: {:?}", execution_time / num_workflows);
+    println!(
+        "   Average Latency: {:?}",
+        execution_time / num_workflows as u32
+    );
 
     // Performance assertions
     assert!(
@@ -101,6 +115,7 @@ async fn stress_test_massive_service_operations() {
     println!("\n=== STRESS TEST: Massive Service Operations ===");
 
     let config = OrchestratorConfig::default();
+
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
 
@@ -291,7 +306,7 @@ async fn stress_test_autonomy_loop_extreme_load() {
 async fn stress_test_memory_usage() {
     println!("\n=== STRESS TEST: Memory Usage Under Sustained Load ===");
 
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         name: "memory-stress-test".to_string(),
         autonomy: AutonomyConfig {
             enabled: true,
@@ -305,7 +320,13 @@ async fn stress_test_memory_usage() {
         ..Default::default()
     };
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    assert!(
+        config.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
     orchestrator.initialize().await.unwrap();
 
     println!("🧠 Testing memory usage under sustained load...");
@@ -413,8 +434,12 @@ async fn performance_test_concurrent_operations() {
     println!("\n=== PERFORMANCE TEST: Concurrent Multi-Component Operations ===");
 
     let config = OrchestratorConfig::default();
+
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
+
+    // Share the orchestrator across spawned tasks; registration needs exclusive access.
+    let orchestrator = Arc::new(RwLock::new(orchestrator));
 
     let start_time = Instant::now();
 
@@ -432,7 +457,8 @@ async fn performance_test_concurrent_operations() {
             endpoint: format!("localhost:{}", 25000 + i),
         };
 
-        let handle = async move { orchestrator.register_service(service).await };
+        let orchestrator = Arc::clone(&orchestrator);
+        let handle = async move { orchestrator.write().await.register_service(service).await };
         all_handles.push(tokio::spawn(handle));
     }
 
@@ -452,13 +478,29 @@ async fn performance_test_concurrent_operations() {
             }],
         };
 
-        let handle = async move { orchestrator.execute_workflow(workflow).await };
+        let orchestrator = Arc::clone(&orchestrator);
+        let handle = async move {
+            orchestrator
+                .read()
+                .await
+                .execute_workflow(workflow)
+                .await
+                .map(|_| ())
+        };
         all_handles.push(tokio::spawn(handle));
     }
 
     // 3. Service discovery operations
-    for i in 0..20 {
-        let handle = async move { orchestrator.discover_services("performance_test").await };
+    for _ in 0..20 {
+        let orchestrator = Arc::clone(&orchestrator);
+        let handle = async move {
+            orchestrator
+                .read()
+                .await
+                .discover_services("performance_test")
+                .await
+                .map(|_| ())
+        };
         all_handles.push(tokio::spawn(handle));
     }
 
@@ -467,7 +509,7 @@ async fn performance_test_concurrent_operations() {
     let total_time = start_time.elapsed();
 
     // Analyze results
-    let successful_operations = results.iter().filter(|r| r.is_ok()).count();
+    let successful_operations = results.iter().filter(|r| matches!(r, Ok(Ok(())))).count();
     let total_operations = results.len();
 
     // Calculate performance metrics
@@ -500,7 +542,7 @@ async fn performance_test_concurrent_operations() {
 async fn stress_test_resource_exhaustion() {
     println!("\n=== STRESS TEST: Resource Exhaustion Scenarios ===");
 
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         name: "resource-exhaustion-test".to_string(),
         autonomy: AutonomyConfig {
             enabled: true,
@@ -534,7 +576,13 @@ async fn stress_test_resource_exhaustion() {
         ..Default::default()
     };
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    assert!(
+        config.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
     orchestrator.initialize().await.unwrap();
 
     println!("⚠️  Testing system behavior under resource exhaustion...");
@@ -636,6 +684,7 @@ async fn benchmark_throughput_measurement() {
     println!("\n=== BENCHMARK: Throughput Measurement ===");
 
     let config = OrchestratorConfig::default();
+
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
 
@@ -725,7 +774,7 @@ async fn benchmark_throughput_measurement() {
     let max_throughput = benchmark_results
         .iter()
         .map(|(_, t, _)| t)
-        .fold(0.0, |a, &b| a.max(b));
+        .fold(0.0_f64, |a, &b| a.max(b));
 
     println!("   Average Throughput: {:.2} workflows/sec", avg_throughput);
     println!("   Min Throughput: {:.2} workflows/sec", min_throughput);

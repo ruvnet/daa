@@ -47,6 +47,11 @@ impl WorkflowEngine {
         Self { config }
     }
 
+    /// Workflow engine configuration
+    pub fn config(&self) -> &WorkflowConfig {
+        &self.config
+    }
+
     pub async fn start(&mut self) -> Result<()> {
         Ok(())
     }
