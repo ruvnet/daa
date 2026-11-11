@@ -70,7 +70,11 @@ jobs:
             os: windows-latest
             cross: false
             # napi-build needs libnode.dll to link a windows-gnu addon.
-            cargo-flags: --workspace --exclude daa-napi
+            # daa-compute is also a cdylib (for wasm-pack); MinGW ld exports
+            # every symbol of a cdylib and hits the 65535-entry export table
+            # limit ("export ordinal too large"). The msvc target builds and
+            # tests daa-compute on Windows.
+            cargo-flags: --workspace --exclude daa-napi --exclude daa-compute
             
           # Additional targets
           - target: wasm32-unknown-unknown
