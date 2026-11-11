@@ -5,8 +5,6 @@
 
 mod qudag_stubs;
 
-use anyhow;
-use hex;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -20,9 +18,6 @@ pub mod error;
 pub mod events;
 pub mod services;
 pub mod workflow;
-
-#[cfg(feature = "chain-integration")]
-pub mod chain_integration;
 
 #[cfg(feature = "economy-integration")]
 pub mod economy_integration;
@@ -67,7 +62,7 @@ pub enum OrchestratorError {
 pub type Result<T> = std::result::Result<T, OrchestratorError>;
 
 /// Configuration for the DAA orchestrator
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct OrchestratorConfig {
     /// Node configuration for QuDAG protocol
     pub node: NodeConfig,
@@ -83,18 +78,6 @@ pub struct OrchestratorConfig {
 
     /// Integration configurations
     pub integrations: IntegrationConfig,
-}
-
-impl Default for OrchestratorConfig {
-    fn default() -> Self {
-        Self {
-            node: NodeConfig::default(),
-            coordination: CoordinationConfig::default(),
-            services: ServiceConfig::default(),
-            workflows: WorkflowConfig::default(),
-            integrations: IntegrationConfig::default(),
-        }
-    }
 }
 
 /// Coordination configuration
@@ -218,9 +201,6 @@ pub struct DaaOrchestrator {
     event_manager: events::EventManager,
 
     /// Integration managers
-    #[cfg(feature = "chain-integration")]
-    chain_integration: Option<chain_integration::ChainIntegration>,
-
     #[cfg(feature = "economy-integration")]
     economy_integration: Option<economy_integration::EconomyIntegration>,
 
@@ -244,13 +224,6 @@ impl DaaOrchestrator {
         let event_manager = events::EventManager::new();
 
         // Initialize integrations
-        #[cfg(feature = "chain-integration")]
-        let chain_integration = if config.integrations.enable_chain {
-            Some(chain_integration::ChainIntegration::new().await?)
-        } else {
-            None
-        };
-
         #[cfg(feature = "economy-integration")]
         let economy_integration = if config.integrations.enable_economy {
             Some(economy_integration::EconomyIntegration::new().await?)
@@ -279,8 +252,6 @@ impl DaaOrchestrator {
             workflow_engine,
             service_registry,
             event_manager,
-            #[cfg(feature = "chain-integration")]
-            chain_integration,
             #[cfg(feature = "economy-integration")]
             economy_integration,
             #[cfg(feature = "rules-integration")]
@@ -288,6 +259,11 @@ impl DaaOrchestrator {
             #[cfg(feature = "ai-integration")]
             ai_integration,
         })
+    }
+
+    /// Configuration this orchestrator was created with
+    pub fn config(&self) -> &OrchestratorConfig {
+        &self.config
     }
 
     /// Initialize the orchestrator
@@ -310,11 +286,6 @@ impl DaaOrchestrator {
         self.event_manager.initialize().await?;
 
         // Initialize integrations
-        #[cfg(feature = "chain-integration")]
-        if let Some(ref mut integration) = self.chain_integration {
-            integration.initialize().await?;
-        }
-
         #[cfg(feature = "economy-integration")]
         if let Some(ref mut integration) = self.economy_integration {
             integration.initialize().await?;
@@ -336,7 +307,7 @@ impl DaaOrchestrator {
 
     /// Execute a workflow
     pub async fn execute_workflow(
-        &mut self,
+        &self,
         workflow: workflow::Workflow,
     ) -> Result<workflow::WorkflowResult> {
         tracing::info!("Executing workflow: {}", workflow.id);
@@ -359,7 +330,7 @@ impl DaaOrchestrator {
     }
 
     /// Register a service
-    pub async fn register_service(&mut self, service: services::Service) -> Result<()> {
+    pub async fn register_service(&self, service: services::Service) -> Result<()> {
         self.service_registry.register(service).await
     }
 

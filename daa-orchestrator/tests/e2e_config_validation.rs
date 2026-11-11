@@ -1,11 +1,8 @@
 //! Configuration validation and serialization tests
 
-use daa_orchestrator::{
-    config::{
-        AiConfig, ApiConfig, AutonomyConfig, ExchangeConfig, HealthCheckConfig, LoggingConfig,
-        McpConfig, QuDAGConfig, RulesConfig,
-    },
-    OrchestratorConfig,
+use daa_orchestrator::config::{
+    AiConfig, ApiConfig, AutonomyConfig, ExchangeConfig, HealthCheckConfig, LoggingConfig,
+    McpConfig, OrchestratorConfig, QuDAGConfig, RulesConfig,
 };
 use std::fs;
 use tempfile::NamedTempFile;
@@ -435,8 +432,11 @@ enabled = true
     .unwrap();
 
     let load_result = OrchestratorConfig::from_file(temp_path);
-    // This might succeed with defaults, but let's verify it at least doesn't crash
-    // The specific behavior depends on serde's handling of missing fields
+    // Config sections have no serde defaults, so missing fields are rejected
+    assert!(
+        load_result.is_err(),
+        "Should fail to load configuration with missing required fields"
+    );
 }
 
 #[tokio::test]

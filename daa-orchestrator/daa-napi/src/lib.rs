@@ -31,8 +31,6 @@
 extern crate napi_derive;
 
 use napi::bindgen_prelude::*;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
 // Module declarations
 mod economy;

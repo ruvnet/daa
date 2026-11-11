@@ -139,14 +139,12 @@ impl DiscoveryProtocol {
     /// Create a new discovery protocol instance
     pub async fn new(config: DiscoveryConfig, server_state: Arc<McpServerState>) -> Result<Self> {
         let bind_addr = SocketAddr::new(config.bind_address, config.port);
-        let socket = UdpSocket::bind(bind_addr)
-            .await
-            .map_err(|e| DaaMcpError::Network(e))?;
+        let socket = bind_shared_udp(bind_addr).map_err(DaaMcpError::Network)?;
 
         // Join multicast group
         socket
             .join_multicast_v4(config.multicast_address, Ipv4Addr::UNSPECIFIED)
-            .map_err(|e| DaaMcpError::Network(e))?;
+            .map_err(DaaMcpError::Network)?;
 
         let local_agent_id = Uuid::new_v4().to_string();
 
@@ -444,7 +442,7 @@ impl DiscoveryProtocol {
 
                     for (agent_id, agent) in agents.iter() {
                         if Self::matches_filter(agent, &filter) {
-                            let response = DiscoveryMessage::Response {
+                            let _response = DiscoveryMessage::Response {
                                 query_id: query_id.clone(),
                                 agent_id: agent_id.clone(),
                                 agent_info: AgentDiscoveryInfo {
@@ -584,7 +582,7 @@ impl DiscoveryProtocol {
         self.socket
             .send_to(&data, multicast_addr)
             .await
-            .map_err(|e| DaaMcpError::Network(e))?;
+            .map_err(DaaMcpError::Network)?;
 
         debug!("Sent discovery message to {}", multicast_addr);
         Ok(())
@@ -605,6 +603,20 @@ impl Clone for DiscoveryProtocol {
     }
 }
 
+/// Bind a UDP socket that other discovery participants on the same host can
+/// also bind, as is required for a shared multicast discovery port.
+fn bind_shared_udp(addr: SocketAddr) -> std::io::Result<UdpSocket> {
+    use socket2::{Domain, Protocol, Socket, Type};
+
+    let socket = Socket::new(Domain::for_address(addr), Type::DGRAM, Some(Protocol::UDP))?;
+    socket.set_reuse_address(true)?;
+    #[cfg(all(unix, not(any(target_os = "solaris", target_os = "illumos"))))]
+    socket.set_reuse_port(true)?;
+    socket.set_nonblocking(true)?;
+    socket.bind(&addr.into())?;
+    UdpSocket::from_std(socket.into())
+}
+
 /// Get current timestamp in seconds since UNIX epoch
 fn current_timestamp() -> u64 {
     SystemTime::now()
@@ -618,7 +630,7 @@ pub struct DiscoveryUtils;
 
 impl DiscoveryUtils {
     /// Create a swarm discovery filter
-    pub fn swarm_filter(agent_types: Vec<String>, max_agents: Option<usize>) -> DiscoveryFilter {
+    pub fn swarm_filter(_agent_types: Vec<String>, max_agents: Option<usize>) -> DiscoveryFilter {
         DiscoveryFilter {
             agent_type: None, // Will match any type, then filter in application
             capabilities: None,
@@ -680,13 +692,10 @@ impl DiscoveryUtils {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::DaaMcpConfig;
 
     #[tokio::test]
     async fn test_discovery_protocol_creation() {
         let config = DiscoveryConfig::default();
-        let server_config = DaaMcpConfig::default();
-        let server_state = Arc::new(McpServerState::new(server_config));
 
         // This would fail in a test environment without proper network setup
         // but tests the basic structure

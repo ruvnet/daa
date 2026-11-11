@@ -3,10 +3,9 @@
 //! This module defines prompt templates for common DAA operations,
 //! making it easy for AI systems to interact with the DAA SDK.
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
-use serde_json::{json, Value};
+use serde_json::Value;
 
 use crate::{DaaMcpError, McpServerState, Result};
 
@@ -1041,10 +1040,20 @@ async fn optimize_agent_configuration_prompt(
     })
 }
 
+impl std::fmt::Display for PromptContent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PromptContent::Text(text) => f.write_str(text),
+            PromptContent::Structured { text, .. } => f.write_str(text),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::DaaMcpConfig;
+    use serde_json::json;
 
     #[tokio::test]
     async fn test_create_treasury_agent_prompt() {
@@ -1080,14 +1089,5 @@ mod tests {
             .content
             .to_string()
             .contains("IMMEDIATE"));
-    }
-}
-
-impl ToString for PromptContent {
-    fn to_string(&self) -> String {
-        match self {
-            PromptContent::Text(text) => text.clone(),
-            PromptContent::Structured { text, .. } => text.clone(),
-        }
     }
 }

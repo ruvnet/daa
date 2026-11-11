@@ -7,12 +7,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use serde_json::Value;
 use tokio::sync::{broadcast, RwLock};
 use tracing::{debug, error, info, warn};
 
 use crate::{DaaMcpError, McpMessage, Result};
-use futures::{SinkExt, StreamExt};
+use futures::StreamExt;
 
 /// Transport trait for MCP communication
 #[async_trait]
@@ -100,13 +99,13 @@ impl McpTransport for HttpTransport {
             .json(&message)
             .send()
             .await
-            .map_err(|e| DaaMcpError::Network(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+            .map_err(|e| DaaMcpError::Network(std::io::Error::other(e)))?;
 
         if !response.status().is_success() {
-            return Err(DaaMcpError::Network(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("HTTP error: {}", response.status()),
-            )));
+            return Err(DaaMcpError::Network(std::io::Error::other(format!(
+                "HTTP error: {}",
+                response.status()
+            ))));
         }
 
         debug!("HTTP message sent successfully");
@@ -168,7 +167,7 @@ impl WebSocketTransport {
 
         match connect_async(&url).await {
             Ok((ws_stream, _)) => {
-                let (ws_sender, mut ws_receiver) = ws_stream.split();
+                let (_ws_sender, mut ws_receiver) = ws_stream.split();
                 let sender = self.sender.take().unwrap();
                 let connected = self.connected.clone();
 
@@ -289,6 +288,12 @@ impl StdioTransport {
         self.connected = true;
         info!("STDIO transport connected");
         Ok(())
+    }
+}
+
+impl Default for StdioTransport {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -450,6 +455,12 @@ impl TransportManager {
             }
         }
         Ok(())
+    }
+}
+
+impl Default for TransportManager {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

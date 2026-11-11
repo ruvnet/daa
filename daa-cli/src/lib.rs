@@ -14,21 +14,6 @@ use thiserror::Error;
 pub mod config;
 pub mod utils;
 
-#[cfg(feature = "chain")]
-pub mod chain;
-
-#[cfg(feature = "economy")]
-pub mod economy;
-
-#[cfg(feature = "rules")]
-pub mod rules;
-
-#[cfg(feature = "ai")]
-pub mod ai;
-
-#[cfg(feature = "orchestrator")]
-pub mod orchestrator;
-
 /// CLI error types
 #[derive(Error, Debug)]
 pub enum CliError {
@@ -46,26 +31,6 @@ pub enum CliError {
 
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
-
-    #[cfg(feature = "chain")]
-    #[error("Chain error: {0}")]
-    Chain(#[from] daa_chain::ChainError),
-
-    #[cfg(feature = "economy")]
-    #[error("Economy error: {0}")]
-    Economy(#[from] daa_economy::EconomyError),
-
-    #[cfg(feature = "rules")]
-    #[error("Rules error: {0}")]
-    Rules(#[from] daa_rules::RulesError),
-
-    #[cfg(feature = "ai")]
-    #[error("AI error: {0}")]
-    AI(#[from] daa_ai::AIError),
-
-    #[cfg(feature = "orchestrator")]
-    #[error("Orchestrator error: {0}")]
-    Orchestrator(#[from] daa_orchestrator::OrchestratorError),
 }
 
 pub type Result<T> = std::result::Result<T, CliError>;
@@ -159,41 +124,6 @@ pub enum Commands {
         #[command(subcommand)]
         action: ConfigAction,
     },
-
-    /// Chain operations
-    #[cfg(feature = "chain")]
-    Chain {
-        #[command(subcommand)]
-        action: chain::ChainAction,
-    },
-
-    /// Economy operations
-    #[cfg(feature = "economy")]
-    Economy {
-        #[command(subcommand)]
-        action: economy::EconomyAction,
-    },
-
-    /// Rules management
-    #[cfg(feature = "rules")]
-    Rules {
-        #[command(subcommand)]
-        action: rules::RulesAction,
-    },
-
-    /// AI operations
-    #[cfg(feature = "ai")]
-    AI {
-        #[command(subcommand)]
-        action: ai::AIAction,
-    },
-
-    /// Orchestration operations
-    #[cfg(feature = "orchestrator")]
-    Orchestrator {
-        #[command(subcommand)]
-        action: orchestrator::OrchestratorAction,
-    },
 }
 
 /// Configuration management actions
@@ -255,30 +185,13 @@ impl DaaCli {
 
             Commands::Config { action } => {
                 match action {
-                    ConfigAction::Show => println!("Showing configuration"),
+                    ConfigAction::Show => println!("{:#?}", config),
                     ConfigAction::Get { key } => println!("Getting key: {}", key),
                     ConfigAction::Set { key, value } => println!("Setting {} = {}", key, value),
                     ConfigAction::Validate => println!("Configuration is valid"),
                     ConfigAction::Reset { yes: _ } => println!("Configuration reset"),
                 }
                 Ok(())
-            }
-
-            #[cfg(feature = "chain")]
-            Commands::Chain { action } => chain::execute(action, &config, &self.output).await,
-
-            #[cfg(feature = "economy")]
-            Commands::Economy { action } => economy::execute(action, &config, &self.output).await,
-
-            #[cfg(feature = "rules")]
-            Commands::Rules { action } => rules::execute(action, &config, &self.output).await,
-
-            #[cfg(feature = "ai")]
-            Commands::AI { action } => ai::execute(action, &config, &self.output).await,
-
-            #[cfg(feature = "orchestrator")]
-            Commands::Orchestrator { action } => {
-                orchestrator::execute(action, &config, &self.output).await
             }
         }
     }

@@ -52,7 +52,7 @@ async fn handle_watch_status(
     }
 }
 
-async fn get_orchestrator_status(config: &CliConfig) -> Result<OrchestratorStatus> {
+async fn get_orchestrator_status(_config: &CliConfig) -> Result<OrchestratorStatus> {
     // Mock status - in real implementation, this would query the orchestrator
     Ok(OrchestratorStatus {
         name: "daa-orchestrator".to_string(),
