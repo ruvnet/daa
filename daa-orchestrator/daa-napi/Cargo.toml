@@ -14,18 +14,18 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # NAPI-rs core dependencies
-napi = { version = "2", features = ["async", "tokio_rt"] }
-napi-derive = "2"
+napi = { version = "2.16.17", features = ["async", "tokio_rt"] }
+napi-derive = "2.16.13"
 
 # Async runtime
-tokio = { version = "1.0", features = ["full"] }
+tokio = { version = "1.54.1", features = ["full"] }
 
 # Serialization
-serde_json = "1.0"
+serde_json = "1.0.154"
 
 # Tracing
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
 
 # DAA crates (all with economy, rules, and ai integrations)
 daa-orchestrator = { version = "0.2.1", path = "..", features = ["economy-integration", "rules-integration", "ai-integration"] }
@@ -33,11 +33,11 @@ daa-rules = { version = "0.2.1", path = "../../daa-rules" }
 daa-economy = { version = "0.2.1", path = "../../daa-economy" }
 
 # Utilities
-uuid = { version = "1.0", features = ["v4", "serde"] }
-chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.29.2", features = ["v4", "serde"] }
+chrono = { version = "0.4.45", features = ["serde"] }
 
 [build-dependencies]
-napi-build = "2"
+napi-build = "2.6.0"
 
 [profile.release]
 lto = true

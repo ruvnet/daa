@@ -11,15 +11,15 @@ keywords = ["daa", "blockchain", "autonomous", "agents", "ai"]
 categories = ["cryptography", "web-programming"]
 
 [dependencies]
-tokio = { version = "1.0", features = ["full"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-thiserror = "1.0"
-anyhow = "1.0"
-uuid = { version = "1.0", features = ["v4", "serde"] }
-tracing = "0.1"
-async-trait = "0.1"
-reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+tokio = { version = "1.54.1", features = ["full"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+thiserror = "1.0.69"
+anyhow = "1.0.104"
+uuid = { version = "1.29.2", features = ["v4", "serde"] }
+tracing = "0.1.44"
+async-trait = "0.1.92"
+reqwest = { version = "0.12.28", features = ["json", "rustls-tls"], default-features = false }
 daa-rules = { version = "0.2.0", path = "../daa-rules", optional = true }
 
 # QuDAG dependencies - commented out until published

@@ -14,12 +14,19 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
 
+permissions:
+  contents: read
+
 jobs:
   build-matrix:
     name: Build (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
-    
+
+    defaults:
+      run:
+        shell: bash
+
     strategy:
       fail-fast: false
       matrix:
@@ -32,6 +39,9 @@ jobs:
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             cross: true
+            # daa-napi is a Node-API addon (cdylib only); musl targets cannot
+            # produce cdylibs, so it is left out of musl builds.
+            cargo-flags: --workspace --exclude daa-napi
             
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
@@ -40,6 +50,7 @@ jobs:
           - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
             cross: true
+            cargo-flags: --workspace --exclude daa-napi
             
           # macOS targets
           - target: x86_64-apple-darwin
@@ -58,13 +69,16 @@ jobs:
           - target: x86_64-pc-windows-gnu
             os: windows-latest
             cross: false
+            # napi-build needs libnode.dll to link a windows-gnu addon.
+            cargo-flags: --workspace --exclude daa-napi
             
           # Additional targets
           - target: wasm32-unknown-unknown
             os: ubuntu-latest
             cross: true
             
-          - target: wasm32-wasi
+          # wasm32-wasi was renamed to wasm32-wasip1 (Rust 1.84).
+          - target: wasm32-wasip1
             os: ubuntu-latest
             cross: true
 
@@ -95,32 +109,32 @@ jobs:
     - name: Build workspace (native)
       if: '!matrix.cross'
       run: |
-        cargo build --workspace --target ${{ matrix.target }} --verbose
+        cargo build ${{ matrix.cargo-flags || '--workspace' }} --locked --target ${{ matrix.target }} --verbose
 
     - name: Build workspace (cross)
       if: matrix.cross && !contains(matrix.target, 'wasm')
       run: |
-        cross build --workspace --target ${{ matrix.target }} --verbose
+        cross build ${{ matrix.cargo-flags || '--workspace' }} --locked --target ${{ matrix.target }} --verbose
 
     - name: Build for WASM
       if: contains(matrix.target, 'wasm')
       run: |
         # Only build specific crates that support WASM
-        cargo build --package daa-rules --target ${{ matrix.target }} --verbose
-        cargo build --package daa-chain --target ${{ matrix.target }} --verbose
+        cargo build --locked --package daa-rules --target ${{ matrix.target }} --verbose
+        cargo build --locked --package daa-chain --target ${{ matrix.target }} --verbose
 
     - name: Run tests (native only)
       if: '!matrix.cross && !contains(matrix.target, ''wasm'')'
       run: |
-        cargo test --workspace --target ${{ matrix.target }} --verbose
+        cargo test ${{ matrix.cargo-flags || '--workspace' }} --locked --target ${{ matrix.target }} --verbose
 
     - name: Build CLI binary
       if: '!contains(matrix.target, ''wasm'')'
       run: |
         if [[ "${{ matrix.cross }}" == "true" ]]; then
-          cross build --package daa-cli --target ${{ matrix.target }} --release
+          cross build --locked --package daa-cli --target ${{ matrix.target }} --release
         else
-          cargo build --package daa-cli --target ${{ matrix.target }} --release
+          cargo build --locked --package daa-cli --target ${{ matrix.target }} --release
         fi
 
     - name: Test CLI binary (native only)
@@ -147,17 +161,22 @@ jobs:
         name: daa-cli-${{ matrix.target }}
         path: artifacts/*
 
+  # Build check for the CLI image on each platform, on a native runner (no
+  # QEMU). Nothing is pushed from here; publishing lives in docker.yml.
   build-docker-images:
-    name: Build Docker Images
-    runs-on: ubuntu-latest
+    name: Build Docker Images (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
-    
+
     strategy:
+      fail-fast: false
       matrix:
-        platform:
-          - linux/amd64
-          - linux/arm64
-    
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -165,57 +184,36 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Login to Docker Hub
-      if: github.event_name != 'pull_request'
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-
-    - name: Login to GitHub Container Registry
-      if: github.event_name != 'pull_request'
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: |
-          daasdk/daa-cli
-          ghcr.io/${{ github.repository }}
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=sha,prefix=sha-
-          type=raw,value=latest,enable={{is_default_branch}}
-
-    - name: Build and push
-      uses: docker/build-push-action@v5
+    - name: Build image
+      uses: docker/build-push-action@v6
       with:
         context: .
+        file: docker/Dockerfile.cli
         platforms: ${{ matrix.platform }}
-        push: ${{ github.event_name != 'pull_request' }}
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        push: false
+        load: true
+        tags: daa-cli:ci
+        cache-from: type=gha,scope=cli-${{ matrix.platform }}
+        cache-to: type=gha,mode=max,scope=cli-${{ matrix.platform }}
+
+    - name: Smoke test image
+      run: |
+        docker run --rm daa-cli:ci --version
+        docker run --rm daa-cli:ci --help
 
   build-alpine:
     name: Alpine Linux Build
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    
+    timeout-minutes: 60
+
     container:
       image: alpine:latest
-    
+
     steps:
     - name: Install dependencies
       run: |
         apk add --no-cache \
+          bash \
           build-base \
           curl \
           git \
@@ -228,18 +226,18 @@ jobs:
     - name: Install Rust
       run: |
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        source ~/.cargo/env
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
+    # daa-napi is a Node-API cdylib, which musl hosts cannot produce.
     - name: Build on Alpine
       run: |
-        source ~/.cargo/env
-        cargo build --workspace --release
+        . ~/.cargo/env
+        cargo build --locked --workspace --exclude daa-napi --release
 
     - name: Test on Alpine
       run: |
-        source ~/.cargo/env
-        cargo test --workspace
+        . ~/.cargo/env
+        cargo test --locked --workspace --exclude daa-napi
 
     - name: Create Alpine artifact
       run: |
@@ -253,31 +251,47 @@ jobs:
         path: artifacts/daa-cli-alpine-x86_64
 
   test-compatibility:
-    name: Compatibility Tests
+    name: Compatibility Tests (${{ matrix.os }})
     needs: build-matrix
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
-    
+
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-20.04, ubuntu-22.04, macos-12, macos-13, windows-2019, windows-2022]
-    
+        include:
+          - os: ubuntu-22.04
+            artifact: x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04
+            artifact: x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04-arm
+            artifact: aarch64-unknown-linux-gnu
+          - os: macos-15
+            artifact: aarch64-apple-darwin
+          - os: windows-2022
+            artifact: x86_64-pc-windows-msvc
+          - os: windows-2025
+            artifact: x86_64-pc-windows-msvc
+
+    defaults:
+      run:
+        shell: bash
+
     steps:
     - name: Download artifacts
       uses: actions/download-artifact@v4
       with:
-        name: daa-cli-${{ matrix.os == 'ubuntu-20.04' && 'x86_64-unknown-linux-gnu' || matrix.os == 'ubuntu-22.04' && 'x86_64-unknown-linux-gnu' || matrix.os == 'macos-12' && 'x86_64-apple-darwin' || matrix.os == 'macos-13' && 'x86_64-apple-darwin' || matrix.os == 'windows-2019' && 'x86_64-pc-windows-msvc' || 'x86_64-pc-windows-msvc' }}
+        name: daa-cli-${{ matrix.artifact }}
 
     - name: Test binary compatibility
       run: |
         if [[ "${{ runner.os }}" == "Windows" ]]; then
-          chmod +x daa-cli-*.exe
-          ./daa-cli-*.exe --version
-          ./daa-cli-*.exe --help
+          ./daa-cli-${{ matrix.artifact }}.exe --version
+          ./daa-cli-${{ matrix.artifact }}.exe --help
         else
-          chmod +x daa-cli-*
-          ./daa-cli-* --version
-          ./daa-cli-* --help
+          chmod +x daa-cli-${{ matrix.artifact }}
+          ./daa-cli-${{ matrix.artifact }} --version
+          ./daa-cli-${{ matrix.artifact }} --help
         fi
 
   performance-benchmarks:
@@ -305,7 +319,7 @@ jobs:
 
     - name: Run benchmarks
       run: |
-        cargo bench --workspace
+        cargo bench --locked --workspace
 
     - name: Upload benchmark results
       uses: actions/upload-artifact@v4

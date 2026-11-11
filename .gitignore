@@ -426,3 +426,7 @@ coordination/orchestration/*
 claude-flow
 # Removed Windows wrapper files per user request
 hive-mind-prompt-*.txt
+
+# The workspace builds binaries (daa-cli), so the root lockfile is committed:
+# CI, the Docker image and cargo-audit all use the same dependency set.
+!/Cargo.lock
