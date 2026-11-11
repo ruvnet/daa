@@ -40,7 +40,7 @@ async fn handle_follow_logs(
     lines: usize,
     level: Option<String>,
     component: Option<String>,
-    config: &CliConfig,
+    _config: &CliConfig,
     cli: &CliContext,
 ) -> Result<()> {
     println!("Following logs (press Ctrl+C to exit)...");

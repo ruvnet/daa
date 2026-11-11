@@ -224,11 +224,7 @@ impl RulesEngineWrapper {
 
         // In a real implementation, we would evaluate all rules
         // For now, return a mock result
-        Ok(RuleResultJs {
-            result_type: "allow".to_string(),
-            message: None,
-            modifications: None,
-        })
+        Ok(RuleResultJs::from_rust_result(RuleResult::Allow))
     }
 
     /// Evaluate a specific rule by ID.
@@ -259,11 +255,7 @@ impl RulesEngineWrapper {
 
         // In a real implementation, we would look up and evaluate the specific rule
         // For now, return a mock result
-        Ok(RuleResultJs {
-            result_type: "allow".to_string(),
-            message: None,
-            modifications: None,
-        })
+        Ok(RuleResultJs::from_rust_result(RuleResult::Allow))
     }
 
     /// Validate a rule definition.

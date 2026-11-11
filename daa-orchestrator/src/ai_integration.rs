@@ -22,6 +22,11 @@ impl Default for AIConfig {
 }
 
 impl AIIntegration {
+    /// Integration configuration
+    pub fn config(&self) -> &AIConfig {
+        &self.config
+    }
+
     /// Create new AI integration
     pub async fn new() -> Result<Self> {
         Ok(Self {

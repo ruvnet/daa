@@ -8,7 +8,7 @@ use crate::{config::CliConfig, CliContext, NetworkAction};
 /// Handle the network command
 pub async fn handle_network(
     action: NetworkAction,
-    config: &CliConfig,
+    _config: &CliConfig,
     cli: &CliContext,
 ) -> Result<()> {
     match action {

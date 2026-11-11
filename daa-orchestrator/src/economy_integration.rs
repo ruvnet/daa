@@ -22,6 +22,11 @@ impl Default for EconomyConfig {
 }
 
 impl EconomyIntegration {
+    /// Integration configuration
+    pub fn config(&self) -> &EconomyConfig {
+        &self.config
+    }
+
     /// Create new economy integration
     pub async fn new() -> Result<Self> {
         Ok(Self {

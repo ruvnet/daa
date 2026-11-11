@@ -192,10 +192,10 @@ async fn test_suite_metadata() {
     println!("    cargo test --test e2e_autonomy_loop");
     println!("    cargo test --test e2e_workflow_execution");
     println!("    ... (and so on for each test file)");
-    println!("");
+    println!();
     println!("  Run all tests:");
     println!("    cargo test");
-    println!("");
+    println!();
     println!("  Run with output:");
     println!("    cargo test -- --nocapture");
 }

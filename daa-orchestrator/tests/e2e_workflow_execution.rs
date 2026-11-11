@@ -1,12 +1,12 @@
 //! End-to-end tests for DAA workflow execution
 
 use daa_orchestrator::{
-    workflow::{Workflow, WorkflowResult, WorkflowStatus, WorkflowStep},
+    workflow::{Workflow, WorkflowStatus, WorkflowStep},
     DaaOrchestrator, OrchestratorConfig,
 };
 use serde_json::json;
 use std::time::Duration;
-use tokio::time::{sleep, timeout};
+use tokio::time::timeout;
 use uuid::Uuid;
 
 /// Test basic workflow creation and execution

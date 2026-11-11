@@ -2,7 +2,8 @@
 
 use daa_orchestrator::{
     config::{
-        AiConfig, ApiConfig, AutonomyConfig, ExchangeConfig, McpConfig, QuDAGConfig, RulesConfig,
+        AiConfig, ApiConfig, AutonomyConfig, ExchangeConfig, McpConfig,
+        OrchestratorConfig as SystemConfig, QuDAGConfig, RulesConfig,
     },
     services::Service,
     workflow::{Workflow, WorkflowStatus, WorkflowStep},
@@ -20,7 +21,7 @@ async fn demo_autonomous_treasury_management() {
     println!("\n=== DEMO: Autonomous Treasury Management ===");
 
     // Configure orchestrator for treasury management
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         name: "treasury-manager".to_string(),
         autonomy: AutonomyConfig {
             enabled: true,
@@ -65,7 +66,13 @@ async fn demo_autonomous_treasury_management() {
         ..Default::default()
     };
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    assert!(
+        config.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
     orchestrator.initialize().await.unwrap();
 
     println!("✓ Treasury management orchestrator initialized");
@@ -255,7 +262,7 @@ async fn demo_autonomous_treasury_management() {
 async fn demo_multi_agent_defi_coordination() {
     println!("\n=== DEMO: Multi-Agent DeFi Coordination ===");
 
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         name: "defi-coordinator".to_string(),
         autonomy: AutonomyConfig {
             enabled: true,
@@ -305,7 +312,13 @@ async fn demo_multi_agent_defi_coordination() {
         ..Default::default()
     };
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    assert!(
+        config.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
     orchestrator.initialize().await.unwrap();
 
     println!("✓ DeFi coordination orchestrator initialized");
@@ -521,7 +534,7 @@ async fn demo_multi_agent_defi_coordination() {
 async fn demo_rule_violation_handling() {
     println!("\n=== DEMO: Rule Violation Handling and Compliance ===");
 
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         name: "compliance-manager".to_string(),
         autonomy: AutonomyConfig {
             enabled: true,
@@ -546,7 +559,13 @@ async fn demo_rule_violation_handling() {
         ..Default::default()
     };
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    assert!(
+        config.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
     orchestrator.initialize().await.unwrap();
 
     println!("✓ Compliance management orchestrator initialized");
@@ -766,7 +785,7 @@ async fn demo_rule_violation_handling() {
 async fn demo_economic_operations() {
     println!("\n=== DEMO: Economic Operations and Optimization ===");
 
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         name: "economic-optimizer".to_string(),
         autonomy: AutonomyConfig {
             enabled: true,
@@ -813,7 +832,13 @@ async fn demo_economic_operations() {
         ..Default::default()
     };
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    assert!(
+        config.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
     orchestrator.initialize().await.unwrap();
 
     println!("✓ Economic operations orchestrator initialized");
@@ -1046,7 +1071,7 @@ async fn demo_economic_operations() {
 async fn demo_full_system_integration() {
     println!("\n=== DEMO: Full System Integration ===");
 
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         name: "full-system-demo".to_string(),
         autonomy: AutonomyConfig {
             enabled: true,
@@ -1115,7 +1140,13 @@ async fn demo_full_system_integration() {
         ..Default::default()
     };
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    assert!(
+        config.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
     orchestrator.initialize().await.unwrap();
 
     println!("✓ Full system integration orchestrator initialized");

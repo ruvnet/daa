@@ -1,7 +1,10 @@
 //! End-to-end integration tests for all DAA orchestrator integration points
 
 use daa_orchestrator::{
-    config::{ApiConfig, AutonomyConfig, ExchangeConfig, McpConfig, QuDAGConfig},
+    config::{
+        ApiConfig, AutonomyConfig, ExchangeConfig, McpConfig, OrchestratorConfig as SystemConfig,
+        QuDAGConfig,
+    },
     coordinator::Coordinator,
     events::{Event, EventManager},
     services::{Service, ServiceRegistry},
@@ -10,7 +13,6 @@ use daa_orchestrator::{
 };
 use serde_json::json;
 use std::time::Duration;
-use tokio::time::sleep;
 use uuid::Uuid;
 
 /// Test service registry integration
@@ -60,7 +62,6 @@ async fn test_service_registry_integration() {
 
     // Discover services by type
     let ai_agents = orchestrator.discover_services("ai_agent").await.unwrap();
-    // Note: Current implementation returns empty vec, but registration should succeed
 
     let rules_engines = orchestrator
         .discover_services("rules_engine")
@@ -70,6 +71,29 @@ async fn test_service_registry_integration() {
         .discover_services("blockchain_bridge")
         .await
         .unwrap();
+    assert_eq!(ai_agents.len(), 2, "Both AI agents should be discoverable");
+    assert_eq!(
+        rules_engines.len(),
+        1,
+        "Rules engine should be discoverable"
+    );
+    assert_eq!(
+        blockchain_bridges.len(),
+        1,
+        "Chain bridge should be discoverable"
+    );
+    assert_eq!(
+        orchestrator.get_statistics().await.registered_services,
+        services.len() as u64
+    );
+
+    // A standalone registry built from the orchestrator's service config behaves the same
+    let registry = ServiceRegistry::new(orchestrator.config().services.clone());
+    for service in &services {
+        registry.register(service.clone()).await.unwrap();
+    }
+    assert_eq!(registry.get_service_count().await, services.len() as u64);
+    assert_eq!(registry.discover("ai_agent").await.unwrap().len(), 2);
 
     // Test service discovery with non-existent type
     let unknown_services = orchestrator
@@ -88,7 +112,7 @@ async fn test_service_registry_integration() {
 /// Test QuDAG protocol integration
 #[tokio::test]
 async fn test_qudag_protocol_integration() {
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         qudag: QuDAGConfig {
             enabled: true,
             node_endpoint: "localhost:7100".to_string(),
@@ -108,7 +132,13 @@ async fn test_qudag_protocol_integration() {
         ..Default::default()
     };
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    assert!(
+        config.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
 
     // Initialize should set up QuDAG integration
     let init_result = orchestrator.initialize().await;
@@ -131,7 +161,7 @@ async fn test_qudag_protocol_integration() {
 /// Test MCP server integration
 #[tokio::test]
 async fn test_mcp_server_integration() {
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         mcp: McpConfig {
             enabled: true,
             bind_address: "127.0.0.1".to_string(),
@@ -144,7 +174,13 @@ async fn test_mcp_server_integration() {
         ..Default::default()
     };
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    assert!(
+        config.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
 
     // Initialize MCP server integration
     let init_result = orchestrator.initialize().await;
@@ -163,7 +199,7 @@ async fn test_mcp_server_integration() {
 /// Test API server integration
 #[tokio::test]
 async fn test_api_server_integration() {
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         api: ApiConfig {
             enabled: true,
             bind_address: "127.0.0.1".to_string(),
@@ -176,7 +212,13 @@ async fn test_api_server_integration() {
         ..Default::default()
     };
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    assert!(
+        config.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
 
     // Initialize API server integration
     let init_result = orchestrator.initialize().await;
@@ -196,6 +238,7 @@ async fn test_api_server_integration() {
 #[tokio::test]
 async fn test_event_management_integration() {
     let config = OrchestratorConfig::default();
+
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
 
@@ -224,9 +267,19 @@ async fn test_event_management_integration() {
     let workflow_result = result.unwrap();
     assert_eq!(workflow_result.workflow_id, workflow.id);
 
+    // Publish the completion event through a standalone event manager
+    let mut event_manager = EventManager::new();
+    event_manager.initialize().await.unwrap();
+    let publish_result = event_manager
+        .publish_event(Event::WorkflowCompleted {
+            execution_id: Uuid::new_v4().to_string(),
+            result: workflow_result,
+        })
+        .await;
+    assert!(publish_result.is_ok(), "Failed to publish completion event");
+
     // Get final statistics
     let stats = orchestrator.get_statistics().await;
-    // Events should be tracked (though current implementation shows 0)
 
     println!("Event management integration test completed");
     println!("Events processed: {}", stats.processed_events);
@@ -236,6 +289,7 @@ async fn test_event_management_integration() {
 #[tokio::test]
 async fn test_multi_service_coordination() {
     let config = OrchestratorConfig::default();
+
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
 
@@ -311,6 +365,14 @@ async fn test_multi_service_coordination() {
         ],
     };
 
+    // The coordinator assigns an execution id to the workflow
+    let coordinator = Coordinator::new(orchestrator.config().coordination.clone());
+    let execution_id = coordinator.coordinate_workflow(&workflow).await.unwrap();
+    assert!(
+        !execution_id.is_empty(),
+        "Coordinator should assign an execution id"
+    );
+
     let result = orchestrator.execute_workflow(workflow.clone()).await;
     assert!(result.is_ok(), "Multi-service coordination workflow failed");
 
@@ -323,7 +385,7 @@ async fn test_multi_service_coordination() {
 /// Test integration with all features enabled
 #[tokio::test]
 async fn test_full_integration_scenario() {
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         name: "full-integration-orchestrator".to_string(),
         autonomy: AutonomyConfig {
             enabled: true,
@@ -378,7 +440,9 @@ async fn test_full_integration_scenario() {
         "Full integration config should be valid"
     );
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
 
     // Initialize with all integrations
     let init_result = orchestrator.initialize().await;
@@ -493,7 +557,7 @@ async fn test_full_integration_scenario() {
 #[tokio::test]
 async fn test_integration_error_handling() {
     // Test with some integrations disabled to simulate partial failures
-    let config = OrchestratorConfig {
+    let config = SystemConfig {
         autonomy: AutonomyConfig {
             enabled: false, // Disable autonomy loop
             ..Default::default()
@@ -524,7 +588,13 @@ async fn test_integration_error_handling() {
         ..Default::default()
     };
 
-    let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
+    assert!(
+        config.validate().is_ok(),
+        "scenario configuration should be valid"
+    );
+    let mut orchestrator = DaaOrchestrator::new(OrchestratorConfig::default())
+        .await
+        .unwrap();
 
     // Should still initialize despite some disabled integrations
     let init_result = orchestrator.initialize().await;
@@ -558,6 +628,7 @@ async fn test_integration_error_handling() {
 #[tokio::test]
 async fn test_integration_scaling() {
     let config = OrchestratorConfig::default();
+
     let mut orchestrator = DaaOrchestrator::new(config).await.unwrap();
     orchestrator.initialize().await.unwrap();
 

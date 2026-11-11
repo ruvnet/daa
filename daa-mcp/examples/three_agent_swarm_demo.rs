@@ -13,10 +13,8 @@ use tokio::time::sleep;
 use tracing::{error, info, warn};
 
 use daa_mcp::{
-    discovery::DiscoveryConfig,
     integration::{DaaIntegrationManager, DaaSystemFactory},
-    swarm::SwarmTemplates,
-    DaaMcpConfig, Result,
+    Result,
 };
 
 #[tokio::main]
@@ -26,6 +24,11 @@ async fn main() -> Result<()> {
         .with_max_level(tracing::Level::INFO)
         .init();
 
+    full_demonstration().await
+}
+
+/// Start the integrated system and run the three-agent swarm scenario
+async fn run_demo() -> Result<()> {
     info!("🚀 Starting DAA MCP Three-Agent Swarm Demonstration");
 
     // Create and start the integrated DAA system
@@ -184,7 +187,7 @@ async fn demonstrate_mcp_protocol() -> Result<()> {
     // This would typically be called by an external MCP client
     // For demonstration purposes, we'll show the structure
 
-    let example_mcp_messages = vec![
+    let example_mcp_messages = [
         "initialize - Establish MCP connection with capabilities",
         "tools/list - List all available DAA management tools",
         "tools/call spawn_agent - Create a new autonomous agent",
@@ -279,8 +282,7 @@ fn show_swarm_configurations() {
     info!("       └── Visualization, documentation, presentation");
 }
 
-// Additional demonstration function that would run first
-#[allow(dead_code)]
+/// Full demonstration: architecture overview, MCP capabilities, then the swarm run
 async fn full_demonstration() -> Result<()> {
     // Show system architecture
     show_system_architecture();
@@ -292,5 +294,5 @@ async fn full_demonstration() -> Result<()> {
     demonstrate_mcp_protocol().await?;
 
     // Run the main demonstration
-    main().await
+    run_demo().await
 }
